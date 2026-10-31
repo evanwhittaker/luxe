@@ -41,6 +41,11 @@ github-custom-job-permissions = { "publish-crates" = { contents = "read", id-tok
 github-attestations = true
 pr-run-mode = "plan"
 
+# dist 0.33.0 builds Apple Silicon on macos-14, which GitHub retires on November 2, 2026, and fails
+# on purpose during its brownouts before then. Drop this once a dist release defaults past it.
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
+
 # Pinned to commits, as every other workflow here is, so a moved tag cannot change what a release
 # runs. checkout v6.1.0, upload-artifact v7.0.2, download-artifact v8.0.2, attest v4.2.2
 [dist.github-action-commits]
