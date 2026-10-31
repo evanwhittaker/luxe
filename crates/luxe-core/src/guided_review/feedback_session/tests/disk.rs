@@ -231,7 +231,7 @@ const GITHUB_THREAD: &str = r#"{
   "title": "Keep the old path",
   "body": "Keep the old path.",
   "proposed_fix": null,
-  "state": "needs_verification",
+  "state": "open",
   "thread": [
     { "author": "reviewer", "body": "Still wrong.", "created_at_ms": 2 },
     { "author": "system", "body": "Moved.", "created_at_ms": 3 }
@@ -307,12 +307,14 @@ fn every_persisted_variant_keeps_its_spelling() {
     for (state, spelling) in [
         (State::Draft, "draft"),
         (State::Open, "open"),
-        (State::NeedsVerification, "needs_verification"),
         (State::Resolved, "resolved"),
         (State::Stale, "stale"),
     ] {
         spelled(state, spelling);
     }
+    // A review saved with the old verify state still loads, as an open comment
+    let old: State = serde_json::from_value(serde_json::json!("needs_verification")).unwrap();
+    assert_eq!(old, State::Open, "older session files carry needs_verification");
     for (dispatch, spelling) in [
         (SubmissionDispatch::Queued, "queued"),
         (SubmissionDispatch::Dispatched, "dispatched"),

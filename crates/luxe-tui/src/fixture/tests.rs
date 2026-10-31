@@ -119,22 +119,6 @@ fn seeds_stable_dashboard_and_chat_states() {
         );
     }
 
-    let guided_review_needs_verification =
-        seeded_app("dark", FixtureScenario::GuidedReviewNeedsVerification).unwrap();
-    let selected_id = guided_review_needs_verification
-        .guided_review_workspace
-        .selected_finding_id
-        .as_ref()
-        .expect("selected verification fixture finding");
-    assert_eq!(
-        guided_review_needs_verification
-            .review
-            .session()
-            .and_then(|session| session.findings.iter().find(|finding| &finding.id == selected_id))
-            .map(|finding| finding.state),
-        Some(FindingState::NeedsVerification)
-    );
-
     let guided_review_finish = seeded_app("dark", FixtureScenario::GuidedReviewFinish).unwrap();
     assert_eq!(
         guided_review_finish.guided_review_workspace.finish_review_choice,
@@ -175,6 +159,20 @@ fn seeds_stable_dashboard_and_chat_states() {
     }
 }
 
+/// The recipes' pictures are drawn from recorded `--rpc` frames, so each has to land.
+///
+/// The break this catches: a frame that stops decoding after a protocol change, or one the reducer
+/// stops recording, which would leave a guide picture without the section it is there to show.
+#[test]
+fn the_recipe_scenarios_hold_their_recorded_answers() {
+    let bars = seeded_app("luxe", FixtureScenario::DockPlanBars).unwrap();
+    assert!(bars.status.custom_dock.get("quota").is_some_and(|answer| !answer.rows.is_empty()));
+    assert!(bars.status.custom_statusline.get("quota").is_some());
+    assert!(bars.status.plan_usage.is_some(), "the plan frame landed too");
+    let local = seeded_app("luxe", FixtureScenario::DockLmstudio).unwrap();
+    assert_eq!(local.status.custom_dock.get("local").map(|answer| answer.rows.len()), Some(3));
+}
+
 #[test]
 fn rejects_unknown_theme_and_scenario() {
     assert!(seeded_app("missing", FixtureScenario::Dashboard).is_err());
@@ -183,7 +181,7 @@ fn rejects_unknown_theme_and_scenario() {
 
 /// What the capture scripts and the site pass, in [`FixtureScenario::ALL`]'s order. A literal, so
 /// renaming a scenario has to change it here as well as in the scripts that would stop working.
-const SCRIPT_NAMES: [&str; 60] = [
+const SCRIPT_NAMES: [&str; 62] = [
     "dashboard",
     "dashboard-context-files",
     "dashboard-typing",
@@ -226,7 +224,6 @@ const SCRIPT_NAMES: [&str; 60] = [
     "guided-review-thread",
     "guided-review-findings-empty",
     "guided-review-findings",
-    "guided-review-needs-verification",
     "guided-review-finish",
     "guided-review-medium",
     "guided-review-narrow",
@@ -244,6 +241,9 @@ const SCRIPT_NAMES: [&str; 60] = [
     "changes-narrow",
     "changes-failed",
     "changes-external",
+    "dock-plan-bars",
+    "statusline-plan-bars",
+    "dock-lmstudio",
 ];
 
 /// Every scenario parses from the name the scripts use, and that name is the one it reports.

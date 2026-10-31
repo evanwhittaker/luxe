@@ -159,7 +159,7 @@ pub const SETTINGS: &[Setting] = &[
         &["images"],
         "Inline images",
         Appearance,
-        &["auto", "pixels", "blocks", "off"],
+        &["auto", "pixels", "sixel", "blocks", "off"],
         ImageStyle::DEFAULT_NAME,
         NextLaunch,
     ),

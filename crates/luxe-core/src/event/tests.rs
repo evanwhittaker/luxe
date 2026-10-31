@@ -192,6 +192,11 @@ fn sample_actions() -> Vec<Action> {
         },
         Action::ReadProjectFile { request_id: id("file-read:1"), path: "src/main.rs".into() },
         Action::SetFocus { focused: false },
+        Action::SetRowWidths(crate::custom_dock::RowWidths {
+            dock: 40,
+            dock_label: 15,
+            statusline: 32,
+        }),
         Action::LinkPullRequest { number: 142, url: "https://github.com/acme/app/pull/142".into() },
         Action::PostGithubComment(crate::engine::GithubPost {
             repository: None,
@@ -308,6 +313,7 @@ fn the_wire_action_vocabulary_is_pinned() {
         r#"{"kind":"list_directory","content":{"request_id":"listing:1","path":"src"}}"#,
         r#"{"kind":"read_project_file","content":{"request_id":"file-read:1","path":"src/main.rs"}}"#,
         r#"{"kind":"set_focus","content":{"focused":false}}"#,
+        r#"{"kind":"set_row_widths","content":{"dock":40,"dock_label":15,"statusline":32}}"#,
         r#"{"kind":"link_pull_request","content":{"number":142,"url":"https://github.com/acme/app/pull/142"}}"#,
         r#"{"kind":"post_github_comment","content":{"repository":null,"number":142,"thread":"PRRT_1","answering":null,"body":"Fixed in the latest push."}}"#,
         r#"{"kind":"change_pull_request","content":{"number":142,"write":{"change":"merge","method":"squash","head_oid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","delete_branch":"feat/threads"}}}"#,

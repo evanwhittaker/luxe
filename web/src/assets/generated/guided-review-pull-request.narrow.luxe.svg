@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 660" width="720" height="660" font-family="'JetBrainsMono Nerd Font Mono', 'AdwaitaMono Nerd Font Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16.67">
   <rect width="720" height="660" fill="#12100e"/>
   <g shape-rendering="crispEdges">
+    <rect x="10" y="110" width="20" height="22" fill="#211e1c"/>
     <rect x="30" y="110" width="430" height="22" fill="#2e2b27"/>
+    <rect x="460" y="110" width="250" height="22" fill="#211e1c"/>
     <rect x="10" y="154" width="270" height="22" fill="#3f2020"/>
     <rect x="280" y="154" width="60" height="22" fill="#603434"/>
     <rect x="340" y="154" width="370" height="22" fill="#3f2020"/>
@@ -212,7 +214,7 @@
   <text x="0" y="149.0" textLength="720" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan fill="#ddc084">┃ </tspan><tspan fill="#97938c">12 12 </tspan><tspan> </tspan><tspan fill="#d2a5cd">pub</tspan><tspan> </tspan><tspan fill="#d2a5cd">struct</tspan><tspan> </tspan><tspan fill="#85c7d7">Notification</tspan><tspan> </tspan><tspan fill="#97938c">{</tspan><tspan>                                     </tspan></text>
   <text x="0" y="171.0" textLength="720" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan fill="#ddc084">┃ </tspan><tspan fill="#97938c">13    </tspan><tspan fill="#e68485">-    pub category: </tspan><tspan fill="#e68485" font-weight="700">String</tspan><tspan fill="#e68485">,</tspan><tspan>                                     </tspan></text>
   <text x="0" y="193.0" textLength="720" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan fill="#ddc084">┃ </tspan><tspan fill="#97938c">   13 </tspan><tspan fill="#81caa0">+    pub category: </tspan><tspan fill="#81caa0" font-weight="700">Category</tspan><tspan fill="#81caa0">,</tspan><tspan>                                   </tspan></text>
-  <text x="0" y="215.0" textLength="720" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>   </tspan><tspan>   </tspan><tspan fill="#d2a5cd">@mara-okafor</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#85c7d7">unresolved</tspan><tspan fill="#4d4a45"> · 1 reply</tspan><tspan>                              </tspan><tspan> </tspan></text>
+  <text x="0" y="215.0" textLength="720" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>   </tspan><tspan>   </tspan><tspan fill="#d2a5cd">@mara-okafor</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#85c7d7">unresolved</tspan><tspan fill="#65625c"> · 1 reply</tspan><tspan>                              </tspan><tspan> </tspan></text>
   <text x="0" y="237.0" textLength="720" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>   </tspan><tspan>  </tspan><tspan fill="#e4dfd6">Does anything still construct this from a raw string?</tspan><tspan>           </tspan><tspan>  </tspan><tspan> </tspan></text>
   <text x="0" y="259.0" textLength="720" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>   </tspan><tspan>  </tspan><tspan fill="#97938c">@copilot-swe-agent: Only the webhook, and it parses first.</tspan><tspan>      </tspan><tspan>  </tspan><tspan> </tspan></text>
   <text x="0" y="281.0" textLength="720" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>   </tspan><tspan>                                                                    </tspan><tspan> </tspan></text>

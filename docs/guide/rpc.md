@@ -220,11 +220,12 @@ These go through your own `gh`, as the interface's `/github` and `/pr` do. `repo
 | `search_github` | `{"request": 7, "section": {…}, "after": "<cursor>"}` | One search on its own, or its next page; answered by `github_searched` with your `request` |
 | `read_github_overview` | `{"repository": "acme/app", "number": 142, "pull_request": true}` | A pull request's or issue's status; answered by `github_overview_read` |
 | `read_github_conversation` | `{"number": 142, "pull_request": true}` | Everything said on it; answered by `github_conversation_read` |
-| `draft_github_reply` | `{"request_id": "…", "number": 142, "pull_request": true, "target": {…}, "conversation": […]}` | The agent drafts a reply in a turn that changes nothing; answered by `github_reply_drafted`. `target` and `conversation` are what `github_conversation_read` gave you. |
+| `draft_github_reply` | `{"request_id": "…", "number": 142, "pull_request": true, "target": {…}, "conversation": […]}` | The agent drafts a reply in a turn that changes nothing; answered by `github_reply_drafted`. `target` and `conversation` are what `github_conversation_read` gave you. For a pull request not opened yet, `target` is `{"kind": "pull_request", "base", "head", "closes", "guide"}` with `number` 0; the draft's first line is the title and the rest the description. |
 | `check_pull_request_fix` | `{"number": 142}` | Whether it can be checked out here to fix; answered by `pull_request_fix_checked` |
 | `plan_restack` | `{"request_id": "restack:…"}` | What restacking this branch's stack would do; answered by `restack_planned`. luxe keeps the plan. |
 | `check_worktree_removal` | | What the session's worktree has not committed; answered by `worktree_removal_checked` |
 | `set_focus` | `{"focused": false}` | Whether your window has focus. luxe checks GitHub less often while it does not. |
+| `set_row_widths` | `{"dock": 40, "dock_label": 15, "statusline": 32}` | How many cells your client draws a custom dock row in, how many its label column takes, and how many a statusline module gets. Their programs get them as `COLUMNS`. Send it when your layout changes. |
 | `link_pull_request` | `{"number": 142, "url": "…"}` | Record that this session worked on that pull request |
 | `post_github_comment` | `{"number": 142, "thread": "PRRT_…", "body": "Fixed."}` | Post a reply in a thread, or a comment without `thread`; answered by `github_comment_posted`. **A GitHub write.** |
 | `change_pull_request` | `{"number": 142, "write": {"change": "mark_ready"}}` | `update_branch`, `mark_ready`, `merge`, `enable_auto_merge` or `disable_auto_merge`; answered by `pull_request_changed`. **A GitHub write.** |
@@ -274,6 +275,9 @@ There are around sixty. These are the ones a front end is built on:
 | `context_usage`, `context_composition` | How full the context window is, and with what |
 | `compaction_started`, `compaction_done`, `compaction_stopped` | A summary of the conversation is being written, on request or mid-turn. It can take a minute. It always ends in `compaction_done` (with `tokens_after`) or `compaction_stopped` (failed or cancelled). |
 | `workspace_updated` | The project, Git changes, todos and tools: what the dock shows |
+| `dock_section` | What a [custom dock section](interface.md#your-own-sections)'s program printed: `name`, `rows`, and `failure` when a run drew nothing new. On a failure, keep the last rows. |
+| `statusline_module` | The same for a [custom statusline module](appearance.md#your-own-modules). A client with a bar draws the first row. |
+| `custom_row_widths` | The widths a client last sent with `set_row_widths` |
 | `prompt_closed` | A prompt stopped waiting, answered here or by another client, or cancelled. Take it down by `id`. |
 | `session_loaded`, `sessions_refreshed` | A transcript was restored; the session list changed |
 | `notice`, `error` | Something to show. `error` ends the turn. |

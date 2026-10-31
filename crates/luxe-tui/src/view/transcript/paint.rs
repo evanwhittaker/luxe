@@ -37,8 +37,10 @@ pub(in crate::view) fn render_transcript(f: &mut Frame, area: Rect, app: &mut Ap
     let rendered_lines = layout.rows();
     crate::frame_profile::note_transcript(started, app.convo.len(), rendered_lines.len());
 
-    let window = restore_viewport(app, rendered_lines, inner);
-    resolve_selection_copy(app, rendered_lines);
+    let mut window = restore_viewport(app, rendered_lines, inner);
+    if resolve_selection_copy(app, rendered_lines) {
+        window = anchored_window(app, rendered_lines, inner);
+    }
     let lines = visible_rows(app, rendered_lines, window.clone());
     let top_pad = paint_visible_rows(f, app, lines, rendered_lines.len(), inner);
     publish_transcript_hits(app, rendered_lines, window.clone(), inner, top_pad);
@@ -83,6 +85,16 @@ fn restore_viewport(
         }
     }
 
+    anchored_window(app, rendered_lines, inner)
+}
+
+/// The rows the scroll state puts on screen, anchored so the next frame's reflow keeps them there.
+fn anchored_window(
+    app: &mut App,
+    rendered_lines: &[RenderedConversationLine],
+    inner: Rect,
+) -> Range<usize> {
+    let total_lines = rendered_lines.len();
     let window = app.scroll_state.window();
     let start = window.start.min(total_lines);
     let end = window.end.min(total_lines).max(start);

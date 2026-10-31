@@ -82,6 +82,7 @@ pub(super) fn render_diff(
         .enumerate()
         .map(|(index, row)| row_height(row, index, view.word_wrap, unified_code))
         .collect();
+    view.diff_row_heights.replace(heights.clone());
     view.viewport_rows.set(viewport.max(1));
     view.scroll_max.set(max_offset(&heights, viewport));
     let offset = view.scroll.min(view.scroll_max.get());
@@ -98,6 +99,7 @@ pub(super) fn render_diff(
             gutter_width: unified_gutter,
             code_width: unified_code,
             width: body.width,
+            cursor: view.diff_cursor.filter(|_| view.focused),
         };
         unified_lines(&rows, &context, offset, viewport)
     };
@@ -132,8 +134,8 @@ fn diff_rows(file: &ReviewFile) -> Vec<DiffRow<'_>> {
     rows
 }
 
-/// The line of the new file at the top of the pane, for opening the file there: the first row in
-/// view, a hunk's header standing for its first line.
+/// The line of the new file the reader is on, for opening the file there: the cursor's row while
+/// the keyboard is here, else the first row in view, a hunk's header standing for its first line.
 pub(crate) fn line_in_view(view: &ChangesView) -> Option<u32> {
     // The File view's rows are the file's own lines, and a pick says which one the reader means
     if view.view == PeekView::File {
@@ -141,14 +143,15 @@ pub(crate) fn line_in_view(view: &ChangesView) -> Option<u32> {
         return Some(view.selected_lines().map_or(standing, |(first, _)| first));
     }
     let file = view.file()?;
+    let standing = view.diff_cursor.filter(|_| view.focused).unwrap_or(view.scroll);
     let mut row = 0usize;
     for hunk in &file.hunks {
-        if row >= view.scroll {
+        if row >= standing {
             return (hunk.new_range.start > 0).then_some(hunk.new_range.start);
         }
         row += 1;
         for index in 0..hunk.lines.len() {
-            if row >= view.scroll {
+            if row >= standing {
                 return crate::guided_review::new_side_line(hunk, index);
             }
             row += 1;
@@ -184,39 +187,66 @@ struct UnifiedRowContext<'a> {
     gutter_width: usize,
     code_width: usize,
     width: u16,
+    /// The row the keyboard stands on, while it is in the pane
+    cursor: Option<usize>,
+}
+
+impl UnifiedRowContext<'_> {
+    /// The band a source row wears: its add or delete tint, lifted where the cursor stands on it.
+    fn band(&self, kind: ReviewLineKind, index: usize) -> Option<Style> {
+        let tint = diff_line_background(kind, self.styles);
+        match self.cursor == Some(index) {
+            true => Some(self.styles.cursor_line_over(tint)),
+            false => tint,
+        }
+    }
 }
 
 /// One unified row as the visual lines it occupies.
 fn render_row(row: &DiffRow<'_>, index: usize, ctx: &UnifiedRowContext<'_>) -> Vec<Line<'static>> {
     match row {
-        DiffRow::Header(hunk) => {
-            let header = hunk_header_line(
-                hunk.old_range,
-                hunk.new_range,
-                hunk.heading.as_deref(),
-                ctx.styles,
-                Some(ctx.width),
-            );
-            if index > 0 {
-                vec![Line::default(), header]
-            } else {
-                vec![header]
-            }
-        }
+        DiffRow::Header(hunk) => header_rows(hunk, index, ctx),
         DiffRow::Source(line) if ctx.word_wrap => wrapped_source_rows(line, index, ctx),
         DiffRow::Source(line) => vec![clipped_source_row(line, index, ctx)],
     }
 }
 
-/// A source line's `old new sign` gutter.
-fn unified_gutter(line: &ReviewLine, ctx: &UnifiedRowContext<'_>) -> Vec<Span<'static>> {
+/// A hunk's header, banded where the cursor stands on it, under a blank when it is not the first.
+fn header_rows(
+    hunk: &luxe_core::guided_review::ReviewHunk,
+    index: usize,
+    ctx: &UnifiedRowContext<'_>,
+) -> Vec<Line<'static>> {
+    let (old, new, heading) = (hunk.old_range, hunk.new_range, hunk.heading.as_deref());
+    let header = hunk_header_line(old, new, heading, ctx.styles, Some(ctx.width));
+    let header = match ctx.cursor == Some(index) {
+        true => Line::from(tint_row(header.spans, ctx.styles.cursor_line_bg(), ctx.width)),
+        false => header,
+    };
+    match index > 0 {
+        true => vec![Line::default(), header],
+        false => vec![header],
+    }
+}
+
+/// A source line's `old new sign` gutter, its numbers lit and marked on the cursor's row as the
+/// File view marks its line.
+fn unified_gutter(
+    line: &ReviewLine,
+    index: usize,
+    ctx: &UnifiedRowContext<'_>,
+) -> Vec<Span<'static>> {
     let numbers = ctx.numbers;
     let old =
         line.old_line.map_or_else(|| " ".repeat(numbers), |number| format!("{number:>numbers$}"));
     let new =
         line.new_line.map_or_else(|| " ".repeat(numbers), |number| format!("{number:>numbers$}"));
+    let (mark, style) = match ctx.cursor == Some(index) {
+        true => ("›", ctx.styles.accent.add_modifier(ratatui::style::Modifier::BOLD)),
+        false => (" ", ctx.styles.muted),
+    };
     vec![
-        Span::styled(format!("{old} {new} "), ctx.styles.muted),
+        Span::styled(format!("{old} {new}{mark}"), style),
         Span::styled(rendered_marker(line.kind), line_style(line.kind, ctx.styles)),
     ]
 }
@@ -229,7 +259,7 @@ fn wrapped_source_rows(
 ) -> Vec<Line<'static>> {
     let styles = ctx.styles;
     let changed = changed_spans(ctx.emphasized, index);
-    let background = diff_line_background(line.kind, styles);
+    let background = ctx.band(line.kind, index);
     let full = crate::view::diff_lines::source_spans(
         line,
         changed,
@@ -242,7 +272,7 @@ fn wrapped_source_rows(
         crate::widgets::wrap_cells(full, ctx.code_width).into_iter().enumerate()
     {
         let mut spans = if segment_index == 0 {
-            unified_gutter(line, ctx)
+            unified_gutter(line, index, ctx)
         } else {
             vec![Span::styled(
                 format!(
@@ -257,7 +287,7 @@ fn wrapped_source_rows(
         lines.push(finish(spans, background, ctx.width));
     }
     if lines.is_empty() {
-        lines.push(finish(unified_gutter(line, ctx), background, ctx.width));
+        lines.push(finish(unified_gutter(line, index, ctx), background, ctx.width));
     }
     lines
 }
@@ -271,14 +301,14 @@ fn clipped_source_row(
     let (styles, code_width) = (ctx.styles, ctx.code_width);
     let style = line_style(line.kind, styles);
     let changed = changed_spans(ctx.emphasized, index);
-    let background = diff_line_background(line.kind, styles);
+    let background = ctx.band(line.kind, index);
     // Without wrapping there is no horizontal scroll either, so a line that runs past
     // the edge has to say so — a clipped statement reads as a complete one, which in a
     // diff is a claim about the code.
     let source = crate::tabstop::display_text(&line.text);
     let clipped = crate::tabstop::display_width(&line.text) > code_width;
     let room = if clipped { code_width.saturating_sub(1) } else { code_width };
-    let mut spans = unified_gutter(line, ctx);
+    let mut spans = unified_gutter(line, index, ctx);
     spans.extend(match line.kind {
         ReviewLineKind::Context => highlighted_source_spans(
             &crate::guided_review::diff::clip_terminal_cells(&source, 0, room),

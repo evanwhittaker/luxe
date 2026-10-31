@@ -215,64 +215,27 @@ fn setting_an_outcome_waits_for_the_desk_to_store_it() {
     assert!(!app.review_edit_pending(|_| true));
 }
 
+/// An outdated comment closes the way GitHub closes one, with `r`, and nothing moves it.
+///
+/// The break this catches: an outdated comment left with no key that closes it, or `alt+r`
+/// still re-anchoring one from the feedback window.
 #[test]
-fn stale_finding_reanchor_shortcut_has_findings_drawer_precedence() {
+fn r_resolves_an_outdated_comment_and_alt_r_moves_nothing() {
     let mut app =
         crate::fixture::seeded_app("nord", crate::fixture::FixtureScenario::GuidedReviewFindings)
             .expect("fixture app");
     let (engine_tx, mut engine_rx) = mpsc::channel(1);
     app.engine_tx = engine_tx;
-    let finding = app
-        .review
-        .session_mut()
-        .expect("review session")
-        .findings
-        .first_mut()
-        .expect("fixture finding");
+    let finding = app.review.session_mut().expect("session").findings.first_mut().expect("one");
     finding.state = luxe_core::guided_review::FindingState::Stale;
     let finding_id = finding.id.clone();
     app.guided_review_workspace.selected_finding_id = Some(finding_id.clone());
     app.guided_review_workspace.findings_visible = true;
 
     app.update(Msg::Key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::ALT)));
-
-    assert!(matches!(
-        sent_review_edit(&mut engine_rx).1,
-        ReviewEdit::Reanchor { finding_id: moved, .. } if moved == finding_id
-    ));
-}
-
-/// Re-anchoring a stale comment sends where the cursor is, and leaves the session on screen alone
-/// until the desk has stored it.
-#[test]
-fn stale_finding_reanchor_sends_the_cursors_anchor() {
-    let mut app =
-        crate::fixture::seeded_app("nord", crate::fixture::FixtureScenario::GuidedReviewFindings)
-            .expect("fixture app");
-    let (engine_tx, mut engine_rx) = mpsc::channel(1);
-    app.engine_tx = engine_tx;
-    let finding = app
-        .review
-        .session_mut()
-        .expect("review session")
-        .findings
-        .first_mut()
-        .expect("fixture finding");
-    finding.state = luxe_core::guided_review::FindingState::Stale;
-    let finding_id = finding.id.clone();
-    app.guided_review_workspace.selected_finding_id = Some(finding_id.clone());
-    let expected_anchor = app
-        .guided_review_workspace
-        .selected_finding_anchor(&app.guided_review.as_ref().expect("guided review").files);
-    let before = app.review.session.clone().expect("review session");
-
-    app.update(Msg::GuidedReviewReanchorSelectedFinding);
-
-    assert_eq!(app.review.session, Some(before));
-    assert_eq!(
-        sent_review_edit(&mut engine_rx).1,
-        ReviewEdit::Reanchor { finding_id, anchor: expected_anchor }
-    );
+    assert!(engine_rx.try_recv().is_err(), "alt+r sends nothing");
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE)));
+    assert_eq!(sent_review_edit(&mut engine_rx).1, ReviewEdit::Resolve { finding_id });
 }
 
 #[test]
@@ -288,9 +251,11 @@ fn one_submission_carries_every_unsent_comment_regardless_of_severity() {
     // Keep only the unsent comments, one per severity that asks for something different.
     {
         let session = app.review.session_mut().expect("review session");
-        session
-            .findings
-            .retain(|finding| matches!(finding.state, FindingState::Draft | FindingState::Open));
+        // Less the one the agent already answered, which waits for the reviewer instead
+        session.findings.retain(|finding| {
+            matches!(finding.state, FindingState::Draft | FindingState::Open)
+                && finding.thread.is_empty()
+        });
         // The fixture ships one Draft and one Open comment; add a third so all three severities
         // that ask for something different are represented.
         let mut extra = session.findings[0].clone();
@@ -448,23 +413,29 @@ fn a_mid_review_send_records_no_outcome() {
     assert_eq!(app.status.toast(), Some("Sent to the agent · ctrl+g returns to the review"));
 }
 
-/// The feedback window sends from inside itself: `u` opens the send preview over the list, and
-/// Esc there comes back to it. On someone else's pull request, whose comments go to GitHub, `u`
-/// sends nothing and the window does not offer it.
+/// The feedback window sends on `alt+u`, the key that sends everywhere in a review: the preview
+/// opens over the list, and Esc there comes back to it. A plain `u` does nothing. On someone
+/// else's pull request, whose comments go to GitHub, the hint names `alt+enter` and GitHub.
+///
+/// The break this catches: the window swallowing `alt+u` so it never reaches the send, or the
+/// hint naming the agent where the comments go to GitHub.
 #[test]
-fn u_in_the_feedback_window_sends() {
+fn alt_u_in_the_feedback_window_sends() {
     let mut app =
         crate::fixture::seeded_app("nord", crate::fixture::FixtureScenario::GuidedReviewFindings)
             .expect("fixture app");
     let key = |code| Msg::Key(KeyEvent::new(code, KeyModifiers::NONE));
+    let send = || Msg::Key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::ALT));
     assert!(app.guided_review_workspace.findings_visible);
-    assert_eq!(crate::app::window_sends(&app), Some(2));
+    assert_eq!(crate::app::window_send_hint(&app), Some("alt+u send to the agent"));
     app.update(key(KeyCode::Char('u')));
-    assert!(app.guided_review_workspace.send_preview.is_some(), "u opens the send preview");
+    assert!(app.guided_review_workspace.send_preview.is_none(), "a plain u sends nothing");
+    app.update(send());
+    assert!(app.guided_review_workspace.send_preview.is_some(), "alt+u opens the send preview");
     app.update(key(KeyCode::Esc));
     assert!(app.guided_review_workspace.send_preview.is_none());
     assert!(app.guided_review_workspace.findings_visible, "Esc comes back to the list");
-    app.update(key(KeyCode::Char('u')));
+    app.update(send());
     app.update(key(KeyCode::Enter));
     assert!(!app.guided_review_workspace.findings_visible, "a send closes the list with it");
     app.guided_review_workspace.findings_visible = true;
@@ -478,10 +449,11 @@ fn u_in_the_feedback_window_sends() {
         merge_base: "4f1c2d9a7e6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d".into(),
         head_oid: "a9d9d84ee3e848f0e1ea97eaef837126d3a7d983".into(),
     };
-    assert_eq!(crate::app::window_sends(&app), None, "its comments go to GitHub");
-    app.update(key(KeyCode::Char('u')));
-    assert!(app.guided_review_workspace.send_preview.is_none());
-    assert!(app.guided_review_workspace.pull_request_fix.is_none(), "and u offers nothing else");
+    assert_eq!(
+        crate::app::window_send_hint(&app),
+        Some("alt+enter post to GitHub"),
+        "its comments go to GitHub"
+    );
 }
 
 /// A pull request's review cannot send comments as fixes: the pull request is not checked out, so

@@ -97,13 +97,14 @@ impl Layered for Config {
 
 impl Layered for StatuslineConfig {
     fn layered(global: Self, project: Self) -> Self {
-        let Self { visibility, left, right, thinking_colors, style } = project;
+        let Self { visibility, left, right, thinking_colors, style, custom } = project;
         Self {
             visibility: visibility.or(global.visibility),
             left: left.or(global.left),
             right: right.or(global.right),
             thinking_colors: thinking_colors.or(global.thinking_colors),
             style: style.or(global.style),
+            custom: custom.or(global.custom),
         }
     }
 }
@@ -141,8 +142,13 @@ impl Layered for ConversationConfig {
 
 impl Layered for DockConfig {
     fn layered(global: Self, project: Self) -> Self {
-        let Self { mode, position } = project;
-        Self { mode: mode.or(global.mode), position: position.or(global.position) }
+        let Self { mode, position, sections, custom } = project;
+        Self {
+            mode: mode.or(global.mode),
+            position: position.or(global.position),
+            sections: sections.or(global.sections),
+            custom: custom.or(global.custom),
+        }
     }
 }
 

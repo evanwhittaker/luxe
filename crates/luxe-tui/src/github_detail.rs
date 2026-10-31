@@ -165,6 +165,11 @@ pub struct GithubDetail {
     pub conversation_error: Option<String>,
     /// Drafts the agent is writing whose cards were put away; each is kept when it lands
     pub waiting: Vec<DraftCard>,
+    /// Lines the open tab is scrolled past where the cursor would put it, so a description or an
+    /// opened comment longer than the pane reads to its end
+    pub scroll: usize,
+    /// How far `scroll` can go, as the last frame measured it
+    pub scroll_room: std::cell::Cell<usize>,
 }
 
 impl GithubDetail {
@@ -186,6 +191,8 @@ impl GithubDetail {
             conversation_asked: false,
             conversation_error: None,
             waiting: Vec::new(),
+            scroll: 0,
+            scroll_room: std::cell::Cell::new(0),
         }
     }
 
@@ -279,8 +286,8 @@ fn pull_request_url(issue_url: &str, number: u64) -> String {
 
 /// Draws the detail into `area`: its header, the tabs, and the open tab scrolled to the cursor.
 ///
-/// Args: `(frame, area, detail, focused, now, styles)` — `now` in seconds since the Unix epoch, so
-/// ages are relative to one clock for the whole frame.
+/// Args: `(frame, area, detail, focused, now, styles, hit)` — `now` in seconds since the Unix
+/// epoch, so ages are relative to one clock for the whole frame.
 pub fn render(
     f: &mut Frame,
     area: Rect,
@@ -288,6 +295,7 @@ pub fn render(
     focused: bool,
     now: u64,
     styles: &ThemeStyles,
+    hit: &std::cell::RefCell<crate::mouse::HitRegions>,
 ) {
     if area.width < 20 || area.height < 6 {
         return;
@@ -305,9 +313,16 @@ pub fn render(
         crate::glyphs::icon_label(crate::glyphs::Icon::Overview.glyph(), "Overview"),
         crate::glyphs::icon_label(crate::glyphs::Icon::Conversation.glyph(), &conversation),
     ];
-    head.push(crate::picker::tab_line(&[&tabs[0], &tabs[1]], open, styles));
+    let tabs = [tabs[0].as_str(), tabs[1].as_str()];
+    let tab_row = u16::try_from(head.len()).unwrap_or(u16::MAX);
+    head.push(crate::picker::tab_line(&tabs, open, styles));
     head.push(Line::from(Span::styled("─".repeat(width), styles.border_muted)));
     let head_rows = u16::try_from(head.len()).unwrap_or(u16::MAX).min(area.height);
+    if tab_row < head_rows {
+        let line = Rect { y: area.y + tab_row, height: 1, ..area };
+        let strip = crate::mouse::TabStrip::GithubDetail;
+        crate::picker::publish_tabs(&mut hit.borrow_mut(), line, &tabs, 0, strip);
+    }
     f.render_widget(Paragraph::new(head), Rect { height: head_rows, ..area });
 
     let body_area = Rect {
@@ -324,17 +339,33 @@ pub fn render(
         }
     };
     let rows = usize::from(body_area.height);
-    // Once the cursor passes two thirds of the way down, it rides a third of the way from the top:
-    // what is under an entry — an opened thread, the draft answering it — is why it was chosen
-    let first = cursor_line
-        .filter(|line| *line >= rows * 2 / 3)
-        .map_or(0, |line| line.saturating_sub(rows / 3))
-        .min(lines.len().saturating_sub(rows));
+    let first = first_shown_line(detail, cursor_line, lines.len(), rows);
     let shown: Vec<Line> = lines.iter().skip(first).take(rows).cloned().collect();
     f.render_widget(Paragraph::new(shown), body_area);
+    hit.borrow_mut().push_scroll(body_area, crate::mouse::ScrollRegionId::GithubDetail);
     if lines.len() > rows {
         crate::widgets::scrollbar(f, body_area, first, lines.len(), rows, styles);
     }
+}
+
+/// The first line of the open tab on screen, and how much further it can scroll.
+///
+/// Once the cursor passes two thirds of the way down, it rides a third of the way from the top:
+/// what is under an entry, an opened thread or the draft answering it, is why it was chosen. The
+/// reader's own scroll goes on from there.
+fn first_shown_line(
+    detail: &GithubDetail,
+    cursor_line: Option<usize>,
+    total: usize,
+    rows: usize,
+) -> usize {
+    let last = total.saturating_sub(rows);
+    let follow = cursor_line
+        .filter(|line| *line >= rows * 2 / 3)
+        .map_or(0, |line| line.saturating_sub(rows / 3));
+    let follow = follow.min(last);
+    detail.scroll_room.set(last - follow);
+    (follow + detail.scroll).min(last)
 }
 
 /// Draws what the detail has open over it within `area`: the merge confirmation, or the reply

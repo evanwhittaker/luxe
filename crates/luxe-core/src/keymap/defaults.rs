@@ -6,7 +6,10 @@ use std::collections::BTreeMap;
 const DEFAULTS: &[(UiAction, &[&str])] = &[
     // Editor
     (UiAction::Submit, &["ctrl+enter"]),
-    (UiAction::Cancel, &["ctrl+esc"]),
+    // Esc is the chord hints name, because Windows keeps Ctrl+Esc for the Start menu and never
+    // lets a terminal see it. Esc only interrupts once everything else that wants it (overlays,
+    // panes, selections, a typed draft) has had its turn; see `cancel::esc_yields_to_composer`.
+    (UiAction::Cancel, &["esc", "ctrl+esc"]),
     (UiAction::NewLine, &["shift+enter"]),
     (UiAction::PasteClipboard, &["ctrl+v", "shift+insert"]),
     // Submitting mid-turn steers the running turn; this queues a separate follow-up instead.
@@ -41,8 +44,10 @@ const DEFAULTS: &[(UiAction, &[&str])] = &[
     // The chords terminals send for "copy": Ctrl+Insert is what a desktop copy shortcut
     // usually lowers to (Hyprland/Omarchy's Super+C sends exactly this), and Ctrl+Shift+C is
     // the X11/Linux convention. Both only reach us when the terminal doesn't consume them
-    // first — which it only does when *it* has a selection, so there's no conflict.
-    (UiAction::CopySelection, &["ctrl+insert", "ctrl+shift+c"]),
+    // first — which it only does when *it* has a selection, so there's no conflict. Super+C
+    // (Cmd+C on a Mac) arrives as itself only from a terminal speaking the kitty keyboard
+    // protocol that hasn't bound it, so it comes last.
+    (UiAction::CopySelection, &["ctrl+insert", "ctrl+shift+c", "super+c"]),
     (UiAction::SelectBlockUp, &["alt+k"]),
     (UiAction::SelectBlockDown, &["alt+j"]),
     // Ctrl+O for "open the output", the same chord pi uses. It is a transcript-wide flip rather
@@ -95,7 +100,6 @@ const DEFAULTS: &[(UiAction, &[&str])] = &[
     (UiAction::ReviewAddFinding, &["c"]),
     (UiAction::ReviewEditFinding, &["e"]),
     (UiAction::ReviewDeleteFinding, &["x"]),
-    (UiAction::ReviewReanchorFinding, &["alt+r"]),
     (UiAction::ReviewFindings, &["alt+c"]),
     (UiAction::ReviewResolveFinding, &["r"]),
     (UiAction::ReviewFinish, &["alt+enter"]),

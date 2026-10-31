@@ -9,6 +9,7 @@ pub(crate) fn chord_of(key: &crossterm::event::KeyEvent) -> Option<luxe_core::ke
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     let mut shift = key.modifiers.contains(KeyModifiers::SHIFT);
     let alt = key.modifiers.contains(KeyModifiers::ALT);
+    let super_key = key.modifiers.contains(KeyModifiers::SUPER);
 
     let key_name = match key.code {
         KeyCode::Enter => KeyName::Enter,
@@ -55,7 +56,7 @@ pub(crate) fn chord_of(key: &crossterm::event::KeyEvent) -> Option<luxe_core::ke
         _ => return None,
     };
 
-    Some(luxe_core::keymap::KeyChord { ctrl, shift, alt, key: key_name })
+    Some(luxe_core::keymap::KeyChord { ctrl, shift, alt, super_key, key: key_name })
 }
 
 /// Resolves a terminal key event through the configured key map.
@@ -63,6 +64,5 @@ pub(crate) fn resolve_key_event(
     keymap: &KeyMap,
     key: crossterm::event::KeyEvent,
 ) -> Option<UiAction> {
-    let chord = chord_of(&key)?;
-    keymap.resolve(chord.ctrl, chord.shift, chord.alt, &chord.key)
+    keymap.resolve_chord(&chord_of(&key)?)
 }

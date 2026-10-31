@@ -1,6 +1,7 @@
 //! Statusline segments — what each configurable module says, and the slab it rides on.
 
 use super::activity::{activity_glyph, activity_text, thinking_color, thinking_label};
+use super::custom::custom_segment;
 use super::{
     compact_number, segment, Ink, Palette, Segment, SegmentKind, DEFAULT_LEFT_MODULES,
     DEFAULT_RIGHT_MODULES, MAX_CWD_WIDTH, MAX_MODEL_WIDTH, MAX_PROJECT_WIDTH, MAX_TODO_WIDTH,
@@ -33,8 +34,8 @@ pub(super) fn left_segments(
 
     let modules = app.config.statusline.left.as_deref().unwrap_or(&DEFAULT_LEFT_MODULES);
     let mut segments = Vec::with_capacity(modules.len());
-    for module in modules {
-        let Some(segment) = left_segment(*module, app, palette) else {
+    for (index, module) in modules.iter().enumerate() {
+        let Some(segment) = configured_segment(index, module, app, palette, left_segment) else {
             continue;
         };
         if segment.is_empty()
@@ -47,7 +48,22 @@ pub(super) fn left_segments(
     segments
 }
 
-fn left_segment(module: StatuslineModule, app: &App, palette: Palette) -> Option<Segment> {
+/// What a module the config lists draws: a custom module's last answer, or what `built_in` makes.
+/// Resolved here, so a custom definition replaces a built-in of the same name.
+fn configured_segment(
+    index: usize,
+    module: &StatuslineModule,
+    app: &App,
+    palette: Palette,
+    built_in: fn(&StatuslineModule, &App, Palette) -> Option<Segment>,
+) -> Option<Segment> {
+    match app.config.statusline.resolve(module) {
+        StatuslineModule::Other(name) => custom_segment(app, &name, index),
+        module => built_in(&module, app, palette),
+    }
+}
+
+fn left_segment(module: &StatuslineModule, app: &App, palette: Palette) -> Option<Segment> {
     match module {
         StatuslineModule::Project => {
             let project = live_project(app).filter(|project| !project.is_empty())?;
@@ -267,8 +283,8 @@ pub(super) fn right_segments(app: &App, palette: Palette) -> Vec<Segment> {
             Ink::Signal(palette.warning),
         ));
     }
-    for module in modules {
-        let Some(segment) = right_segment(*module, app, palette) else {
+    for (index, module) in modules.iter().enumerate() {
+        let Some(segment) = configured_segment(index, module, app, palette, right_segment) else {
             continue;
         };
         if segment.is_empty()
@@ -281,7 +297,7 @@ pub(super) fn right_segments(app: &App, palette: Palette) -> Vec<Segment> {
     segments
 }
 
-fn right_segment(module: StatuslineModule, app: &App, palette: Palette) -> Option<Segment> {
+fn right_segment(module: &StatuslineModule, app: &App, palette: Palette) -> Option<Segment> {
     match module {
         StatuslineModule::Cost => {
             let label = cost_text(app.status.plan_usage.as_ref(), &app.status.session)?;

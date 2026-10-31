@@ -224,6 +224,13 @@ pub(crate) fn render_images(
                  tall (and never more than half the height of the conversation)."
             ),
         ),
+        ImageTier::Sixel => (
+            "on (Sixel)",
+            format!(
+                "Screenshots and image files are drawn in the transcript with Sixel, up to \
+                 {max_rows} rows tall (and never more than half the height of the conversation)."
+            ),
+        ),
         ImageTier::Blocks => (
             "low fidelity",
             "Images are drawn as half-block cells: two pixels per cell, so a picture is \
@@ -243,12 +250,14 @@ pub(crate) fn render_images(
     out.push_str(&format!("\n  {detail}"));
     out.push_str(
         "\n\nReal pixels need the kitty graphics protocol with Unicode placeholders, which kitty \
-         and Ghostty support and other terminals do not yet — including inside tmux, which cannot \
-         keep track of an image it does not model.",
+         and Ghostty support, or Sixel, which Windows Terminal supports from 1.22. Other \
+         terminals do not yet, and neither does tmux, which cannot keep track of an image it \
+         does not model.",
     );
     out.push_str(
         "\n\nSet \"images\" in config to override: \"pixels\" if your terminal has since learned \
-         the protocol, \"blocks\" for a low-fidelity preview anywhere, \"off\" for text only.",
+         the protocol, \"sixel\" for one that draws Sixel, \"blocks\" for a low-fidelity preview \
+         anywhere, \"off\" for text only.",
     );
     out
 }

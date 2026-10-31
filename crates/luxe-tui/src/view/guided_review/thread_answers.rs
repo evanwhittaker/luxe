@@ -35,8 +35,7 @@ fn thread_row(
         (false, false, false) => ("○", "cannot resolve"),
     };
     let state = match finding.state {
-        luxe_core::guided_review::FindingState::Resolved => "verified",
-        luxe_core::guided_review::FindingState::NeedsVerification => "to verify",
+        luxe_core::guided_review::FindingState::Resolved => "resolved",
         _ => "open",
     };
     // No `R2`: that is the agent's name for a thread, and the title already says who opened it

@@ -97,6 +97,16 @@ impl ScrollState {
         }
     }
 
+    /// Scrolls the least that puts `line` on screen, as a cursor moving off an edge does; follow
+    /// mode stops or resumes the way a scroll by hand would.
+    pub fn reveal(&mut self, line: usize) {
+        if line < self.offset {
+            self.up_by(self.offset - line);
+        } else if line >= self.offset + self.viewport.max(1) {
+            self.down_by(line + 1 - self.offset - self.viewport.max(1));
+        }
+    }
+
     /// Jump to the bottom. Re-enables follow mode.
     pub fn to_bottom(&mut self) {
         self.offset = self.max_offset();

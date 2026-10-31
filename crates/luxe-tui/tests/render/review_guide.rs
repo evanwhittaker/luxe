@@ -146,8 +146,8 @@ fn guided_review_help_overlay_is_local_and_names_review_controls() {
         "open collapsed churn",
         "ask; the agent answers",
         "comment, for the agent to act on",
-        "all comments: send, reply, verify",
-        "resolve or verify",
+        "all comments: send, reply, resolve",
+        "resolve or reopen",
         "show or hide the guide",
         "ctrl+r",
         "alt+enter",
@@ -383,9 +383,12 @@ fn guided_review_wide_fixture_renders_chapter_context_beside_the_diff() {
     assert!(content.contains("Shared notification model"), "missing chapter title: {content}");
     assert!(content.contains("M src/notification.rs"), "missing the file row: {content}");
     assert!(
-        content.contains("pub struct Notification   hunk 1 of 2"),
+        content.contains("src/notification.rs   pub struct Notification"),
         "the detail pane names what it is showing: {content}"
     );
+    // The guide's `Step 1 of 2` is the one count of the reader's place; nothing repeats it
+    assert!(content.contains("Step 1 of 2"), "{content}");
+    assert!(!content.contains("hunk 1 of 2") && !content.contains("2 hunks"), "{content}");
     assert!(content.contains("@@ -4,3 +4,4 @@"), "missing adjacent diff: {content}");
     // Both halves at once: the story and the code it describes, with no mode between them.
     assert!(content.contains("Shared notification model") && content.contains("@@"));

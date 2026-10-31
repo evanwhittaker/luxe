@@ -35,6 +35,8 @@ pub fn init() -> io::Result<Tui> {
     execute!(stdout, EnterAlternateScreen, EnableBracketedPaste, EnableFocusChange)?;
     enable_keyboard_enhancement(&mut stdout)?;
     install_panic_hook();
+    // Before anything reads input: the terminal's answer arrives as keystrokes
+    crate::graphics::probe_terminal();
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout))?;
     terminal.clear()?;
     Ok(terminal)
@@ -129,9 +131,27 @@ pub fn draw_synchronized<F>(terminal: &mut Tui, render: F) -> io::Result<()>
 where
     F: FnOnce(&mut ratatui::Frame),
 {
+    draw_synchronized_with(terminal, &mut (), |frame, ()| render(frame), |()| Ok(()))
+}
+
+/// [`draw_synchronized`], then `after` inside the same update, with the state both share.
+///
+/// For what a frame owes the terminal that is not a cell: a Sixel image is drawn over cells the
+/// frame has just written, and presented apart from them it shows as a blank rectangle that fills
+/// in a moment later. `state` is passed to both because they cannot each borrow it.
+pub fn draw_synchronized_with<S, F, A>(
+    terminal: &mut Tui,
+    state: &mut S,
+    render: F,
+    after: A,
+) -> io::Result<()>
+where
+    F: FnOnce(&mut ratatui::Frame, &mut S),
+    A: FnOnce(&mut S) -> io::Result<()>,
+{
     let mut stdout = io::stdout();
     let began = execute!(stdout, BeginSynchronizedUpdate).is_ok();
-    let drawn = terminal.draw(render).map(|_| ());
+    let drawn = terminal.draw(|frame| render(frame, state)).map(|_| ()).and_then(|()| after(state));
     if began {
         let _ = execute!(stdout, EndSynchronizedUpdate);
     }

@@ -103,11 +103,11 @@ fn the_guide_foot_counts_what_the_feedback_wants_next() {
         }
     };
 
-    assert_eq!(summary(&|_| {}, false), "Feedback 5 · 1 unsent");
-    assert_eq!(summary(&|_| {}, true), "Feedback 5 · 1 unposted");
+    assert_eq!(summary(&|_| {}, false), "Feedback 5 · 1 not sent");
+    assert_eq!(summary(&|_| {}, true), "Feedback 5 · 1 not posted");
     assert_eq!(
         summary(&|session| session.findings[2].severity = FindingSeverity::Question, true),
-        "Feedback 5 · 1 to verify",
+        "Feedback 5 · 1 to read",
         "a question on a pull request is not waiting to be posted"
     );
     assert_eq!(
@@ -118,7 +118,7 @@ fn the_guide_foot_counts_what_the_feedback_wants_next() {
     let drafted = |session: &mut luxe_core::guided_review::ReviewSession| {
         session.findings[2].state = FindingState::Resolved;
     };
-    assert_eq!(summary(&drafted, false), "Feedback 5 · 1 to verify", "sent is not with the agent");
+    assert_eq!(summary(&drafted, false), "Feedback 5 · 1 to read", "sent is not with the agent");
     let sending = |session: &mut luxe_core::guided_review::ReviewSession,
                    dispatch: SubmissionDispatch| {
         drafted(session);
@@ -138,7 +138,7 @@ fn the_guide_foot_counts_what_the_feedback_wants_next() {
     }
     assert_eq!(
         summary(&|session| sending(session, SubmissionDispatch::Completed), false),
-        "Feedback 5 · 1 to verify",
+        "Feedback 5 · 1 to read",
         "a finished send is back with the reader"
     );
     let replied = |session: &mut luxe_core::guided_review::ReviewSession| {

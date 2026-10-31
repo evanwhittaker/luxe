@@ -44,7 +44,7 @@ fn press(app: &mut App, code: KeyCode) {
 fn p_opens_the_whole_description_and_it_scrolls_to_the_end() {
     let mut app = long_description_app();
     let guide = draw(&mut app);
-    assert!(guide.contains("Read the whole description"), "the guide names the key");
+    assert!(guide.contains("p description"), "the guide names the key");
     assert!(!guide.contains("THE LAST LINE"));
 
     press(&mut app, KeyCode::Char('p'));

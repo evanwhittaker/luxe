@@ -1,13 +1,13 @@
 //! Text-selection handling — mouse drags over the transcript, the composer and the Changes pane.
 //!
 //! Mouse capture takes the terminal's own click-drag selection away, so luxe provides it: a press
-//! anchors, a drag extends, and a release copies (the copy-on-select behavior a terminal would
-//! have given you). A press that lands twice on the same cell escalates to the word under it and
-//! then to the whole line, the other two gestures capture costs. The composer keeps its selection
-//! as buffer offsets inside [`crate::editor`]; the transcript's lives on [`App`] in rendered-line
-//! coordinates and is served by the render pass, which is the only place that knows the laid-out
-//! text. The Changes pane holds its own in source rows ([`crate::changes::CellPick`]), because it
-//! has the source to cut a copy from.
+//! anchors, a drag or Shift and an arrow extends, and the selection stays on screen until a copy
+//! key or the right-click menu copies it, or Esc drops it. A press that lands twice on the same
+//! cell escalates to the word under it and then to the whole line, the other two gestures capture
+//! costs. The composer keeps its selection as buffer offsets inside [`crate::editor`]; the
+//! transcript's lives on [`App`] in rendered-line coordinates and is served by the render pass,
+//! which is the only place that knows the laid-out text. The Changes pane holds its own in source
+//! rows ([`crate::changes::CellPick`]), because it has the source to cut a copy from.
 
 use super::{App, ConversationSelection};
 use crate::mouse::{TextHit, TextSurface};
@@ -39,10 +39,12 @@ pub(super) fn begin(app: &mut App, hit: TextHit, span: SelectionSpan) {
             app.pointer.expand_word = span == SelectionSpan::Word;
             app.pointer.selection = Some(ConversationSelection { grid, pins: (pin.clone(), pin) });
         }
+        // A press in the pane is the reader turning to it, so the keyboard follows the pointer
         TextSurface::Peek(side) => {
-            if let Some(view) = app.changes.as_mut() {
-                view.begin_cells(hit.point, side, span);
-            }
+            let Some(view) = app.changes.as_mut() else { return };
+            view.begin_cells(hit.point, side, span);
+            view.focus_on_row(hit.point.line);
+            app.files.focused = false;
         }
     }
 }
@@ -109,6 +111,51 @@ pub(super) fn is_active(app: &App) -> bool {
 pub(super) fn covers_cells(app: &App) -> bool {
     app.pointer.expand_word
         || app.pointer.selection.as_ref().is_some_and(|selection| !selection.grid.is_empty())
+}
+
+/// Whether a live text selection took `key`: Esc drops it before anything else claims the key, and
+/// Shift and an arrow grow a transcript or Changes pane selection rather than the composer's.
+/// Without a selection both fall through, Esc to the composer, where it clears the draft, and
+/// Shift and an arrow to the editor, which answers them over its own selection.
+pub(super) fn key_took(app: &mut App, key: &crossterm::event::KeyEvent) -> bool {
+    let esc = key.code == crossterm::event::KeyCode::Esc && key.modifiers.is_empty();
+    if esc && is_active(app) {
+        app.update(super::Msg::ClearTextSelection);
+        return true;
+    }
+    match step_for(key) {
+        Some(step) if covers_cells(app) => {
+            app.pointer.selection_steps.push(step);
+            true
+        }
+        _ => peek_step_took(app, key),
+    }
+}
+
+/// Whether Shift and an arrow, Home or End grew the Changes pane's character selection. The pane
+/// asks first while it has the keyboard, where the same keys would otherwise grow its line pick.
+pub(super) fn peek_step_took(app: &mut App, key: &crossterm::event::KeyEvent) -> bool {
+    let Some(step) = step_for(key) else { return false };
+    app.changes.as_mut().is_some_and(|view| view.step_cells(step))
+}
+
+/// The step Shift and an arrow, Home or End asks of a selection's free end; any other key, or one
+/// with more held than Shift, asks none.
+fn step_for(key: &crossterm::event::KeyEvent) -> Option<crate::selection::SelectionStep> {
+    use crate::selection::SelectionStep;
+    use crossterm::event::{KeyCode, KeyModifiers};
+    if key.modifiers != KeyModifiers::SHIFT {
+        return None;
+    }
+    match key.code {
+        KeyCode::Left => Some(SelectionStep::Left),
+        KeyCode::Right => Some(SelectionStep::Right),
+        KeyCode::Up => Some(SelectionStep::Up),
+        KeyCode::Down => Some(SelectionStep::Down),
+        KeyCode::Home => Some(SelectionStep::LineStart),
+        KeyCode::End => Some(SelectionStep::LineEnd),
+        _ => None,
+    }
 }
 
 fn copy_composer(app: &mut App) {

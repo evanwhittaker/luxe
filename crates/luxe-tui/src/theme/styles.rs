@@ -7,12 +7,14 @@
 mod color;
 mod shades;
 
-use color::{blend_rgb, color_value_to_ratatui, plan_hue, rgb_color, rgb_token, theme_is_dark};
+use color::{
+    blend_rgb, color_value_to_ratatui, plan_hue, readable, rgb_color, rgb_token, theme_is_dark,
+    DIM_CONTRAST, MUTED_CONTRAST,
+};
 use luxe_core::theme::ColorValue;
 use ratatui::style::{Modifier, Style};
 use shades::{
-    derived_activity_shades, shade_at, shade_ramp, Fade, CURSOR_LINE_WASH, GAUGE_FADE, PICK_WASH,
-    RAIL_FADE, STREAM_FADE,
+    derived_activity_shades, shade_at, shade_ramp, Fade, GAUGE_FADE, RAIL_FADE, STREAM_FADE,
 };
 pub use shades::{
     Depth, GaugeShades, SlabShades, ACTIVITY_TRAIL_LEN, SLAB_DEPTHS, STREAM_TRAIL_LEN,
@@ -37,8 +39,13 @@ pub struct ThemeStyles {
     pub success: Style,
     pub error: Style,
     pub warning: Style,
+    /// Secondary text: the theme's `muted`, lifted to at least 4.5:1 against the canvas.
     pub muted: Style,
+    /// Tertiary text: the theme's `dim`, lifted to at least 3:1 against the canvas.
     pub dim: Style,
+    /// What a surface behind a modal or an overlaid dock fades to: the theme's own `dim`, unlifted,
+    /// because there the point is to recede rather than to be read.
+    pub backdrop: Style,
     pub text: Style,
     /// Shades the activity comet wears, its leading cell first, fading toward the rail behind it.
     pub activity_trail: [Style; ACTIVITY_TRAIL_LEN],
@@ -149,8 +156,9 @@ impl ThemeStyles {
             success: fg("success"),
             error: fg("error"),
             warning: fg("warning"),
-            muted: fg("muted"),
-            dim: fg("dim"),
+            muted: readable(&tokens, "muted", app_canvas, MUTED_CONTRAST),
+            dim: readable(&tokens, "dim", app_canvas, DIM_CONTRAST),
+            backdrop: fg("dim"),
             text: fg("text"),
             activity_trail: activity.trail,
             activity_trail_plan: activity.trail_plan,
@@ -244,17 +252,6 @@ impl ThemeStyles {
         }
     }
 
-    /// The faint band under the line a cursor stands on: there at a glance, quieter than a pick.
-    pub fn cursor_line_bg(&self) -> Style {
-        self.wash(self.text, CURSOR_LINE_WASH, self.tool_bg)
-    }
-
-    /// The band under picked lines, in the accent's hue, so a pick never reads as the cursor line
-    /// or as the plain highlight a hovered row wears.
-    pub fn pick_bg(&self) -> Style {
-        self.wash(self.accent, PICK_WASH, self.selected_bg)
-    }
-
     /// The ramps a fill gauge shades along, for a value drawn in `fill` on a `band`.
     ///
     /// Derived per call rather than stored: a caller brings its own hue, and the band it sits on is
@@ -323,6 +320,21 @@ impl ThemeStyles {
             self.muted.patch(self.selected_bg)
         } else {
             self.dim
+        }
+    }
+
+    /// The style for a custom program's `ink`, on the dock and the statusline alike. An ink this
+    /// build doesn't know is body text.
+    pub(crate) fn custom_ink(&self, ink: luxe_core::custom_dock::DockInk) -> Style {
+        use luxe_core::custom_dock::DockInk;
+        match ink {
+            DockInk::Muted => self.muted,
+            DockInk::Dim => self.dim,
+            DockInk::Accent => self.accent,
+            DockInk::Success => self.success,
+            DockInk::Warning => self.warning,
+            DockInk::Error => self.error,
+            DockInk::Text | DockInk::Unknown => self.text,
         }
     }
 }

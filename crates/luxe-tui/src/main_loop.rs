@@ -240,7 +240,11 @@ pub async fn run(
             continue;
         }
         background::spawn_requested(&mut app, &channels);
-        pacing.pending_frame |= background::write_failed_copies(&mut term, &mut channels);
+        if background::write_failed_copies(&mut term, &mut channels) {
+            pacing.pending_frame = true;
+            // The clear took any Sixel image with it
+            app.images.invalidate_overlay();
+        }
         if let Some(herdr) = herdr.as_mut() {
             herdr.report(app.agent_state(), app.session_id());
         }
@@ -282,7 +286,8 @@ async fn setup_app(
     // Load UI config + keymap (defaults + layers). Apply user keybindings overrides from
     // `keybindings.json` (global + project) so a rebound key fires the right action from launch.
     let repo_root = std::env::current_dir().unwrap_or_default();
-    let config = Config::load(&repo_root);
+    // Read as the engine reads it, so a trusted project's custom dock sections draw
+    let config = Config::load_trusted(&repo_root, status.trust_project);
     let keymap = KeyMap::defaults().with_overrides(load_keybindings(&repo_root));
     // Resolve the icon vocabulary before the first frame: it is a property of the terminal and the
     // config, and every surface reads it while drawing.
@@ -318,6 +323,7 @@ async fn setup_app(
     // Launched in walk-away mode: the engine was told when it was built, and this is the TUI's own
     // copy, which is what the bar and the rail draw from.
     app.permission_auto_approve = status.auto_approve;
+    app.status.trust_project = status.trust_project;
     app.headless = headless;
     Ok(app)
 }

@@ -120,15 +120,14 @@ fn a_sent_comment_says_whether_the_agent_has_answered() {
     assert_eq!(words(FindingState::Open, Issue, Some(Agent)), "the agent replied");
     assert_eq!(words(FindingState::Open, Issue, Some(System)), "no word from the agent");
     assert_eq!(words(FindingState::Open, Issue, None), "sent \u{00b7} waiting on the agent");
-    assert_eq!(words(FindingState::NeedsVerification, Issue, None), "to verify");
-    assert_eq!(words(FindingState::Resolved, Issue, None), "verified");
-    assert_eq!(words(FindingState::Stale, Issue, None), "the code moved");
+    assert_eq!(words(FindingState::Resolved, Issue, None), "resolved");
+    assert_eq!(words(FindingState::Stale, Issue, None), "outdated");
 }
 
 /// Each state offers only the edits the review desk takes in it.
 ///
 /// The break this catches: Delete offered on a sent comment (refused), Reply on an unsent one, or
-/// a button on a moved comment, whose re-anchoring is the TUI's.
+/// an outdated comment left with no way to close it.
 #[test]
 fn each_state_offers_the_edits_it_takes() {
     let names = |state| -> Vec<&str> {
@@ -136,9 +135,8 @@ fn each_state_offers_the_edits_it_takes() {
     };
     assert_eq!(names(FindingState::Draft), ["send", "delete"]);
     assert_eq!(names(FindingState::Open), ["reply", "resolve"]);
-    assert_eq!(names(FindingState::NeedsVerification), ["reply", "resolve"]);
     assert_eq!(names(FindingState::Resolved), ["reopen"]);
-    assert!(names(FindingState::Stale).is_empty());
+    assert_eq!(names(FindingState::Stale), ["resolve"]);
 }
 
 /// A comment posted to GitHub is GitHub's now: it says so and offers nothing.

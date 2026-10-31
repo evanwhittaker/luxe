@@ -94,7 +94,7 @@ The name in the last column is what `keybindings.json` uses.
 | `shift+enter` | New line | `tui.editor.new_line` |
 | `alt+q` | Queue the message for the next turn | `tui.editor.queue_message` |
 | `alt+↑` | Bring waiting messages back | `tui.editor.dequeue_message` |
-| `ctrl+esc` | Stop the turn | `tui.editor.cancel` |
+| `esc`, `ctrl+esc` | Stop the turn | `tui.editor.cancel` |
 | `ctrl+v`, `shift+insert` | Paste | `tui.editor.paste` |
 | `alt+a` | Select the whole draft | `tui.editor.select_all` |
 
@@ -111,7 +111,7 @@ The name in the last column is what `keybindings.json` uses.
 | `ctrl+o` | Full tool output | `tui.convo.toggle_tool_output` |
 | `alt+i` | View image | `tui.convo.open_image` |
 | `alt+y` | Copy message | `tui.convo.copy_message` |
-| `ctrl+insert`, `ctrl+shift+c` | Copy selection | `tui.convo.copy_selection` |
+| `ctrl+insert`, `ctrl+shift+c`, `super+c` | Copy selection | `tui.convo.copy_selection` |
 
 **Conversation**
 
@@ -157,7 +157,6 @@ the conversation. All three wait for a running turn to finish.
 | `e` | Edit the selected comment | `tui.review.edit_finding` |
 | `x` | Delete the selected unsent comment | `tui.review.delete_finding` |
 | `r` | Resolve or reopen the selected comment | `tui.review.resolve_finding` |
-| `alt+r` | Reanchor the selected stale comment | `tui.review.reanchor_finding` |
 | `]`, `[` | Next or previous chapter | `tui.review.chapter_next`, `tui.review.chapter_prev` |
 | `n`, `shift+n` | Next or previous hunk | `tui.review.hunk_next`, `tui.review.hunk_prev` |
 | `enter` | Open what the cursor is on | `tui.review.open_selection` |
@@ -188,9 +187,10 @@ Put your bindings in `~/.config/luxe/keybindings.json`, or open it from **Config
 
 - A binding replaces that action's default keys rather than adding to them.
 - A key you bind is taken from any action that had it by default.
-- A key is modifiers and one key joined by `+`: `ctrl`, `shift`, `alt`, then a letter, a digit,
-  `enter`, `esc`, `tab`, `space`, `backspace`, `delete`, `insert`, an arrow (`up`, `down`, `left`,
-  `right`), `home`, `end`, `pageup`, `pagedown`, or `f1` to `f12`.
+- A key is modifiers and one key joined by `+`: `ctrl`, `shift`, `alt`, `super` (`cmd` on a Mac,
+  which works only if your terminal passes it on), then a letter, a digit, `enter`, `esc`,
+  `tab`, `space`, `backspace`, `delete`, `insert`, an arrow (`up`, `down`, `left`, `right`),
+  `home`, `end`, `pageup`, `pagedown`, or `f1` to `f12`.
 - An unknown name or key is skipped with a warning in the log, and the rest still load. An action
   whose keys are all invalid is left with none, rather than its defaults.
 - A project's `.luxe/keybindings.json` applies over yours.

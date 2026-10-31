@@ -130,7 +130,7 @@ start from your configured default rather than your last choice:
 
 ## Turn limits
 
-A turn runs until the agent stops calling tools or you stop it with `ctrl+esc`. To cap the rounds
+A turn runs until the agent stops calling tools or you stop it with `esc`. To cap the rounds
 of tool calls in one turn, where calls the model makes together count as one round:
 
 ```json title="~/.config/luxe/config.json"
@@ -276,8 +276,42 @@ badge sits on the right whatever the list says.
 | `style` | `slab` (each module on its own block) or `flat` (plain text). The dock's headings follow it. |
 | `thinking_colors` | `true` colors the thinking level from muted (off) to magenta (ultra) |
 
-When the bar runs out of room, it drops modules in this order: `cwd`, `tokens`, `activity`, `cost`,
-`todo`, `changes`, `pr`, `branch`, `project`, then `context` and `thinking`. The model goes last.
+When the bar runs out of room, it drops modules in this order: `cwd`, `tokens`, `activity`,
+`cost`, `todo`, `changes`, `pr`, your own modules, `branch`, `project`, then `context` and
+`thinking`. The model goes last.
+
+### Your own modules
+
+A module can show what a program of yours prints, the way a
+[dock section can](interface.md#your-own-sections). Define it under `statusline.custom` and add its
+name to `left` or `right`, on either side:
+
+```json title="~/.config/luxe/config.json"
+{
+  "statusline": {
+    "right": ["context", "quota", "thinking", "model"],
+    "custom": {
+      "quota": { "command": ["~/bin/luxe-quota"] }
+    }
+  }
+}
+```
+
+It only shows where you list it. The bar has two sides and little room, so luxe doesn't pick a
+place for you. One with the name of a built-in module takes its place.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `command` | required | The program and its arguments, run directly in the project folder. A leading `~/` is your home folder. |
+| `timeout_ms` | `2000` | How long a run may take, up to 10 seconds |
+
+The program runs when a dock section's would, gets the same JSON on stdin with `"place":
+"statusline"`, and answers the same way. The bar draws the first row, label and all, cut to 32
+cells, so `COLUMNS` is `32` and `LUXE_LABEL_COLUMNS` is `0`. Printing nothing hides the module
+until the next run. A first run that fails shows why, such as `quota: exited 1`; after that, a
+failed run keeps the last row.
+
+A project's `statusline.custom` runs programs, so luxe ignores it without `--trust-project`.
 
 ## Icons and fonts
 
@@ -367,8 +401,9 @@ Screenshots and images the agent reads are drawn in the conversation where the t
 
 | `images` | Draws | Needs |
 | --- | --- | --- |
-| `auto` | `pixels` in kitty and Ghostty, `off` elsewhere and inside tmux or screen | |
+| `auto` | `pixels` in kitty and Ghostty, `sixel` in Windows Terminal, `off` elsewhere and inside tmux or screen | |
 | `pixels` | The picture | A terminal with the kitty graphics protocol |
+| `sixel` | The picture | A terminal that draws Sixel graphics: Windows Terminal 1.22 or later |
 | `blocks` | A rough preview in colored blocks | Any terminal with color |
 | `off` | A line naming the image, with `open ↗` to view it | |
 
@@ -377,8 +412,10 @@ Screenshots and images the agent reads are drawn in the conversation where the t
 ```
 
 Double-click an image, or select its message (`alt+k`) and press `alt+i`, to view it full-window.
-`/images` says which setting is in effect and why. A change to `images` applies the next time luxe
-starts.
+Windows Terminal is asked, as luxe starts, whether it draws Sixel and how big a cell is, so an older
+one gets the `off` line instead of an empty rectangle. That includes luxe running in WSL inside
+Windows Terminal. `/images` says which setting is in effect and why. A change to `images` applies the
+next time luxe starts.
 
 ## The start screen
 
@@ -595,7 +632,7 @@ The name in the last column is what `keybindings.json` uses.
 | `shift+enter` | New line | `tui.editor.new_line` |
 | `alt+q` | Queue the message for the next turn | `tui.editor.queue_message` |
 | `alt+↑` | Bring waiting messages back | `tui.editor.dequeue_message` |
-| `ctrl+esc` | Stop the turn | `tui.editor.cancel` |
+| `esc`, `ctrl+esc` | Stop the turn | `tui.editor.cancel` |
 | `ctrl+v`, `shift+insert` | Paste | `tui.editor.paste` |
 | `alt+a` | Select the whole draft | `tui.editor.select_all` |
 
@@ -612,7 +649,7 @@ The name in the last column is what `keybindings.json` uses.
 | `ctrl+o` | Full tool output | `tui.convo.toggle_tool_output` |
 | `alt+i` | View image | `tui.convo.open_image` |
 | `alt+y` | Copy message | `tui.convo.copy_message` |
-| `ctrl+insert`, `ctrl+shift+c` | Copy selection | `tui.convo.copy_selection` |
+| `ctrl+insert`, `ctrl+shift+c`, `super+c` | Copy selection | `tui.convo.copy_selection` |
 
 **Conversation**
 
@@ -658,7 +695,6 @@ the conversation. All three wait for a running turn to finish.
 | `e` | Edit the selected comment | `tui.review.edit_finding` |
 | `x` | Delete the selected unsent comment | `tui.review.delete_finding` |
 | `r` | Resolve or reopen the selected comment | `tui.review.resolve_finding` |
-| `alt+r` | Reanchor the selected stale comment | `tui.review.reanchor_finding` |
 | `]`, `[` | Next or previous chapter | `tui.review.chapter_next`, `tui.review.chapter_prev` |
 | `n`, `shift+n` | Next or previous hunk | `tui.review.hunk_next`, `tui.review.hunk_prev` |
 | `enter` | Open what the cursor is on | `tui.review.open_selection` |
@@ -689,9 +725,10 @@ Put your bindings in `~/.config/luxe/keybindings.json`, or open it from **Config
 
 - A binding replaces that action's default keys rather than adding to them.
 - A key you bind is taken from any action that had it by default.
-- A key is modifiers and one key joined by `+`: `ctrl`, `shift`, `alt`, then a letter, a digit,
-  `enter`, `esc`, `tab`, `space`, `backspace`, `delete`, `insert`, an arrow (`up`, `down`, `left`,
-  `right`), `home`, `end`, `pageup`, `pagedown`, or `f1` to `f12`.
+- A key is modifiers and one key joined by `+`: `ctrl`, `shift`, `alt`, `super` (`cmd` on a Mac,
+  which works only if your terminal passes it on), then a letter, a digit, `enter`, `esc`,
+  `tab`, `space`, `backspace`, `delete`, `insert`, an arrow (`up`, `down`, `left`, `right`),
+  `home`, `end`, `pageup`, `pagedown`, or `f1` to `f12`.
 - An unknown name or key is skipped with a warning in the log, and the rest still load. An action
   whose keys are all invalid is left with none, rather than its defaults.
 - A project's `.luxe/keybindings.json` applies over yours.
@@ -763,10 +800,10 @@ your own config only:
 - `agent.on_ask`, which a project can set to `deny` but not to `allow`
 - `agent.cache_warming`, which a project can turn down but not up, since it spends your money
 
-Project `gate.commands` also run programs. luxe ignores them and warns unless you start with
-`--trust-project`. With trust, a nonempty project list replaces your global list. Otherwise, the
-loop uses your global commands. Move the list to your own config if you don't want to trust the
-project.
+Project `gate.commands`, `dock.custom` and `statusline.custom` also run programs. luxe ignores them
+and warns unless you start with `--trust-project`. With trust, a nonempty project `gate.commands`
+list replaces your global list. Otherwise, the loop uses your global commands. Move any of them to
+your own config if you don't want to trust the project.
 
 ### Editing
 
@@ -884,7 +921,8 @@ it, showing each one before it runs:
 | --- | --- |
 | The install script | The install script again, downloaded from the new release |
 | Homebrew | `brew update`, then `brew upgrade luxe` |
-| Cargo | `cargo install --locked --force luxe-cli` |
+| Cargo, from crates.io | `cargo install --locked --force luxe-cli` |
+| Cargo, from a checkout or fork (`--path`, `--git`) | Nothing. It tells you to pull and rebuild, so your build isn't replaced |
 
 luxe never replaces its own program; whatever installed it does. For the install script, that's
 the new release's copy of the same script, run into the folder the first install used. Its
@@ -943,11 +981,14 @@ Every key in `config.json`, with its default.
 | `joinable` | `true` | Let another program on this machine join a running session; see [Joining a session](#joining-a-session) |
 | `statusline.visibility` | `auto` | `auto`, `shown` or `hidden`; see [Appearance](appearance.md#statusline) |
 | `statusline.style` | `slab` | `slab` or `flat` |
-| `statusline.left` | `["project", "branch", "pr", "todo", "changes"]` | Modules on the left |
-| `statusline.right` | `["context", "cost", "tokens", "thinking", "model"]` | Modules on the right |
+| `statusline.left` | `["project", "branch", "pr", "todo", "changes"]` | Modules on the left, including your own |
+| `statusline.right` | `["context", "cost", "tokens", "thinking", "model"]` | Modules on the right, including your own |
 | `statusline.thinking_colors` | `false` | Color the thinking level |
+| `statusline.custom` | none | Modules drawn from your own programs, by name; see [Appearance](appearance.md#your-own-modules) |
 | `dock.mode` | `auto` | `auto`, `shown` or `hidden`; see [The interface](interface.md#the-dock) |
 | `dock.position` | `left` | `left` or `right` |
+| `dock.sections` | every section | Which dock sections show, in order; see [The interface](interface.md#choose-the-sections) |
+| `dock.custom` | none | Dock sections drawn from your own programs, by name; see [The interface](interface.md#your-own-sections) |
 | `conversation.alignment` | `full` | `full`, `left` or `center`; see [Appearance](appearance.md#the-conversation) |
 | `conversation.prose_max_width` | `120` | Text width under `left` or `center` |
 | `conversation.wide_block_max_width` | `140` | Code and table width under `left` or `center` |
@@ -1424,6 +1465,7 @@ Installing an extension is copying a file.
 | Change how luxe looks, or which tools exist | [Configuration](configuration.md) and [themes](appearance.md#make-a-theme) | Nothing |
 | Teach the agent a procedure or house style | [Skills](skills.md) and [`AGENTS.md`](project-context.md) | Nothing |
 | Point the agent at your tracker or runbooks with `@` | [Mention sources](mention-sources.md) | Your program, when its tab opens |
+| Show your own figures in the dock or on the statusline | [Custom dock sections](interface.md#your-own-sections) and [modules](appearance.md#your-own-modules) | Your program, after each turn |
 | Give the agent new tools | [An MCP server](mcp.md) | Your program, when the agent calls it |
 | Block, rewrite, audit or react to what the agent does | [Hooks](hooks.md) | Your program, at points in a turn |
 | Use an endpoint or model luxe does not know | [Custom providers](custom-providers.md) | Nothing, or your `!command` for a key |
@@ -1431,8 +1473,8 @@ Installing an extension is copying a file.
 | Open another terminal tool with a key | [Launchers](configuration.md#launchers) | Your program, on a key |
 
 The rows are in order of effort; the first that fits is usually right. [Recipes](recipes.md) puts
-several together: Asana in the `@` picker, subagents, a classifier guard, running in Herdr, and a
-local model in LM Studio.
+several together: Asana in the `@` picker, subagents, a classifier guard, running in Herdr, a
+local model in LM Studio, and plan usage as bars.
 
 ## Where extensions live
 
@@ -1477,11 +1519,12 @@ alone one it did not write.
 
 ## Trust
 
-**A repository does not choose what runs on your machine.** Its hooks and its loop
-`gate.commands` run only with `--trust-project`, and its permission rules can only make yours
-stricter. MCP servers, language servers and formatters it brings start, by default, only in an
-interactive session or with `--trust-project`; `lsp.project_servers` in your own config changes
-that, see [Tools](tools.md#a-server-the-project-installed). This is about which programs luxe starts. A
+**A repository does not choose what runs on your machine.** Its hooks, its loop `gate.commands`,
+and its custom dock sections and statusline modules run only with `--trust-project`, and its
+permission rules can only make yours stricter. MCP servers, language servers and formatters it
+brings start, by default, only in an interactive session or with `--trust-project`;
+`lsp.project_servers` in your own config changes that, see
+[Tools](tools.md#a-server-the-project-installed). This is about which programs luxe starts. A
 language server itself may run project code, as rust-analyzer does with `build.rs`, so open an
 unfamiliar repository in luxe the way you would build it.
 
@@ -1571,20 +1614,23 @@ or whose author turned off edits by maintainers.
 ## Open a pull request
 
 Review the work with [Guided Review](guided-review.md), finish (`alt+enter`), and choose **Open pull
-request**. luxe drafts the title and description from the review, with `Closes #123` when the
-session started from an issue.
+request**. The title and description start blank: write them, or press `d` and the agent drafts
+both from the work it did. When the session started from an issue, they start with the issue's
+title and `Closes #123` instead. A review of a commit is the exception: its title and description
+are drafted from the commit's message and the review.
 
-![The pull request, drafted from the review](images/quickstart-pull-request.svg)
+![The pull request, drafted by the agent](images/quickstart-pull-request.svg)
 
 The heading says where it merges and what happens first, such as `commits and pushes first`.
 Nothing happens until you press `enter`.
 
 | Key | Does |
 | --- | --- |
+| `d` | Have the agent draft the title and description. It reads, and changes nothing; what you wrote goes with the request so it can keep it. |
 | `t` | Edit the title |
 | `e` | Edit the description |
 | `E` | Edit the description in your editor (`$LUXE_EDITOR`, `$VISUAL` or `$EDITOR`) |
-| `d` | Open it as a draft |
+| `D` | Open it as a draft |
 | `enter` | Open it |
 
 Afterward, `o` opens it in the browser, and the session remembers it for `luxe --from-pr`.
@@ -1602,7 +1648,7 @@ beside the list. Each tab is a GitHub search:
 | **Pull requests** | Every open pull request, most recently updated first |
 | **Issues** | Every open issue, most recently updated first |
 
-It opens on the first tab with something in it.
+It opens on the first tab with something in it. Click a tab to open it.
 
 ![/github, with a pull request's overview](images/github-overview.svg)
 
@@ -1670,6 +1716,10 @@ dealt with here has a key:
 | `R` | **Mark ready** for review |
 | `enter` on **Ready** | Merge, after a confirmation |
 
+The whole description follows, under **Description**. `↓` past the last row reads on, and
+`pgup` / `pgdn` or the mouse wheel scroll either tab when it is longer than the pane. In
+`/github`, the wheel over the list moves through it the way `↑` / `↓` do.
+
 The merge confirmation offers the methods the repository allows (merge commit, squash, rebase),
 starting on the one you used last there; `tab` switches and `d` chooses whether the branch is
 deleted. While something still stands in the way, an **Auto-merge** row turns on GitHub's
@@ -1681,14 +1731,14 @@ confirmation says so.
 1. In `/pr`, press `t`. The unresolved threads open in Guided Review as comments on their lines,
    against your working tree.
 2. `alt+u` sends them to the agent. It reads them as the reviewers' words, not as instructions.
-3. Verify each fix (`r` in **Feedback**), then commit and push.
-4. `alt+enter` and choose **Answer on GitHub**. Threads you verified are resolved; `c` adds a reply
-   in your own words.
+3. Check each fix (`v` in **Feedback**) and resolve it with `r`, then commit and push.
+4. `alt+enter` and choose **Answer on GitHub**. Threads you resolved here are resolved there; `c`
+   adds a reply in your own words.
 
 ## Conversation
 
 **Conversation** is the second tab in `/pr` and `/github`: the description, comments, reviews and
-threads, oldest first.
+threads, oldest first. Press `tab` or click it to switch.
 
 ![A pull request's conversation, with a drafted reply](images/github-conversation.svg)
 
@@ -1708,7 +1758,8 @@ and nothing in the conversation reaches the agent unless you mention it.
 
 When a review has two or more chapters, finishing offers **Open as a stack**: one pull request per
 chapter, each based on the one below. The lower ones get branches named `<branch>-part-1`,
-`-part-2` and so on, and yours is on top. It needs the reviewed work uncommitted.
+`-part-2` and so on, and yours is on top. It needs the reviewed work uncommitted. `D` opens them
+as drafts.
 
 When a lower branch changes, `/stack` moves the ones above it back on top. It shows what will move
 first, makes the new commits without checking anything out (with `git replay`, Git 2.44 or later),
@@ -1774,13 +1825,17 @@ The guide on the left opens with why the change exists and what it does, then a 
 with its files. The right pane shows the hunk you are on, with the guide's sentence about it. Drag
 the line between them to give the guide more or less room; double-click it to go back.
 
+A cursor marks the line you are on with a `›` and a lighter band, and a comment or a question goes
+on that line. The arrows move it down the screen, and the diff scrolls when it reaches an
+edge. Click a line to put it there. The wheel scrolls the code, and the cursor stays on its row.
+
 | To | Key |
 | --- | --- |
 | Next step. Past the last one, finish. | `space` or `n` |
 | Previous step | `shift+n` |
 | Next or previous chapter | `]` / `[` |
 | Next or previous file | `ctrl+↓` / `ctrl+↑` |
-| Scroll | `↑` / `↓`, `pageup` / `pagedown`, or half a page with `ctrl+d` / `ctrl+u` |
+| Move the cursor | `↑` / `↓`, `pageup` / `pagedown`, or half a page with `ctrl+d` / `ctrl+u` |
 | Hide the guide, or the hunk's sentence | `g` / `z` |
 | Side by side, or one column | `ctrl+b` |
 | Wrap long lines | `w` |
@@ -1825,20 +1880,30 @@ so a review that shows less than the change never passes for all of it.
 | `c` | **Comment** on the line under the cursor. It waits for you to send it: to the agent, or to GitHub with your review of a pull request. |
 | `a` | **Ask the agent** about the line. It answers right away and changes nothing. |
 | `alt+c` | **Feedback**: every comment, with the one under the cursor in full |
-| `alt+u` | **Send** the unsent comments to the agent, from a preview where `space` leaves one out |
+| `alt+u` | **Send** your new comments and replies to the agent, from a preview where `space` leaves one out |
 
 In **Feedback**, `enter` goes to a comment, `c` replies, `e` edits, `x` deletes one not yet sent,
-`r` marks it verified, resolved or reopened, `d` shows its details, `alt+r` moves a stale one to
-where its line went, `v` shows what changed at its line, and `u` sends. On an answered question, `c` turns it
-into a comment, so the question, the answer and your direction reach the agent together.
+`r` resolves or reopens it, `d` shows its details, `v` shows what changed at its line, and `alt+u`
+sends to the agent, as it does anywhere in the review. On someone else's pull request the hint says
+`alt+enter` instead, since those comments go to GitHub. On an answered question, `c` turns it into
+a comment, so the question, the answer and your direction reach the agent together.
+
+Comments work like GitHub review threads: open until you resolve them. A row only adds a word for
+**not sent** (GitHub's pending) or **outdated** (the line it was on has changed since). The comment
+shown in full says where it stands in a sentence. A comment goes to the agent once; a reply sends
+it again.
+
+In the diff, `e`, `x` and `r` act on the comment under the cursor's line, and that comment's card
+opens to show the agent's whole answer and its keys. Right-click a line for the same actions, or to
+comment or ask about it.
 
 You can keep commenting while the agent works on what you sent. When the agent's fix is in, the
 review says `The fix is in · ctrl+r refresh`. `ctrl+r`, or `/diff refresh`, reads the code again
 so you can verify it, at any time.
 
 The agent ends a fix by reporting on each comment: fixed, not fixed, or needs clarification, with a
-note. The note shows under the comment, and a comment it calls fixed waits for you to verify it,
-since a claim is not proof. If the agent leaves its report out, luxe asks for it once. A comment
+note. The note shows on the comment's thread, and the comment stays open until you resolve it,
+since a claim is not proof: `v` shows what changed at its line. If the agent leaves its report out, luxe asks for it once. A comment
 the agent still says nothing about reads `no word from the agent`, with the reason in Feedback,
 and stays where you left it.
 
@@ -1873,8 +1938,8 @@ agent opened. It needs the GitHub CLI, `gh`, signed in.
 - It is pinned to the commit GitHub reported and compared from where it branched, as GitHub's
   **Files changed** does. Nothing in your checkout moves.
 - The head says who opened it and where it stands: `by dependabot (bot) · 1 failing · changes requested`.
-- The opening of the author's description follows the guide, under its own heading. `p` reads
-  the whole of it.
+  Under that are its branches and `p description`, which reads the author's description over the
+  review.
 - Review threads appear under the lines they are about. Anything without a line is under
   **Discussion on GitHub**.
 - `a` asks the agent about a line, at the pull request's commit.
@@ -1893,8 +1958,9 @@ agent opened. It needs the GitHub CLI, `gh`, signed in.
 | `enter` | Post it |
 
 Line comments are listed under their files with the diff they sit on, the way GitHub shows them.
-Questions you asked the agent stay in luxe and are never posted. On your own pull request, GitHub
-only takes a comment, so that is all luxe offers.
+Questions you asked the agent stay in luxe and are never posted. GitHub doesn't let a pull
+request's author approve it or request changes, so on your own pull request luxe offers only
+**Comment**.
 
 A drafted summary opens in the preview for you to read and edit. Anything the agent says beside it,
 such as a part of the change it did not read, appears under it as a note. Once the review is
@@ -1902,10 +1968,9 @@ posted, the guide's foot says **Posted to GitHub** with the verdict, and `o` ope
 
 ### Fix it yourself
 
-To change someone else's pull request rather than comment on it, press `alt+u` (or `w` in the post
-preview). luxe asks GitHub whether you can push to it, then checks it out in a worktree of its own
-and starts a session there, with your comments as the agent's first task. A plain `git push` then
-updates the pull request.
+To change someone else's pull request rather than comment on it, press `alt+u`. luxe asks GitHub
+whether you can push to it, then checks it out in a worktree of its own and starts a session there,
+with your comments as the agent's first task. A plain `git push` then updates the pull request.
 @@@ page: hooks
 ---
 title: "Hooks"
@@ -2459,7 +2524,7 @@ While the agent works, you can keep typing:
 | `enter` | **Steer**: the message reaches the running turn between steps, without stopping it |
 | `alt+enter` or `alt+q` | **Queue**: the message becomes the next turn, after this one ends |
 | `alt+↑` | Bring waiting messages back into the composer to edit |
-| `ctrl+esc` | Stop the turn. Waiting messages come back into the composer. |
+| `esc` | Stop the turn, once nothing else open claims it and the composer is empty. `ctrl+esc` works too where the terminal sends it. Waiting messages come back into the composer. |
 
 A waiting message sits above the composer, marked `steering` or `queued`, until it is delivered. A
 message with an image is always queued, because steering carries text only.
@@ -2490,9 +2555,10 @@ conversation, or in its place below 80 columns.
 | --- | --- |
 | **PROJECT** | The project, its branch, and the branch's pull request: `#138 · 1 failing · 2 threads` |
 | **PLAN** | The agent's todo list, scrolled to what it is working on |
-| **FILES** | The project as a tree, with what changed marked in it. Click a file to [preview](#preview) it. |
+| **FILES** | The project as a tree, with what changed marked in it. Click a file to [preview](#preview) it and move the keyboard into it. |
 | **ELSEWHERE** | Files the session changed outside the project, when there are any |
 | **MODEL** | The provider, model, thinking level and [mode](agent.md#plan-then-build). Click the provider or the model to change it, or the mode to switch it. |
+| **USAGE** | On a subscription such as ChatGPT or GitHub Copilot, how much of each of the plan's windows you've used and when it resets: `weekly 30% · resets 3d 4h`. It turns yellow at 75% and red at 90%, and shows up once the provider reports it. |
 | **SESSION** | Context used, tokens and cost, with what a review and compaction cost on rows of their own. A review's row shows its full cost once its guide or drafted summary is done. While a phone or another client has [joined](remote.md), a **joined** row names it. |
 
 `alt+d` shows or hides the dock, and `/dock left` or `/dock right` moves it. To set it for good:
@@ -2507,6 +2573,116 @@ conversation, or in its place below 80 columns.
 
 Drag the line between the dock and the conversation to make the dock wider or narrower. It stays
 that width the next time luxe starts; double-click the line to put it back.
+
+### Choose the sections
+
+`dock.sections` lists the sections to show. Leave one out to hide it:
+
+```json title="~/.config/luxe/config.json"
+{
+  "dock": { "sections": ["project", "plan", "files", "model", "session"] }
+}
+```
+
+That hides **ELSEWHERE** and **USAGE**. Without the key, every section shows. PROJECT stays at the
+top and MODEL, USAGE and SESSION at the bottom, so the order you give them applies within those
+groups: `["session", "model"]` puts SESSION above MODEL. luxe skips a name it doesn't know.
+
+Hiding **MODEL** still shows its **approvals** row while auto-approve is on, so you can't lose
+sight of it. With **FILES** hidden, `ctrl+t` says so instead of moving into a tree you can't see.
+
+### Your own sections
+
+A section can show what a program of yours prints: your quota as bars, CI status, anything that
+fits in a few rows. Define it under `dock.custom` and add its name to `dock.sections`:
+
+```json title="~/.config/luxe/config.json"
+{
+  "dock": {
+    "sections": ["project", "plan", "files", "model", "quota", "session"],
+    "custom": {
+      "quota": { "command": ["~/bin/luxe-quota"], "title": "QUOTA" }
+    }
+  }
+}
+```
+
+Without `sections`, your sections show after the built-in ones. One with the name of a built-in
+section takes its place, so `"session"` draws your own SESSION.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `command` | required | The program and its arguments. It runs directly, not through a shell, in the project folder. A leading `~/` is your home folder. |
+| `title` | the name, in capitals | The heading |
+| `place` | `bottom` | `bottom`, beside MODEL and SESSION, or `middle`, with PLAN and FILES |
+| `timeout_ms` | `2000` | How long a run may take, up to 10 seconds |
+
+luxe runs the program when a session starts or resumes, after each turn, and when the provider
+reports plan usage. There's no timer, and the conversation never waits for it. The program gets
+the session's state as JSON on stdin:
+
+```json
+{
+  "version": 1,
+  "section": "quota",
+  "place": "dock",
+  "session_id": "1bdcd3fd-419f-4102-af4e-0adc5aba74d9",
+  "cwd": "/home/you/project",
+  "provider": "chatgpt",
+  "model": "gpt-5.5",
+  "context": { "used_tokens": 50000, "window": 200000, "used_percent": 25.0 },
+  "plan_usage": {
+    "plan": "plus",
+    "primary": { "used_percent": 30.0, "window_minutes": 10080, "resets_in_secs": 270000 }
+  },
+  "session_usage": null
+}
+```
+
+`place` is `dock` here, or `statusline` when the program feeds a
+[statusline module](appearance.md#your-own-modules), so one program can serve both and answer
+shorter for the bar. A field luxe has no value for yet is `null`. `plan_usage` and `session_usage`
+have the shape of the [events](rpc.md#events) of the same names: `session_usage` is the session's
+tokens and cost so far, and `plan_usage` leaves out a window the plan doesn't have. New fields may
+be added, and none are removed.
+
+The program can size itself to the row, the way a program sizes itself to a terminal. `COLUMNS`
+is how many cells a row has, label included, and `LUXE_LABEL_COLUMNS` is how many of those the
+label column takes, so a labeled row has the difference for its text. Both follow the dock as you
+drag it wider or narrower, and a new width runs the program again (during a turn, once it ends).
+Until the interface has drawn the dock, neither is set.
+
+The program answers on stdout, one row per line:
+
+```text
+weekly ▰▰▰▱▱▱▱▱ 30%
+5h     ▰▱▱▱▱▱▱▱ 12%
+```
+
+Or in JSON, for labels and color:
+
+```json
+{"rows": [{"label": "weekly", "spans": [{"text": "▰▰▰▱▱▱▱▱", "ink": "accent"}, {"text": " 30%"}]}]}
+```
+
+A `label` lines up with the labels in MODEL and SESSION. `ink` is a color from your theme: `text`
+(the default), `muted`, `dim`, `accent`, `success`, `warning` or `error`. luxe draws up to 8 rows,
+cuts each one to fit the dock, and removes escape sequences and control characters.
+
+A section shows up once its program first answers, and printing nothing (or `{"rows": []}`) hides
+it until a run prints something. When a run fails (it exits with an error, takes too long, prints
+more than 16 KB, or prints JSON luxe can't read), the section keeps its last rows and adds one
+saying why, such as `last run: exited 1`. The log has more. A change to `dock.custom` takes effect
+in the next session. [Recipes](recipes.md#plan-usage-as-bars) has a complete one.
+
+A run is over when the program exits. A timeout ends it along with everything it started. A
+background job it leaves behind keeps running if its output goes elsewhere
+(`fetch-quota > ~/.cache/quota.json 2>/dev/null &`), and is ended if it still holds the
+program's output a moment after the program exits. So for something slow, start it in the
+background that way and print what the last run saved.
+
+A project's `dock.custom` runs programs, so luxe ignores it without `--trust-project`, as it does
+the project's [hooks](hooks.md).
 
 ### Files
 
@@ -2591,8 +2767,10 @@ The preview is not a review: looking at a file does not count it as reviewed.
 | Open a [Guided Review](guided-review.md) of your changes, at this file | `ctrl+g` |
 | Back to the conversation | `esc` |
 
-With the keyboard in the file (`ctrl+t` twice, or `tab` from the tree), a cursor moves line by
-line and the file scrolls to keep it in view. In a diff the same keys scroll.
+With the keyboard in the file, a cursor marks the line you are on with a `›` and a lighter band,
+and the file scrolls to keep it in view. Clicking a file under `FILES` or a line in the file puts
+the keyboard there, as do `ctrl+t` twice and `tab` from the tree. In a diff the cursor moves the
+same way, row by row, and picks nothing.
 
 | In the file | Key |
 | --- | --- |
@@ -2614,16 +2792,34 @@ The lines between panes move: the dock's, the preview's, and the one beside a re
 lights under the pointer; drag it to resize the pane beside it, or double-click it to put the pane
 back to its own width. luxe remembers the widths for next time.
 
-Drag across the conversation or the composer to select, and the selection is copied when you let
-go. Click a message to copy all of it. `ctrl+insert` or `ctrl+shift+c` copies a selection too.
+Drag across the conversation, the composer or the preview to select. Double-click takes a word and
+triple-click a line. The selection stays highlighted until you copy it, so letting go never changes
+your clipboard. The conversation scrolls to keep the end you are moving in view:
 
-Your terminal's own copy key reaches luxe only if the terminal passes it through. Either hold
-`shift` (`option` on macOS) while dragging, to make a selection the terminal copies itself, or let
-the copy key fall through when the terminal has nothing selected. In Ghostty:
+| Key | Does |
+| --- | --- |
+| `shift` + an arrow, `home` or `end` | Grow or shrink the selection |
+| `ctrl+shift+c`, `ctrl+insert`, `super+c` | Copy it |
+| `esc` | Drop it |
+
+Right-click a selection for **Copy**, or the composer for **Paste**. Click a message to copy all of
+it.
+
+Your terminal's own copy key reaches luxe only if the terminal passes it through. Most terminals
+keep `cmd+c` (and on Linux often `ctrl+shift+c`) for themselves, so let the key fall through when
+the terminal has nothing selected, or hold `shift` (`option` on macOS) while dragging to make a
+selection the terminal copies itself. In Ghostty:
 
 ```ini title="ghostty config"
 keybind = performable:control+insert=copy_to_clipboard
+keybind = performable:super+c=copy_to_clipboard
+keybind = copy=copy_to_clipboard
 ```
+
+The last line matters on Linux. Ghostty makes one of its copy keys a window shortcut that takes the
+key even when `performable:` says to let it through. A plain binding on the dedicated Copy key gives
+that job to a key you never press. On Omarchy, `super+c` reaches the terminal as `ctrl+insert`, so
+without that line it never gets to luxe.
 
 luxe copies to the desktop clipboard, and over SSH through the terminal (OSC 52). Inside tmux,
 that needs `set -g set-clipboard on`.
@@ -3029,8 +3225,8 @@ group: "Using luxe"
 ---
 
 Type `@` at the start of a word in the composer to mention something. The picker opens on your
-project's files; `tab` and `shift+tab` move between its tabs, typing filters, `↑`/`↓` move,
-`enter` inserts the mention, and `esc` or a space closes it.
+project's files; `tab` and `shift+tab` move between its tabs (or click one), typing filters,
+`↑`/`↓` move, `enter` inserts the mention, and `esc` or a space closes it.
 
 ![The @ picker on its Files tab, changed files first](images/mentions-picker.svg)
 
@@ -3337,7 +3533,8 @@ Usage on a ChatGPT or Copilot subscription is counted in full but never added to
 `plan ≈$0.42 of usage over 12 calls, covered by your subscription`. On a
 ChatGPT plan, the statusline shows how much of the plan is used, such as `12% weekly`, and `/cost`
 shows when it resets. On a Copilot plan it shows the month's allowance the same way, such as `19%
-monthly`.
+monthly`. The dock's [USAGE](interface.md#the-dock) section lists every window the plan reports,
+each with its reset.
 
 luxe prices Copilot usage at Copilot's per-token rates, so the figure matches what Copilot reports
 for each request. A Copilot plan billed by the token spends its monthly allowance at those rates.
@@ -3475,7 +3672,7 @@ a notification's category is a free-form string, so a typo compiles; make it an 
 ```
 
 The agent reads, edits and runs commands, and each step appears as a card. Click a card to see its
-full output, or press `ctrl+o` for every card's; `ctrl+esc` stops the turn. You can keep typing while it works:
+full output, or press `ctrl+o` for every card's; `esc` stops the turn. You can keep typing while it works:
 a message sent mid-turn reaches the agent between steps, without stopping it.
 
 ![A turn in progress](images/quickstart-turn.svg)
@@ -3504,15 +3701,15 @@ Comments go to the agent as work to do when you finish with **Request fixes**.
 ## 5. Open a pull request
 
 This needs the GitHub CLI, `gh`, signed in (`gh auth login`): **Open pull request** is offered once
-`gh` says the branch has none. Finish the review (`alt+enter`) and choose it. luxe drafts the title
-and description from the review. The heading says what happens before it opens, such as
-"commits and pushes first". The pull request pictured came from a session that took up an issue
-([`luxe --issue 123`](github.md#start-from-an-issue)), so its branch is named for the issue and its
-description closes it.
+`gh` says the branch has none. Finish the review (`alt+enter`) and choose it. The title and
+description start blank, and `d` has the agent draft both. The heading says what happens before it
+opens, such as "commits and pushes first". The pull request pictured came from a session that took
+up an issue ([`luxe --issue 123`](github.md#start-from-an-issue)), so its branch is named for the
+issue and its description closes it.
 
 ![Opening a pull request](images/quickstart-pull-request.svg)
 
-Press `t` or `e` to edit the title or description, `d` to open it as a draft, and `enter` to open
+Press `t` or `e` to edit the title or description, `D` to open it as a draft, and `enter` to open
 it.
 
 ## 6. Come back later
@@ -3535,7 +3732,7 @@ luxe --resume <id>         # a specific one
 @@@ page: recipes
 ---
 title: "Recipes"
-summary: "Extensions put together: Asana, subagents, a classifier guard, Herdr, your phone, and a local model."
+summary: "Extensions put together: Asana, subagents, a classifier guard, Herdr, your phone, a local model, and plan usage as bars."
 order: 8
 group: "Extend"
 ---
@@ -3859,6 +4056,155 @@ to it rather than replacing the file:
 ```
 
 [Custom providers](custom-providers.md) covers samplers and request formats.
+
+### What LM Studio has loaded
+
+This [dock section](interface.md#your-own-sections) shows the model LM Studio has loaded, the
+context it was loaded with, and how full the GPU is. It warns when the session's model isn't
+loaded, which is easy to miss after switching models in LM Studio. It needs `jq`, and reads the GPU
+with `nvidia-smi`; without one it leaves that row out.
+
+```bash title="~/.config/luxe/bin/lmstudio-loaded"
+#!/usr/bin/env bash
+# What LM Studio has loaded, for a luxe dock section. Prints nothing for other providers.
+set -euo pipefail
+input=$(cat)
+[ "$(jq -r .provider <<<"$input")" = lmstudio ] || exit 0
+loaded=$(lms ps --json)
+vram=$(nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null |
+  head -n 1 || true)
+jq -nc --argjson input "$input" --argjson loaded "$loaded" --arg vram "$vram" '
+  def gb: . / 1024 * 10 | round / 10;
+  def model_rows($m):
+    [ { label: "model",
+        spans: [ { text: $m.displayName }, { text: " · \($m.quantization.name)", ink: "muted" } ] },
+      { label: "context", spans: [ { text: "\($m.contextLength / 1024 | floor)k loaded" } ] } ];
+  def missing($model):
+    [ { label: "model",
+        spans: [ { text: "not loaded ", ink: "warning" }, { text: $model, ink: "muted" } ] } ];
+  def vram_row:
+    ($vram | split(", ") | map(tonumber)) as [$used, $total]
+    | { label: "vram",
+        spans: [ { text: "\($used | gb) / \($total | gb) GB",
+                   ink: (if $used / $total >= 0.9 then "warning" else "text" end) } ] };
+
+  ($loaded | map(select(.identifier == $input.model)) | first) as $mine
+  | { rows: ((if $mine then model_rows($mine) else missing($input.model) end)
+             + (if $vram == "" then [] else [vram_row] end)) }
+'
+```
+
+Make it executable with `chmod +x ~/.config/luxe/bin/lmstudio-loaded`, then add the section. The
+`timeout_ms` gives `lms` more room than the 2-second default:
+
+```json title="~/.config/luxe/config.json"
+{
+  "dock": {
+    "custom": { "local": { "command": ["~/.config/luxe/bin/lmstudio-loaded"], "timeout_ms": 5000 } }
+  }
+}
+```
+
+![The LOCAL section under SESSION, naming the loaded model and its context, with the GPU's memory in the warning color past 90%](images/recipes-lmstudio-loaded.svg)
+
+In a session on another provider it prints nothing, so the section stays hidden. If `lms` fails,
+the section keeps its last rows and says why.
+
+## Plan usage as bars
+
+On a subscription such as ChatGPT or GitHub Copilot, the dock's USAGE section says in words how
+much of each plan window you've used. This script draws it as bars instead, in a
+[dock section](interface.md#your-own-sections) and a
+[statusline module](appearance.md#your-own-modules) at once. It needs `jq`.
+
+```bash title="~/.config/luxe/bin/plan-bars"
+#!/usr/bin/env bash
+# Plan usage as bars, for a luxe dock section or statusline module.
+set -euo pipefail
+# Cells a dock row has beside its label, or 0 before luxe has drawn the dock
+room=$(( ${COLUMNS:-0} - ${LUXE_LABEL_COLUMNS:-0} ))
+jq -c --argjson room "$room" '
+  def blocks($n; $glyph): [range($n)] | map($glyph) | join("");
+  def ink($pct): if $pct >= 90 then "error" elif $pct >= 75 then "warning" else "accent" end;
+  def bar($pct; $cells):
+    ([$pct * $cells / 100 | round, $cells] | min) as $on
+    | [ { text: blocks($on; "▰"), ink: ink($pct) },
+        { text: blocks($cells - $on; "▱"), ink: "dim" } ]
+    | map(select(.text != ""));
+  def name($minutes):
+    if $minutes == 43200 then "monthly"
+    elif $minutes % 10080 == 0 then "weekly"
+    elif $minutes % 1440 == 0 then "daily"
+    else "\($minutes / 60 | floor)h" end;
+  def resets($secs):
+    if $secs == null then ""
+    elif $secs == 0 then " · now"
+    elif $secs >= 86400 then " · \($secs / 86400 | floor)d"
+    elif $secs >= 3600 then " · \($secs / 3600 | floor)h"
+    else " · \($secs / 60 | ceil)m" end;
+  def tail: " \(.used_percent | round)%\(resets(.resets_in_secs))";
+  def row($cells; $tail):
+    { label: name(.window_minutes),
+      spans: (bar(.used_percent; $cells) + [ { text: $tail, ink: "muted" } ]) };
+  # The room the widest tail leaves, so the bars of every row end in the same column
+  def cells($windows):
+    if $room <= 0 then 10
+    else [[$room - ([$windows[] | tail | length] | max // 0), 20] | min, 4] | max end;
+
+  [.plan_usage.primary, .plan_usage.secondary | select(. != null)] as $windows
+  | if .place == "statusline" then
+      { rows: [ $windows | max_by(.used_percent) // empty | row(5; " \(.used_percent | round)%") ] }
+    else
+      cells($windows) as $cells | { rows: [ $windows[] | row($cells; tail) ] }
+    end
+'
+```
+
+Make it executable with `chmod +x ~/.config/luxe/bin/plan-bars`, then point a section and a module
+at it. Leaving `usage` out of `dock.sections` hides the built-in section the bars replace, and this
+`right` list gives the bars the room `cost` and `tokens` had:
+
+```json title="~/.config/luxe/config.json"
+{
+  "dock": {
+    "sections": ["project", "plan", "files", "elsewhere", "model", "quota", "session"],
+    "custom": { "quota": { "command": ["~/.config/luxe/bin/plan-bars"] } }
+  },
+  "statusline": {
+    "right": ["context", "quota", "thinking", "model"],
+    "custom": { "quota": { "command": ["~/.config/luxe/bin/plan-bars"] } }
+  }
+}
+```
+
+On a GitHub Copilot plan, which is monthly, the dock gets one row:
+
+![The QUOTA section between MODEL and SESSION, reading monthly, a bar a third full, 32% and 3d](images/recipes-plan-bars-dock.svg)
+
+With the dock put away, the bar shows the same plan in five cells:
+
+![The statusline, with monthly and a short bar at 32% between the context reading and the thinking level](images/recipes-plan-bars-statusline.svg)
+
+On ChatGPT, which reports two windows, the dock gets a row for each:
+
+```text
+QUOTA
+5h             ▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱ 62% · 30m
+weekly         ▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱ 30% · 3d
+```
+
+- **One script, two places.** The input's `place` says where the answer goes, so the bar gets just
+  the fullest window, in five cells. The statusline makes way for a dock open beside the
+  conversation, so you see the bars in the dock, and on the bar once you close it with `/dock`.
+- **The bar fits the dock.** luxe tells the script its row's width in `COLUMNS` and the label
+  column's in `LUXE_LABEL_COLUMNS`, so the bar takes the room the percentage and reset leave, up to
+  20 cells. Drag the dock wider and the bar grows on the next run, which the drag itself starts.
+- **The colors are your theme's.** The filled cells use `accent`, then `warning` past 75% and
+  `error` past 90%, where the built-in USAGE section changes color too. The empty cells are `dim`,
+  so the fill is what you see first.
+- **On an API key it prints no rows**, so the section and the module stay hidden.
+- **It runs when a session starts, after each turn, and when the plan reports**, and the reset is
+  counted to the moment it runs. A change to the config takes effect in the next session.
 @@@ page: remote
 ---
 title: "luxe on your phone"
@@ -4003,10 +4349,9 @@ In a session, the app can:
 - Comment on a review chapter: pick a line, or a run of lines, and tap **Comment**, or tap
   **Comment on the chapter** with nothing picked. Make it a question if you want an answer rather
   than a fix, then **Save** it to send later or **Send** it now. Each comment shows under what it's
-  about with the agent's replies, and can be replied to, resolved, or, unsent, sent or deleted.
-  The guide counts what's unsent and sends it all. Comments made in the interface show up too.
-  Editing a comment, re-anchoring one the code moved away from, and commenting on a removed line
-  are the interface's.
+  about with the agent's replies, and can be replied to, resolved, or, not yet sent, sent or
+  deleted. The guide counts what's not sent and sends it all. Comments made in the interface show
+  up too. Editing a comment and commenting on a removed line are the interface's.
 
 The interface says which device joined, "iPhone joined this session", and which one answered a
 prompt, "Approved from iPhone". A session with [`joinable`](configuration.md#joining-a-session) set
@@ -4286,11 +4631,12 @@ These go through your own `gh`, as the interface's `/github` and `/pr` do. `repo
 | `search_github` | `{"request": 7, "section": {…}, "after": "<cursor>"}` | One search on its own, or its next page; answered by `github_searched` with your `request` |
 | `read_github_overview` | `{"repository": "acme/app", "number": 142, "pull_request": true}` | A pull request's or issue's status; answered by `github_overview_read` |
 | `read_github_conversation` | `{"number": 142, "pull_request": true}` | Everything said on it; answered by `github_conversation_read` |
-| `draft_github_reply` | `{"request_id": "…", "number": 142, "pull_request": true, "target": {…}, "conversation": […]}` | The agent drafts a reply in a turn that changes nothing; answered by `github_reply_drafted`. `target` and `conversation` are what `github_conversation_read` gave you. |
+| `draft_github_reply` | `{"request_id": "…", "number": 142, "pull_request": true, "target": {…}, "conversation": […]}` | The agent drafts a reply in a turn that changes nothing; answered by `github_reply_drafted`. `target` and `conversation` are what `github_conversation_read` gave you. For a pull request not opened yet, `target` is `{"kind": "pull_request", "base", "head", "closes", "guide"}` with `number` 0; the draft's first line is the title and the rest the description. |
 | `check_pull_request_fix` | `{"number": 142}` | Whether it can be checked out here to fix; answered by `pull_request_fix_checked` |
 | `plan_restack` | `{"request_id": "restack:…"}` | What restacking this branch's stack would do; answered by `restack_planned`. luxe keeps the plan. |
 | `check_worktree_removal` | | What the session's worktree has not committed; answered by `worktree_removal_checked` |
 | `set_focus` | `{"focused": false}` | Whether your window has focus. luxe checks GitHub less often while it does not. |
+| `set_row_widths` | `{"dock": 40, "dock_label": 15, "statusline": 32}` | How many cells your client draws a custom dock row in, how many its label column takes, and how many a statusline module gets. Their programs get them as `COLUMNS`. Send it when your layout changes. |
 | `link_pull_request` | `{"number": 142, "url": "…"}` | Record that this session worked on that pull request |
 | `post_github_comment` | `{"number": 142, "thread": "PRRT_…", "body": "Fixed."}` | Post a reply in a thread, or a comment without `thread`; answered by `github_comment_posted`. **A GitHub write.** |
 | `change_pull_request` | `{"number": 142, "write": {"change": "mark_ready"}}` | `update_branch`, `mark_ready`, `merge`, `enable_auto_merge` or `disable_auto_merge`; answered by `pull_request_changed`. **A GitHub write.** |
@@ -4340,6 +4686,9 @@ There are around sixty. These are the ones a front end is built on:
 | `context_usage`, `context_composition` | How full the context window is, and with what |
 | `compaction_started`, `compaction_done`, `compaction_stopped` | A summary of the conversation is being written, on request or mid-turn. It can take a minute. It always ends in `compaction_done` (with `tokens_after`) or `compaction_stopped` (failed or cancelled). |
 | `workspace_updated` | The project, Git changes, todos and tools: what the dock shows |
+| `dock_section` | What a [custom dock section](interface.md#your-own-sections)'s program printed: `name`, `rows`, and `failure` when a run drew nothing new. On a failure, keep the last rows. |
+| `statusline_module` | The same for a [custom statusline module](appearance.md#your-own-modules). A client with a bar draws the first row. |
+| `custom_row_widths` | The widths a client last sent with `set_row_widths` |
 | `prompt_closed` | A prompt stopped waiting, answered here or by another client, or cancelled. Take it down by `id`. |
 | `session_loaded`, `sessions_refreshed` | A transcript was restored; the session list changed |
 | `notice`, `error` | Something to show. `error` ends the turn. |
@@ -4691,6 +5040,8 @@ Opening a repository should not run its code. So, without `--trust-project`:
 - Its `.luxe/hooks.json` is ignored.
 - Its `gate.commands` in `.luxe/config.json` are ignored with a warning. The loop uses your global
   commands instead; a project list needs `--trust-project`.
+- Its custom dock sections and statusline modules, `dock.custom` and `statusline.custom` in
+  `.luxe/config.json`, are ignored with a warning.
 - Its `.luxe/permissions.json` can only tighten your rules.
 - Its MCP servers, language servers and formatters start only in an interactive session; see
   [Tools](tools.md#a-server-the-project-installed).
@@ -5085,7 +5436,7 @@ on the network. `bash` defaults to 30 seconds and `test` to 300, and the agent c
 up to an hour. `question` waits for you as long as it takes. `LUXE_TOOL_TIMEOUT_SECS` replaces the
 120- and 60-second limits; `bash` and `test` keep their own.
 
-`ctrl+esc` stops the whole batch of calls, not just the one running. A call that never started is
+`esc` stops the whole batch of calls, not just the one running. A call that never started is
 reported as having had no effect; one stopped partway says so, since it may have done half its work.
 
 A command that starts something and leaves it running, such as a dev server, returns when the

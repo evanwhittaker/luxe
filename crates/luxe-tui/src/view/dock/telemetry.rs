@@ -1,7 +1,7 @@
 //! Dock telemetry — the bottom-pinned footer: model and session telemetry, and the live activity.
 
 use super::chrome::{section_heading_line, Section};
-use super::row_width;
+use super::runtime::{custom_blocks, runtime_blocks};
 use crate::app::App;
 use crate::glyphs::{icon_cells, icon_label, Icon};
 use crate::statusline::{compact_number, thinking_label};
@@ -23,12 +23,15 @@ pub(super) fn footer_lines(
     let mut blocks: Vec<Vec<Line<'static>>> = Vec::new();
 
     let mut telemetry_block = None;
-    if show_telemetry {
-        let telemetry = telemetry_lines(app);
-        if !telemetry.is_empty() {
-            telemetry_block = Some(blocks.len());
-            blocks.push(telemetry);
-        }
+    let mut model_start = None;
+    let telemetry = match show_telemetry {
+        true => runtime_blocks(app),
+        false => custom_blocks(app),
+    };
+    if !telemetry.lines.is_empty() {
+        telemetry_block = Some(blocks.len());
+        model_start = telemetry.model_start;
+        blocks.push(telemetry.lines);
     }
 
     if let Some(activity) = activity_line(app, presentation) {
@@ -60,11 +63,14 @@ pub(super) fn footer_lines(
     if lines.len() == 1 {
         lines.clear();
     }
-    let rows = telemetry_start.map(clickable_rows).unwrap_or_default();
+    let rows = telemetry_start
+        .zip(model_start)
+        .map(|(telemetry, model)| clickable_rows(telemetry + model))
+        .unwrap_or_default();
     (lines, rows)
 }
 
-/// The telemetry rows a click lands on, for a block starting at line `start`. The provider and the
+/// The telemetry rows a click lands on, for a MODEL block starting at line `start`. The provider and the
 /// model rows are separate targets, so each lights up alone and opens its own step of the picker.
 fn clickable_rows(start: usize) -> Vec<(usize, crate::mouse::MouseTarget)> {
     use crate::model_picker::PickerStart;
@@ -75,7 +81,7 @@ fn clickable_rows(start: usize) -> Vec<(usize, crate::mouse::MouseTarget)> {
     ]
 }
 
-/// Where the provider, model and mode rows sit in [`telemetry_lines`], under its heading.
+/// Where the provider, model and mode rows sit in the MODEL block, under its heading.
 const PROVIDER_ROW: usize = 1;
 const MODEL_ROW: usize = 2;
 const MODE_ROW: usize = 4;
@@ -176,28 +182,14 @@ pub(super) fn token_value(totals: &luxe_core::usage::UsageTotals, room: usize) -
     }
 }
 
-/// The bottom-pinned runtime blocks: MODEL and SESSION.
-///
-/// Two sections, because they answer two questions. MODEL is *identity and setting* — what is
-/// answering, and how hard it is thinking. SESSION is *consumption* — how full the window is, how
-/// many tokens went through it, what that cost. The window leads SESSION because it is the only row
-/// with a deadline attached: the rest is a receipt, and this is the one about to make something
-/// happen. What keeps it from reading as more accounting is its color, which is the datum.
-///
-/// Every metric row is the same shape: a label naming it, then a value that leads with its own
-/// mark. The MODEL block is always here — a session with nothing chosen is a state worth reporting,
-/// and its row is the pointer's way into the picker; SESSION waits for a turn to measure, so an
-/// idle, pre-turn dock stays short.
+/// The runtime blocks' lines alone, for tests that read the rows rather than where they land.
+#[cfg(test)]
 pub(super) fn telemetry_lines(app: &App) -> Vec<Line<'static>> {
-    let row = row_width(app);
-    let column = telemetry_label_width(row, WIDEST_TELEMETRY_LABEL);
-    let mut lines = model_telemetry(app, row, column);
-    lines.extend(session_telemetry(app, row, column));
-    lines
+    super::runtime::runtime_blocks(app).lines
 }
 
 /// The MODEL block: who serves it, the model, its thinking level, the mode, and auto-approval.
-fn model_telemetry(app: &App, row: usize, column: usize) -> Vec<Line<'static>> {
+pub(super) fn model_telemetry(app: &App, row: usize, column: usize) -> Vec<Line<'static>> {
     let styles = &app.theme_styles;
     let status = &app.status;
     let mut lines = vec![
@@ -226,19 +218,20 @@ fn model_telemetry(app: &App, row: usize, column: usize) -> Vec<Line<'static>> {
         app,
         &crate::mouse::MouseTarget::DockModeRow,
     ));
-    // The rail carries this only because it is here that the bar is not: telemetry is relocated
-    // when the statusline is hidden, and a session approving its own escalations must not be able
-    // to hide that by the reader turning a bar off. Drawn only while it is on, like the bar's.
-    if app.permission_auto_approve {
-        lines.push(telemetry_row(
-            "approvals",
-            icon_label(Icon::Permission.glyph(), "auto-approve"),
-            styles.warning,
-            column,
-            app,
-        ));
-    }
+    lines.extend(approvals_row(app, column));
     lines
+}
+
+/// Auto-approval, while it is on.
+///
+/// The rail carries this only because it is here that the bar is not: telemetry is relocated when
+/// the statusline is hidden, and a session approving its own escalations must not be able to hide
+/// that by the reader turning a bar off. Drawn only while it is on, like the bar's.
+pub(super) fn approvals_row(app: &App, column: usize) -> Option<Line<'static>> {
+    app.permission_auto_approve.then(|| {
+        let label = icon_label(Icon::Permission.glyph(), "auto-approve");
+        telemetry_row("approvals", label, app.theme_styles.warning, column, app)
+    })
 }
 
 /// The model, wearing its maker's mark.
@@ -286,7 +279,7 @@ fn provider_row(app: &App, row: usize, column: usize) -> Line<'static> {
 
 /// The SESSION block, once a turn has something to measure or someone has joined: the window,
 /// tokens, cost, what the review and compaction spent of it, and who's joined.
-fn session_telemetry(app: &App, row: usize, column: usize) -> Vec<Line<'static>> {
+pub(super) fn session_telemetry(app: &App, row: usize, column: usize) -> Vec<Line<'static>> {
     let styles = &app.theme_styles;
     let status = &app.status;
     let mut lines: Vec<Line<'static>> = Vec::new();
@@ -297,7 +290,6 @@ fn session_telemetry(app: &App, row: usize, column: usize) -> Vec<Line<'static>>
     if !(status.context_window > 0 || has_tokens || cost.is_some() || joined.is_some()) {
         return lines;
     }
-    lines.push(Line::default());
     lines.push(section_heading_line(Section::Session, app));
     if status.context_window > 0 {
         // The one row whose value is also a warning, so it takes the severity hue rather than
@@ -386,7 +378,7 @@ fn review_spending(app: &App) -> bool {
 ///
 /// `ink` is body text for a measurement, dim for a share of one above it, and the severity hue for
 /// the window, which is the one value that is also a warning.
-fn telemetry_row(
+pub(super) fn telemetry_row(
     label: &str,
     value: String,
     ink: ratatui::style::Style,

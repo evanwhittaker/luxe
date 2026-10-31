@@ -190,10 +190,10 @@ impl TreeGuard {
     pub fn disarm(&mut self) {
         self.pid = None;
     }
-}
 
-impl Drop for TreeGuard {
-    fn drop(&mut self) {
+    /// Kills the tree now and disarms. After the program exits, this is safe only until it is
+    /// reaped, which [`exited_unreaped`] leaves undone so the id can't be reused yet.
+    pub(crate) fn kill_now(&mut self) {
         let Some(pid) = self.pid.take() else { return };
         #[cfg(windows)]
         if let Some(job) = &self.job {
@@ -201,6 +201,51 @@ impl Drop for TreeGuard {
         }
         kill_tree(pid);
     }
+}
+
+impl Drop for TreeGuard {
+    fn drop(&mut self) {
+        self.kill_now();
+    }
+}
+
+/// How often [`exited_unreaped`] looks on unix, where there is no exit notice that leaves the
+/// program unreaped. A syscall per look, so cheap, and short beside any timeout.
+#[cfg(unix)]
+const EXIT_POLL: std::time::Duration = std::time::Duration::from_millis(20);
+
+/// Returns once `child` has exited, without reaping it, so its id and its tree's stay its own
+/// until the caller's `wait` and a [`TreeGuard`] can still reach what it left behind.
+///
+/// On unix that means `waitid` with `WNOWAIT`: a zombie keeps its pid and so its process group's
+/// id. If it can't tell, as when something else already reaped the child, this never returns and
+/// the caller's deadline decides, because killing by an id that may be reused is worse than
+/// waiting. On Windows an ordinary wait is safe: the child's open handle keeps its id taken.
+#[cfg(unix)]
+pub(crate) async fn exited_unreaped(child: &mut tokio::process::Child) {
+    use rustix::process::{waitid, Pid, WaitId, WaitIdOptions};
+    let pid = child.id().and_then(|pid| i32::try_from(pid).ok()).and_then(Pid::from_raw);
+    let Some(pid) = pid else { return std::future::pending().await };
+    let options = WaitIdOptions::EXITED | WaitIdOptions::NOWAIT | WaitIdOptions::NOHANG;
+    loop {
+        match waitid(WaitId::Pid(pid), options) {
+            Ok(Some(_)) => return,
+            Ok(None) => tokio::time::sleep(EXIT_POLL).await,
+            Err(_) => return std::future::pending().await,
+        }
+    }
+}
+
+/// [`exited_unreaped`] on Windows, where the child's open handle keeps its id taken.
+#[cfg(windows)]
+pub(crate) async fn exited_unreaped(child: &mut tokio::process::Child) {
+    let _ = child.wait().await;
+}
+
+/// [`exited_unreaped`] where there is no safe way to tell: the caller's deadline decides.
+#[cfg(not(any(unix, windows)))]
+pub(crate) async fn exited_unreaped(_child: &mut tokio::process::Child) {
+    std::future::pending().await
 }
 
 /// Takes stdin for the caller alone, and gives every process luxe starts the null device instead.

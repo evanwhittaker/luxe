@@ -37,10 +37,9 @@ fn finding_state_rank(finding: &ReviewFinding) -> u8 {
     match (finding.state, finding.severity) {
         (FindingState::Open, FindingSeverity::Blocking) => 0,
         (FindingState::Open, _) => 1,
-        (FindingState::NeedsVerification, _) => 2,
-        (FindingState::Draft, _) => 3,
-        (FindingState::Resolved, _) => 4,
-        (FindingState::Stale, _) => 5,
+        (FindingState::Draft, _) => 2,
+        (FindingState::Resolved, _) => 3,
+        (FindingState::Stale, _) => 4,
     }
 }
 

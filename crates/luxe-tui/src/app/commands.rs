@@ -20,6 +20,7 @@ mod menu;
 mod review;
 mod slash;
 
+pub(in crate::app) use cancel::esc_yields_to_composer;
 pub(in crate::app) use github::{
     act_on_pull_request, composing_detail, confirm_change, draft_reply, edit_draft_externally,
     open_pull_request_card, post_comment, read_conversation, read_overview,
@@ -441,7 +442,6 @@ pub(super) fn dispatch_action(app: &mut App, action: UiAction) -> bool {
         | UiAction::ReviewAddFinding
         | UiAction::ReviewEditFinding
         | UiAction::ReviewDeleteFinding
-        | UiAction::ReviewReanchorFinding
         | UiAction::ReviewFindings
         | UiAction::ReviewResolveFinding
         | UiAction::ReviewToggleNoise

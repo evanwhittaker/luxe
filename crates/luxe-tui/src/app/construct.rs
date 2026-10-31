@@ -38,8 +38,7 @@ impl App {
         environment: fn(&Config) -> AppEnvironment,
     ) -> Self {
         let AppEnvironment { themes, image_tier, cell_size, notifier } = environment(&config);
-        let mut startup_notices = theme_notices(&config, &themes);
-        startup_notices.extend(mention_notices(&config));
+        let startup_notices = [theme_notices(&config, &themes), mention_notices(&config)].concat();
         let theme_name = config.resolved_theme_name(&themes);
         let resolved = config.resolved_theme(&themes);
         let theme_styles = ThemeStyles::from_resolved(&resolved, &theme_name);
@@ -75,6 +74,7 @@ impl App {
             hit: std::cell::RefCell::default(),
             panes: crate::workspace_layout::PaneLayout::default(),
             dock_rail: std::cell::Cell::new(crate::workspace_layout::CONTEXT_DOCK_WIDTH),
+            reported_row_widths: None,
             dock_scroll_max: std::cell::Cell::new(0),
             dock_lists: std::cell::Cell::new([DockListMetrics::default(); 3]),
             dock,

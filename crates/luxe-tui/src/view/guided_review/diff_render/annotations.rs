@@ -8,22 +8,12 @@ use ratatui::text::{Line, Span};
 /// Rows one comment may spend on its body before it is clipped.
 const MAX_COMMENT_BODY_ROWS: usize = 3;
 
-/// Whether a line anchor points at this exact source line.
-pub(in crate::view::guided_review) fn line_anchor_matches(
-    anchor: &luxe_core::guided_review::FindingAnchor,
-    file_id: &luxe_core::guided_review::FileId,
-    line: &luxe_core::guided_review::ReviewLine,
-) -> bool {
-    use luxe_core::guided_review::{DiffSide, FindingAnchor};
-    let FindingAnchor::Line { file_id: anchor_file, side, line: anchor_line, .. } = anchor else {
-        return false;
-    };
-    anchor_file == file_id
-        && match side {
-            DiffSide::Old => line.old_line == Some(*anchor_line),
-            DiffSide::New => line.new_line == Some(*anchor_line),
-        }
-}
+/// Rows the comment under the cursor may spend on its words, and again on the answer, before the
+/// feedback window has to take over. Enough for a full answer to a question, short of one that
+/// would push the line it is about off the screen.
+const OPEN_COMMENT_ROWS: usize = 24;
+
+pub(in crate::view::guided_review) use crate::guided_review::line_anchor_matches;
 
 /// The comments whose anchor `matches`.
 pub(super) fn findings_at(
@@ -39,11 +29,14 @@ pub(super) fn findings_at(
 /// One comment as rows under the line it is anchored to.
 ///
 /// The whole point of rendering it here: under the code it is about, reading your own words needs
-/// neither a drawer over the far corner nor an overlay on top of that.
+/// neither a drawer over the far corner nor an overlay on top of that. The cards on the cursor's
+/// line are `open`: they show the whole answer and the keys that act on them, where the rest stay
+/// a few rows each so the code between them keeps its place.
 pub(in crate::view::guided_review) fn comment_lines(
     app: &App,
     findings: &[luxe_core::guided_review::ReviewFinding],
     width: usize,
+    open: bool,
 ) -> Vec<Line<'static>> {
     let styles = &app.theme_styles;
     let mut lines = Vec::new();
@@ -60,8 +53,11 @@ pub(in crate::view::guided_review) fn comment_lines(
         }
         title.push(Span::styled(state, state_style));
         let inner = card_inner_width(width);
-        let mut body = comment_body_rows(app, finding, inner);
-        body.extend(comment_reply_rows(app, finding, inner));
+        let mut body = comment_body_rows(app, finding, inner, open);
+        body.extend(comment_reply_rows(app, finding, inner, open));
+        if open {
+            body.extend(comment_key_row(app, finding));
+        }
         let fill = if question { styles.card_info_bg } else { styles.card_error_bg };
         lines.extend(card_lines(tone, fill, title, body, width));
     }
@@ -94,7 +90,7 @@ fn comment_state_label(
             ),
             styles.warning,
         ),
-        FindingState::Draft => ("unsent".to_owned(), styles.warning),
+        FindingState::Draft => ("not sent".to_owned(), styles.warning),
         // Spun here, on the card the reader just wrote, rather than only in the dock across
         // the screen
         FindingState::Open if being_worked(app, &finding.id) => {
@@ -131,7 +127,7 @@ fn comment_state_label(
                 styles.warning,
             )
         }
-        // Not fixed, or a question back for the reader: the agent has had its say
+        // Fixed, not fixed, or a question back for the reader: the agent has had its say
         FindingState::Open
             if !app.review.session().is_some_and(|session| {
                 super::super::context::with_the_agent(session, &finding.id)
@@ -148,11 +144,8 @@ fn comment_state_label(
             )
         }
         FindingState::Open => ("sent \u{00b7} waiting on the agent".to_owned(), styles.dim),
-        FindingState::NeedsVerification => {
-            ("to verify \u{00b7} alt+c shows what the agent changed".to_owned(), styles.info)
-        }
-        FindingState::Resolved => ("verified".to_owned(), styles.success),
-        FindingState::Stale => ("the code moved \u{00b7} alt+r re-anchors".to_owned(), styles.dim),
+        FindingState::Resolved => ("resolved".to_owned(), styles.success),
+        FindingState::Stale => ("outdated".to_owned(), styles.dim),
     }
 }
 
@@ -161,46 +154,93 @@ fn comment_body_rows(
     app: &App,
     finding: &luxe_core::guided_review::ReviewFinding,
     inner: usize,
+    open: bool,
 ) -> Vec<Line<'static>> {
-    crate::widgets::wrap_line(
-        &Line::from(Span::styled(finding.body.clone(), app.theme_styles.text)),
-        inner,
-    )
-    .into_iter()
-    .take(MAX_COMMENT_BODY_ROWS)
-    .collect()
+    let words = Line::from(Span::styled(finding.body.clone(), app.theme_styles.text));
+    capped_rows(app, crate::widgets::wrap_line(&words, inner), open)
 }
 
-/// The last word that was not the reader's, under the comment.
+/// The last word that was not the reader's, under the comment: the answer to a question belongs
+/// beside the question, not behind two overlays, and so does luxe saying the agent left none.
 fn comment_reply_rows(
     app: &App,
     finding: &luxe_core::guided_review::ReviewFinding,
     inner: usize,
+    open: bool,
 ) -> Vec<Line<'static>> {
+    use luxe_core::guided_review::FindingMessageAuthor;
     let styles = &app.theme_styles;
-    let mut rows = Vec::new();
-    // The last word that was not the reader's: the answer to a question belongs beside the
-    // question, not behind two overlays, and so does luxe saying the agent left none
-    if let Some(reply) =
-        finding.thread.iter().rev().find(|message| {
-            message.author != luxe_core::guided_review::FindingMessageAuthor::Reviewer
-        })
-    {
-        let said = first_paragraph(&reply.body, styles);
-        let who = match reply.author {
-            luxe_core::guided_review::FindingMessageAuthor::System => "luxe",
-            _ => "agent",
-        };
-        rows.extend(
-            crate::widgets::wrap_line(
-                &Line::from(Span::styled(format!("{who}: {said}"), styles.muted)),
-                inner,
-            )
-            .into_iter()
-            .take(MAX_COMMENT_BODY_ROWS),
-        );
+    let reply = finding
+        .thread
+        .iter()
+        .rev()
+        .find(|message| message.author != FindingMessageAuthor::Reviewer);
+    let Some(reply) = reply else { return Vec::new() };
+    let who = match reply.author {
+        FindingMessageAuthor::System => "luxe",
+        _ => "agent",
+    };
+    if open {
+        let mut rows = vec![Line::from(Span::styled(format!("{who}:"), styles.muted))];
+        rows.extend(whole_reply_rows(&reply.body, styles, inner));
+        return capped_rows(app, rows, open);
     }
+    let said = first_paragraph(&reply.body, styles);
+    let opening = Line::from(Span::styled(format!("{who}: {said}"), styles.muted));
+    capped_rows(app, crate::widgets::wrap_line(&opening, inner), open)
+}
+
+/// A reply rendered whole, as the feedback window shows it, wrapped to the card.
+fn whole_reply_rows(
+    reply: &str,
+    styles: &crate::theme::styles::ThemeStyles,
+    inner: usize,
+) -> Vec<Line<'static>> {
+    let blank = |line: &Line| line.spans.iter().all(|span| span.content.trim().is_empty());
+    let mut rendered = crate::markdown::render_markdown(reply, styles);
+    while rendered.last().is_some_and(blank) {
+        rendered.pop();
+    }
+    let start = rendered.iter().position(|line| !blank(line)).unwrap_or(rendered.len());
+    rendered[start..].iter().flat_map(|line| crate::widgets::wrap_line(line, inner)).collect()
+}
+
+/// `rows` cut to what a card may show, saying how many more there are and where to read them.
+fn capped_rows(app: &App, mut rows: Vec<Line<'static>>, open: bool) -> Vec<Line<'static>> {
+    let cap = if open { OPEN_COMMENT_ROWS } else { MAX_COMMENT_BODY_ROWS };
+    let Some(hidden) = rows.len().checked_sub(cap).filter(|hidden| *hidden > 0) else {
+        return rows;
+    };
+    rows.truncate(cap);
+    let rest = match open {
+        true => format!(
+            "{} reads the rest",
+            chord(app, luxe_core::keymap::UiAction::ReviewFindings, "alt+c")
+        ),
+        false => "move to this line to read them".to_owned(),
+    };
+    let noun = if hidden == 1 { "line" } else { "lines" };
+    let note = format!("+{hidden} more {noun} \u{b7} {rest}");
+    rows.push(Line::from(Span::styled(note, app.theme_styles.dim)));
     rows
+}
+
+/// The keys that act on the comment under the cursor, for an unsent one: every other state names
+/// its next step in the card's title already.
+fn comment_key_row(
+    app: &App,
+    finding: &luxe_core::guided_review::ReviewFinding,
+) -> Option<Line<'static>> {
+    use luxe_core::keymap::UiAction;
+    if finding.state != luxe_core::guided_review::FindingState::Draft || finding.posted.is_some() {
+        return None;
+    }
+    let keys = format!(
+        "{} edit \u{b7} {} delete \u{b7} right-click for more",
+        chord(app, UiAction::ReviewEditFinding, "e"),
+        chord(app, UiAction::ReviewDeleteFinding, "x"),
+    );
+    Some(Line::from(Span::styled(keys, app.theme_styles.dim)))
 }
 
 /// Whether a submission carrying `finding` is with the agent right now.
@@ -214,8 +254,8 @@ fn being_worked(app: &App, finding: &luxe_core::guided_review::FindingId) -> boo
     })
 }
 
-/// The opening paragraph of a reply, as it reads rendered: the card has three rows for it, and
-/// markup shown raw spends them on asterisks and fences. The feedback window has the rest.
+/// The opening paragraph of a reply, as it reads rendered: a closed card has three rows for it,
+/// and markup shown raw spends them on asterisks and fences. The open card has the rest.
 pub(super) fn first_paragraph(reply: &str, styles: &crate::theme::styles::ThemeStyles) -> String {
     let text =
         |line: &Line| line.spans.iter().map(|span| span.content.as_ref()).collect::<String>();

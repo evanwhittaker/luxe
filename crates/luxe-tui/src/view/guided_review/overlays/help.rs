@@ -13,6 +13,37 @@ use ratatui::Frame;
 /// Panel label, shared by the rendered title and the popup-width computation.
 const HELP_TITLE: &str = "Help · Guided Review";
 
+/// The help card's Feedback group. A pull request's comments go to GitHub, so it says so and
+/// offers no send to the agent.
+fn feedback_rows(app: &App, pull_request: bool) -> Vec<(String, String)> {
+    use luxe_core::keymap::UiAction;
+    let chord = |action, fallback| super::super::chord(app, action, fallback);
+    let row = |keys: &str, words: &str| (keys.to_owned(), words.to_owned());
+    let (comment, ask, all) = if pull_request {
+        ("comment, posted with the review", "ask the agent, which stays here", "reply, resolve")
+    } else {
+        (
+            "comment, for the agent to act on",
+            "ask; the agent answers, never edits",
+            "send, reply, resolve",
+        )
+    };
+    let mut feedback = vec![
+        row("c", comment),
+        row("a", ask),
+        (chord(UiAction::ReviewFindings, "alt+c"), format!("all comments: {all}")),
+        row("e  x", "edit, delete a draft"),
+        row("r", "resolve or reopen"),
+    ];
+    if pull_request {
+        feedback.push(row("o", "open on GitHub"));
+    } else {
+        feedback
+            .insert(2, (chord(UiAction::ReviewSend, "alt+u"), "send comments to the agent".into()));
+    }
+    feedback
+}
+
 /// The review's key card, drawn by the same renderer as the chat's.
 pub(in crate::view::guided_review) fn render_help(frame: &mut Frame, area: Rect, app: &App) {
     crate::keys_card::render(
@@ -44,38 +75,7 @@ fn help_groups(app: &App) -> Vec<HelpGroup> {
     // A pull request's comments go to GitHub, so its review finishes there rather than with the
     // agent
     let pull_request = crate::app::github_post_is_pull_request(app);
-    let mut feedback = vec![
-        row(
-            "c",
-            if pull_request {
-                "comment, posted with the review"
-            } else {
-                "comment, for the agent to act on"
-            },
-        ),
-        row(
-            "a",
-            if pull_request {
-                "ask the agent, which stays here"
-            } else {
-                "ask; the agent answers, never edits"
-            },
-        ),
-        (
-            chord(UiAction::ReviewFindings, "alt+c"),
-            if pull_request {
-                "all comments: reply, verify".to_owned()
-            } else {
-                "all comments: send, reply, verify".to_owned()
-            },
-        ),
-        row("e  x", "edit, delete a draft"),
-        row("r", "resolve or verify"),
-        (chord(UiAction::ReviewReanchorFinding, "alt+r"), "re-anchor a stale comment".to_owned()),
-    ];
-    if pull_request {
-        feedback.push(row("o", "open on GitHub"));
-    }
+    let feedback = feedback_rows(app, pull_request);
     let mut read = vec![
         (chord(UiAction::ReviewToggleGuide, "g"), "show or hide the guide".to_owned()),
         row("z", "show or hide the prose"),

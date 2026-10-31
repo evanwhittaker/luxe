@@ -5,7 +5,9 @@
 //! comment is often long and often markdown, especially one an agent or a reviewer on GitHub
 //! wrote, so the list keeps to a line a comment and the pane beside it draws the whole thing.
 
-use super::overlays::{anchor_summary, finding_state_glyph, finding_state_label, overlay_block};
+use super::overlays::{
+    anchor_summary, finding_row_note, finding_state_glyph, finding_state_sentence, overlay_block,
+};
 use crate::app::App;
 use crate::glyphs::Icon;
 use crate::guided_review::diff::clip_terminal_cells_ellipsis;
@@ -168,19 +170,22 @@ pub(super) fn render_feedback_window(
 
     let room = render_preview(frame, app, preview, preview_rows, preview_area);
 
-    let scrolls = if room > 0 { " · pgup/pgdn scroll" } else { "" };
-    let hint = match mode {
-        FeedbackMode::Manage => {
-            // The preview it opens lists what goes, so the hint needs no count to disagree with
-            // the guide's, which leaves out what the agent already has
-            let sends = if crate::app::window_sends(app).is_some() { " · u send" } else { "" };
-            format!(" {}{sends}{scrolls} · esc close ", manage_keys(app))
-        }
-        FeedbackMode::Send(_) => {
-            format!(" enter send · space include · ↑/↓ choose{scrolls} · esc cancel ")
-        }
-    };
+    let hint = footer_hint(app, &mode, room > 0);
     crate::widgets::render_footed(frame, block, popup, &hint, None, styles);
+}
+
+/// The window's keys, with paging when the comment overflows its pane.
+fn footer_hint(app: &App, mode: &FeedbackMode<'_>, scrollable: bool) -> String {
+    let scrolls = if scrollable { " · pgup/pgdn scroll" } else { "" };
+    if let FeedbackMode::Send(_) = mode {
+        return format!(" enter send · space include · ↑/↓ choose{scrolls} · esc cancel ");
+    }
+    // The preview it opens lists what goes, so the hint needs no count to disagree with the
+    // guide's, which leaves out what the agent already has
+    let sends = crate::app::window_send_hint(app).map(|hint| format!(" · {hint}"));
+    // Scrolling first: a narrow footer drops keys from its end, and reading the comment on
+    // screen outranks a key that help (`?`) lists too
+    format!(" {}{scrolls}{} · esc close ", manage_keys(app), sends.unwrap_or_default())
 }
 
 /// The comments the window lists, and which of them is under the cursor.
@@ -219,7 +224,7 @@ fn list_row(
 ) -> Line<'static> {
     let styles = &app.theme_styles;
     let (mark, state, dim) = match mode {
-        FeedbackMode::Manage => (finding_state_glyph(finding), finding_state_label(finding), false),
+        FeedbackMode::Manage => (finding_state_glyph(finding), finding_row_note(finding), false),
         FeedbackMode::Send(send) => {
             let excluded = send.excluded.contains(&finding.id);
             let mark = if excluded { "○" } else { crate::glyphs::Mark::Yes.glyph() };
@@ -259,8 +264,10 @@ fn preview_lines(app: &App, finding: &ReviewFinding) -> Vec<Line<'static>> {
         _ if finding.github_thread.is_some() => "Reviewer comment",
         _ => "Comment",
     };
-    let head = Span::styled(format!("{kind} · {}", finding_state_label(finding)), styles.accent);
-    let mut lines = vec![Line::from(head)];
+    let mut lines = vec![Line::from(Span::styled(kind, styles.accent))];
+    if let Some(sentence) = finding_state_sentence(finding) {
+        lines.push(Line::from(Span::styled(sentence, styles.text)));
+    }
     let mut place = anchor_summary(app, &finding.anchor);
     if let Some(thread) = finding.github_thread.as_ref() {
         let author = if thread.author.is_empty() { "a deleted account" } else { &thread.author };
@@ -326,12 +333,10 @@ fn manage_comment_keys(
     match selected {
         Some((FindingState::Draft, true)) => "enter go to it · o open on GitHub",
         Some((FindingState::Draft, false)) => "enter go to it · e edit · x delete",
-        Some((FindingState::Stale, _)) => "enter go to it · alt+r re-anchor and verify",
+        Some((FindingState::Stale, _)) => "enter go to it · v what changed · r resolve",
         Some((FindingState::Resolved, _)) => "enter go to it · r reopen · c reply",
-        Some((FindingState::Open, _)) => "enter go to it · r resolve · c reply",
-        Some((FindingState::NeedsVerification, _)) => {
-            "enter go to it · v what changed · r verify · c reply"
-        }
+        // `v` is how a reported fix gets checked: the code where the comment was, then and now
+        Some((FindingState::Open, _)) => "enter go to it · v what changed · r resolve · c reply",
         None => "↑/↓ choose",
     }
 }

@@ -38,8 +38,13 @@ impl App {
 
 pub(super) fn reduce(app: &mut App, msg: Msg) {
     match msg {
-        Msg::GuidedReviewSelectDiffRow(row) => {
-            app.with_review(|workspace, review| workspace.select_diff_row(review, row));
+        // A click puts the cursor where the reader pointed, on a screen that stays put
+        Msg::GuidedReviewSelectDiffRow(row) => app.with_review(|workspace, review| {
+            workspace.select_diff_row(review, row);
+            workspace.keep_diff_window();
+        }),
+        Msg::GuidedReviewWheel { forward } => {
+            app.with_review(|workspace, review| workspace.wheel_lines(review, 1, forward));
         }
         Msg::GuidedReviewSelectFile(file_id) => {
             app.with_review(|workspace, review| workspace.select_file_by_id(review, &file_id));

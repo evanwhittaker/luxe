@@ -24,6 +24,7 @@ mod commands;
 mod configuration;
 mod construct;
 mod conversation;
+pub(crate) mod custom_dock;
 mod engine_send;
 mod environment;
 mod events;
@@ -42,7 +43,7 @@ pub(crate) use messages::github_post::{
 };
 pub(crate) use messages::pull_request_opening::offered as pull_request_opening_offered;
 pub(crate) use messages::review::reply_asks_for_fix;
-pub(crate) use messages::review::window_sends;
+pub(crate) use messages::review::window_send_hint;
 pub(crate) use messages::review_draft::summary as review_draft_summary;
 pub(crate) use messages::thread_answers::is_own_pull_request;
 mod msg;
@@ -235,6 +236,8 @@ pub struct App {
     pub panes: crate::workspace_layout::PaneLayout,
     /// The Context Dock's width as this frame drew it, which the rows inside it are measured to
     pub(crate) dock_rail: std::cell::Cell<u16>,
+    /// The custom row widths the engine last took, so a frame that moves nothing sends nothing
+    pub(crate) reported_row_widths: Option<luxe_core::custom_dock::RowWidths>,
     /// Clipboard sink for writing copied text. Shared, not rebuilt per copy: on X11 the selection
     /// belongs to this instance and dies with it.
     pub clipboard_sink: std::sync::Arc<dyn crate::clipboard::ClipboardSink>,
@@ -381,6 +384,13 @@ impl App {
     /// is echoed and sent to the engine as a user message. Shift+Enter inserts a newline.
     fn handle_key(&mut self, key: crossterm::event::KeyEvent) {
         input::handle_key(self, key);
+        // The start screen's flyouts edit the prompt through the app, so its list catches up
+        if self.current_view != ViewMode::Dashboard {
+            return;
+        }
+        if let Some(dashboard) = self.dashboard.as_mut() {
+            dashboard.sync(&self.editor);
+        }
     }
 
     fn submit_prompt(&mut self) {

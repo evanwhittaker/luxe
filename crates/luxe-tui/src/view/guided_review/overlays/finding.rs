@@ -32,12 +32,9 @@ pub(in crate::view::guided_review) fn render_finding_details(
     }
     let footer = match finding.state {
         luxe_core::guided_review::FindingState::Draft => " e edit · x delete · esc close ",
-        luxe_core::guided_review::FindingState::Stale => " alt+r re-anchor and verify · esc close ",
         luxe_core::guided_review::FindingState::Resolved => " r reopen · esc close ",
-        luxe_core::guided_review::FindingState::Open => " r resolve · esc close ",
-        luxe_core::guided_review::FindingState::NeedsVerification => {
-            " r verify and resolve · esc close "
-        }
+        luxe_core::guided_review::FindingState::Open
+        | luxe_core::guided_review::FindingState::Stale => " r resolve · esc close ",
     };
     let block = overlay_block(app, Icon::Evidence.glyph(), "The exchange");
     frame.render_widget(Clear, popup);
@@ -129,7 +126,7 @@ fn finding_thread_rows(
     let mut lines = vec![
         Line::from(""),
         Line::from(Span::styled(
-            "Thread — an agent report is a claim; reviewer verification required",
+            "Thread — an agent report is a claim; check the code before resolving",
             app.theme_styles.muted,
         )),
     ];
@@ -162,15 +159,58 @@ pub(in crate::view::guided_review) fn finding_state_glyph(
 ) -> &'static str {
     use luxe_core::guided_review::{FindingSeverity, FindingState};
 
+    // `?` is a question and nothing else
     match finding.state {
         FindingState::Resolved => crate::glyphs::Mark::Yes.glyph(),
         FindingState::Stale => "~",
-        FindingState::NeedsVerification => "?",
         FindingState::Draft => "○",
         FindingState::Open => match finding.severity {
             FindingSeverity::Question => "?",
-            _ => "!",
+            _ => "•",
         },
+    }
+}
+
+/// The few words a feedback row says about where its comment stands, in GitHub's terms: not
+/// sent (GitHub's pending), outdated, or on GitHub. An open or resolved comment says nothing, and
+/// the comment shown in full explains its state either way.
+pub(in crate::view::guided_review) fn finding_row_note(
+    finding: &luxe_core::guided_review::ReviewFinding,
+) -> &'static str {
+    use luxe_core::guided_review::FindingState;
+    if finding.github_thread.as_ref().is_some_and(|thread| thread.resolved) {
+        return "resolved on GitHub";
+    }
+    match finding.state {
+        FindingState::Draft | FindingState::Open if finding.posted.is_some() => "on GitHub",
+        FindingState::Draft => "not sent",
+        FindingState::Stale => "outdated",
+        FindingState::Open | FindingState::Resolved => "",
+    }
+}
+
+/// What the comment's state means and what to do about it, in a sentence, for the comment the
+/// feedback window shows in full. A label like `outdated` names the state without saying what
+/// made it so or what would move it on. `None` for an open question, whose answer says it all.
+pub(in crate::view::guided_review) fn finding_state_sentence(
+    finding: &luxe_core::guided_review::ReviewFinding,
+) -> Option<&'static str> {
+    use luxe_core::guided_review::{FindingSeverity, FindingState};
+    if finding.github_thread.as_ref().is_some_and(|thread| thread.resolved) {
+        return Some("Resolved on GitHub.");
+    }
+    let question = finding.severity == FindingSeverity::Question;
+    let from_github = finding.github_thread.is_some();
+    match finding.state {
+        FindingState::Draft | FindingState::Open if finding.posted.is_some() => {
+            Some("Posted on GitHub with your review.")
+        }
+        FindingState::Draft => Some("Not sent yet. It waits until you send your comments."),
+        FindingState::Open if question => None,
+        FindingState::Open if from_github => Some("Open on GitHub."),
+        FindingState::Open => Some("Sent to the agent."),
+        FindingState::Resolved => Some("Resolved."),
+        FindingState::Stale => Some("Outdated: the line it was on has changed since."),
     }
 }
 
@@ -186,9 +226,8 @@ pub(in crate::view::guided_review) fn finding_state_label(
         FindingState::Draft | FindingState::Open if finding.posted.is_some() => "on GitHub",
         FindingState::Draft => "draft",
         FindingState::Open => "open",
-        FindingState::NeedsVerification => "to verify",
-        FindingState::Resolved => "verified",
-        FindingState::Stale => "stale",
+        FindingState::Resolved => "resolved",
+        FindingState::Stale => "outdated",
     }
 }
 

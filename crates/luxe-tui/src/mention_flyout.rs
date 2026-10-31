@@ -224,6 +224,15 @@ impl MentionFlyoutState {
         }
     }
 
+    /// Opens tab `index`, for a click on it, with what Tab would have answered on reaching it;
+    /// `None` for the tab already open or one that is not there.
+    pub fn open_tab(&mut self, index: usize) -> Option<MentionFlyoutOutcome> {
+        if index >= self.tabs.len() || index == self.open {
+            return None;
+        }
+        Some(self.switch(index + self.tabs.len() - self.open))
+    }
+
     /// Moves `step` tabs on, wrapping, and asks for the new tab's rows when it has none.
     fn switch(&mut self, step: usize) -> MentionFlyoutOutcome {
         self.open = (self.open + step) % self.tabs.len();

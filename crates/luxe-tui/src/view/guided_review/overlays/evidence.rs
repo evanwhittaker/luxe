@@ -10,8 +10,8 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 use ratatui::Frame;
 
-/// What changed at a comment's anchor since it was submitted, so `NeedsVerification` is checked
-/// against evidence rather than trust.
+/// What changed at a comment's anchor since it was submitted, so an agent's "fixed" is checked
+/// against evidence rather than trust before the comment is resolved.
 ///
 /// A model saying "fixed" is a claim. Without this the only way to test it was to refresh the whole
 /// review and hunt for the line by hand, which in practice meant pressing `r` and believing it.
@@ -96,7 +96,7 @@ pub(in crate::view::guided_review) fn render_finding_fix(frame: &mut Frame, area
         frame,
         block,
         popup,
-        "r verify and resolve · c reply · esc close",
+        "r resolve · c reply · esc close",
         None,
         &app.theme_styles,
     );

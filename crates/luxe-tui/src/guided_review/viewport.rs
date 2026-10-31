@@ -114,26 +114,38 @@ impl GuidedReviewWorkspace {
     /// Advances the visible source-row window by one row, stopping at the file's last row.
     pub(crate) fn next_line(&mut self, review: &GuidedReview) {
         self.scroll_lines(review, 1, true);
+        self.keep_diff_window();
     }
 
     /// Moves the visible source-row window up by one row, stopping at the file's first row.
     pub(crate) fn previous_line(&mut self, review: &GuidedReview) {
         self.scroll_lines(review, 1, false);
+        self.keep_diff_window();
     }
 
     /// Advances by the rendered diff viewport, stopping at the file's last row.
     pub(crate) fn next_page(&mut self, review: &GuidedReview) {
         self.scroll_lines(review, self.diff_viewport_rows, true);
+        self.keep_diff_window();
     }
 
     /// Moves back by the rendered diff viewport, stopping at the file's first row.
     pub(crate) fn previous_page(&mut self, review: &GuidedReview) {
         self.scroll_lines(review, self.diff_viewport_rows, false);
+        self.keep_diff_window();
     }
 
     /// Moves half the rendered diff viewport, as `Ctrl+D` and `Ctrl+U` do in vim.
     pub(crate) fn half_page(&mut self, review: &GuidedReview, forward: bool) {
         self.scroll_lines(review, (self.diff_viewport_rows / 2).max(1), forward);
+        self.keep_diff_window();
+    }
+
+    /// Scrolls the code `amount` rows under the wheel, the cursor riding along on its screen row.
+    pub(crate) fn wheel_lines(&mut self, review: &GuidedReview, amount: usize, forward: bool) {
+        let before = self.position.line_offset;
+        self.scroll_lines(review, amount, forward);
+        self.carry_diff_window(before);
     }
 
     /// Hides the guide pane, or brings it back.

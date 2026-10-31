@@ -10,7 +10,8 @@ fn review(chapters: Vec<ReviewChapter>, intent: Option<&str>) -> GuidedReview {
     GuidedReview {
         id: ReviewId::new(),
         revision_id: ReviewRevisionId::from_canonical_bytes(diff.as_bytes()),
-        target: ReviewTarget::Base { reference: "origin/main".into() },
+        // A commit's review, the one kind still drafted from the review: its title is the author's
+        target: ReviewTarget::Commit { oid: "c".repeat(40) },
         source: ReviewSource {
             base: ReviewBase::MergeBase { reference: "origin/main".into(), oid: "b".repeat(40) },
             content_digest: ReviewRevisionId::from_canonical_bytes(diff.as_bytes()),
@@ -92,6 +93,32 @@ fn the_draft_tells_the_reviews_story_and_closes_the_issue() {
              Also regenerated: Cargo.lock.\n\n\
              Closes #123"
     );
+}
+
+/// The session's own work starts blank, a base comparison included: its review is titled for the
+/// latest prompt, which was written for the agent, not a reviewer. Only the issue's facts carry.
+/// A commit's review, titled by its author, is still drafted from the review.
+#[test]
+fn the_sessions_own_work_starts_blank_but_for_the_issue() {
+    let told = vec![chapter("Sum every element", "Why.", None, ChapterKind::Core)];
+    let issue = ClosedIssue { number: 123, title: Some("total() skips the first number".into()) };
+    for target in [
+        ReviewTarget::WorkingTree,
+        ReviewTarget::LastTurn { session_id: "s".into(), turn_id: "t".into() },
+        ReviewTarget::Base { reference: "origin/main".into() },
+    ] {
+        let mut reviewed = review(told.clone(), Some("Fixes the total."));
+        reviewed.target = target.clone();
+        let blank = pull_request_draft(&reviewed, None);
+        assert_eq!(blank, PullRequestDraft { title: String::new(), body: String::new() });
+        let closing = pull_request_draft(&reviewed, Some(&issue));
+        assert_eq!(closing.title, "total() skips the first number", "{target:?}");
+        assert_eq!(closing.body, "Closes #123");
+        let untitled = pull_request_draft(&reviewed, Some(&ClosedIssue { number: 9, title: None }));
+        assert_eq!((untitled.title.as_str(), untitled.body.as_str()), ("", "Closes #9"));
+    }
+    let commit = pull_request_draft(&review(told, None), None);
+    assert_eq!(commit.title, "Count the first number in the total", "a commit's review drafts");
 }
 
 #[test]

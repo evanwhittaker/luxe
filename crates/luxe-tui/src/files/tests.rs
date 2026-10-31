@@ -126,6 +126,47 @@ fn a_deleted_file_is_drawn_from_the_changes_alone() {
     assert_eq!(drawn(&tree.rows(&[gone])), ["gone.rs M", "kept.rs"]);
 }
 
+/// `git status` names a new folder once, as `dir/`. The break this catches: splitting that on `/`
+/// drew an empty-named file row inside the folder, a mark and a `?` with no name beside them.
+#[test]
+fn an_untracked_folder_is_a_folder_row_and_waits_to_be_opened() {
+    let mut tree = FilesTree::default();
+    let new_folder =
+        DockChangeItem { status: FileChangeStatus::Untracked, ..change("src/__pycache__/") };
+    let changes = [new_folder, change("src/app.py")];
+    assert_eq!(
+        drawn(&tree.rows(&changes)),
+        ["-src/", "  +__pycache__/", "  app.py M"],
+        "before anything is listed"
+    );
+    answer(&mut tree, listing("", &["src"], &[]));
+    answer(&mut tree, listing("src", &["__pycache__"], &["app.py"]));
+    assert_eq!(drawn(&tree.rows(&changes)), ["-src/", "  +__pycache__/", "  app.py M"]);
+    assert!(tree.wanted(&changes).is_empty(), "the untracked folder is not read unasked");
+    let untracked = |rows: &[TreeRow]| {
+        rows.iter().any(|row| matches!(row, TreeRow::Folder { untracked: true, path, .. } if path == "src/__pycache__"))
+    };
+    assert!(untracked(&tree.rows(&changes)), "and says it is new");
+
+    tree.toggle("src/__pycache__", &changes);
+    answer(&mut tree, listing("src/__pycache__", &[], &["app.cpython-312.pyc"]));
+    assert_eq!(
+        drawn(&tree.rows(&changes)),
+        ["-src/", "  -__pycache__/", "    app.cpython-312.pyc", "  app.py M"]
+    );
+}
+
+/// An untracked folder that is the only thing in its parent keeps its own row, so the mark that
+/// says it is new is not spent on the whole chain.
+#[test]
+fn an_untracked_folder_is_not_folded_into_its_parents_chain() {
+    let mut tree = FilesTree::default();
+    let changes = [DockChangeItem { status: FileChangeStatus::Untracked, ..change("pkg/new/") }];
+    answer(&mut tree, listing("", &["pkg"], &[]));
+    answer(&mut tree, listing("pkg", &["new"], &[]));
+    assert_eq!(drawn(&tree.rows(&changes)), ["-pkg/", "  +new/"]);
+}
+
 #[test]
 fn changed_only_is_the_changes_list_in_tree_form() {
     let mut tree = FilesTree { changed_only: true, ..FilesTree::default() };

@@ -30,7 +30,7 @@ pub(super) fn pane_lines(app: &App, item: &Item, width: usize) -> Vec<Line<'stat
     let summary = item.on.is_none();
     let drafting = post.and_then(|post| post.drafting_since).filter(|_| summary);
     if let Some(since) = drafting {
-        lines.push(drafting_line(app, since));
+        lines.push(drafting_line(app, since, "the review summary"));
         if !item.body.is_empty() {
             lines.push(Line::from(""));
         }
@@ -51,9 +51,13 @@ pub(super) fn pane_lines(app: &App, item: &Item, width: usize) -> Vec<Line<'stat
     lines
 }
 
-/// The wait for a drafted summary, drawn where the summary will land: who is writing it, and a
-/// count, because a minute of a still line reads as a hang.
-fn drafting_line(app: &App, since: std::time::Instant) -> Line<'static> {
+/// The wait for a draft, drawn where it will land: who is writing `what`, and a count, because a
+/// minute of a still line reads as a hang.
+pub(in crate::view::guided_review) fn drafting_line(
+    app: &App,
+    since: std::time::Instant,
+    what: &str,
+) -> Line<'static> {
     let styles = &app.theme_styles;
     let model = match app.status.model.trim() {
         "" => "The agent",
@@ -66,7 +70,7 @@ fn drafting_line(app: &App, since: std::time::Instant) -> Line<'static> {
         ),
         Span::styled(
             format!(
-                "\u{b7} {model} is drafting the review summary \u{b7} {}",
+                "\u{b7} {model} is drafting {what} \u{b7} {}",
                 crate::statusline::format_elapsed_compact(
                     app.frame_now().saturating_duration_since(since)
                 )

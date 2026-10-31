@@ -107,6 +107,83 @@ fn a_joiner_catches_up_on_the_transcript_state_and_waiting_prompt() {
     assert!(matches!(frames[0], Event::ContextUsage { used_tokens: 2, .. }));
 }
 
+fn dock_answer(name: &str, text: &str, failure: Option<&str>) -> Event {
+    let rows = match failure {
+        Some(_) => vec![],
+        None => vec![luxe_core::custom_dock::DockRow {
+            label: None,
+            spans: vec![luxe_core::custom_dock::DockSpan {
+                text: text.into(),
+                ..Default::default()
+            }],
+        }],
+    };
+    let failure = failure.map(Into::into);
+    Event::DockSection(luxe_core::custom_dock::DockAnswer { name: name.into(), rows, failure })
+}
+
+/// A joiner sees each custom section as the terminal does: the newest rows, and a failure since
+/// them, which the terminal draws under the rows it kept.
+///
+/// The break this catches: keeping only the newest event per kind, which loses every section but
+/// one, or letting a failure replace the rows it should sit under.
+#[test]
+fn a_joiner_gets_each_custom_sections_rows_and_any_failure_since() {
+    let mut snapshot = Snapshot::new("session-1".into());
+    for event in [
+        dock_answer("quota", "10%", None),
+        dock_answer("quota", "30%", None),
+        dock_answer("ci", "green", None),
+        dock_answer("quota", "", Some("timed out")),
+        dock_answer("quota", "", Some("exited 1")),
+    ] {
+        snapshot.observe(&event);
+    }
+    assert_eq!(dock_frames(&snapshot.frames()), ["quota:30%", "ci:green", "quota:exited 1"]);
+    snapshot.observe(&dock_answer("quota", "40%", None));
+    assert_eq!(dock_frames(&snapshot.frames()), ["ci:green", "quota:40%"], "a success clears it");
+}
+
+/// A joiner's bar shows the custom modules the terminal's does, each beside, not instead of, a dock
+/// section that happens to share its name.
+///
+/// The break this catches: leaving statusline modules out of the catch-up, so they appear only
+/// after the next run, or matching answers by name alone, so `quota` in both places collides.
+#[test]
+fn a_joiner_gets_each_statusline_module_beside_a_section_of_the_same_name() {
+    let mut snapshot = Snapshot::new("session-1".into());
+    for event in [
+        dock_answer("quota", "30% of the week", None),
+        module_answer("quota", "30%"),
+        module_answer("quota", "40%"),
+    ] {
+        snapshot.observe(&event);
+    }
+    assert_eq!(dock_frames(&snapshot.frames()), ["quota:30% of the week", "bar quota:40%"]);
+}
+
+fn module_answer(name: &str, text: &str) -> Event {
+    match dock_answer(name, text, None) {
+        Event::DockSection(answer) => Event::StatuslineModule(answer),
+        other => other,
+    }
+}
+
+/// Each frame as `name:what it says`, the failure when there is one, else its first text. A
+/// statusline module's name starts with `bar `.
+fn dock_frames(frames: &[Event]) -> Vec<String> {
+    let say = |answer: &luxe_core::custom_dock::DockAnswer| {
+        let text = answer.rows.first().map(|row| row.spans[0].text.clone());
+        format!("{}:{}", answer.name, answer.failure.clone().or(text).unwrap_or_default())
+    };
+    let describe = |frame: &Event| match frame {
+        Event::DockSection(answer) => say(answer),
+        Event::StatuslineModule(answer) => format!("bar {}", say(answer)),
+        _ => "other".into(),
+    };
+    frames.iter().map(describe).collect()
+}
+
 /// A joiner mid-turn is told a turn is running, right after the transcript; one after it isn't.
 ///
 /// The break this catches: leaving `turn_started` out of the catch-up, so a phone opening on a

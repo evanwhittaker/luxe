@@ -19,6 +19,11 @@ use serde::{Deserialize, Serialize};
 use crate::github::overview::ConversationEntry;
 use crate::github::{untrusted, ConversationComment, ReviewThread};
 
+mod pull_request;
+
+pub(crate) use pull_request::OPENER as PULL_REQUEST_OPENER;
+pub use pull_request::{split_pull_request_draft, PullRequestAsk};
+
 /// The fence the agent answers inside.
 const FENCE: &str = "```luxe-draft";
 
@@ -44,6 +49,8 @@ pub enum DraftTarget {
     Comment(ConversationComment),
     /// The summary of the reader's own review, posted with its line comments
     Review(ReviewDraft),
+    /// The title and description of a pull request not opened yet; the request's `number` is 0
+    PullRequest(PullRequestAsk),
 }
 
 /// The review whose summary is drafted: what it will say about the pull request, beyond the
@@ -137,6 +144,10 @@ pub(crate) async fn brief(
         ),
         DraftTarget::Review(review) => {
             let (message, sources) = review_brief(request, review);
+            return finish_brief(request, sent, message, sources);
+        }
+        DraftTarget::PullRequest(ask) => {
+            let (message, sources) = pull_request::pull_request_brief(ask);
             return finish_brief(request, sent, message, sources);
         }
     };
@@ -279,7 +290,7 @@ fn digest(request: &DraftRequest, sent: &mut SentDigests) -> String {
     let answered = match &request.target {
         DraftTarget::Thread(thread) => thread.id.clone(),
         DraftTarget::Comment(comment) => comment.id.clone(),
-        DraftTarget::Review(_) => String::new(),
+        DraftTarget::Review(_) | DraftTarget::PullRequest(_) => String::new(),
     };
     let mut lines = Vec::new();
     let mut used = 0;
@@ -416,10 +427,16 @@ impl super::Engine {
     /// Runs a draft: a turn of this session, held to reading, its answer read for the draft.
     pub(super) async fn run_draft_turn(
         &mut self,
-        request: DraftRequest,
+        mut request: DraftRequest,
         event_tx: &tokio::sync::mpsc::Sender<crate::event::Event>,
         action_rx: &mut tokio::sync::mpsc::Receiver<super::Action>,
     ) -> super::agent_turn::TurnFlow {
+        // The session knows the issue it took up; a front-end drafting a pull request need not
+        if let DraftTarget::PullRequest(ask) = &mut request.target {
+            if ask.closes.is_none() {
+                ask.closes = self.session_issue().await;
+            }
+        }
         let request_id = request.request_id.clone();
         let root = self.config.guided_review_project_root.clone();
         let (content, sources) = {
@@ -427,7 +444,7 @@ impl super::Engine {
             brief(&request, root.as_deref(), &mut sent).await
         };
         self.read_only = Some(super::read_only::ReadOnlyTurn::Drafting);
-        if matches!(request.target, DraftTarget::Review(_)) {
+        if matches!(request.target, DraftTarget::Review(_) | DraftTarget::PullRequest(_)) {
             self.turn_source = crate::usage::UsageSource::Review;
         }
         *self.draft_answer.lock().await = None;

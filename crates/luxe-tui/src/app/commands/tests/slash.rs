@@ -259,6 +259,45 @@ fn reload_config_refreshes_conversation_preferences() {
     assert_eq!(app.dock.runtime_override, crate::workspace_dock::DockRuntimeOverride::Hidden);
 }
 
+/// `/cost` an hour after the plan reported says the reset is an hour nearer, not what it was then.
+#[test]
+fn cost_counts_the_plan_reset_down_since_the_report() {
+    use luxe_core::provider::{PlanUsage, PlanWindow};
+    let (tx, _rx) = mpsc::channel(8);
+    let mut app = App::new(tx, KeyMap::defaults(), Config::default());
+    let reported = std::time::Instant::now();
+    let window =
+        PlanWindow { used_percent: 30.0, window_minutes: 300, resets_in_secs: Some(10_800) };
+    app.status.frame_clock = Some(reported);
+    app.status.on_plan_usage(PlanUsage { primary: Some(window), ..PlanUsage::default() });
+    app.status.frame_clock = Some(reported + std::time::Duration::from_secs(3_600));
+
+    super::super::dispatch(&mut app, super::palette::command("/cost"));
+
+    let Some(ConvoBlock::System(report)) = app.convo.last().map(|item| item.block()) else {
+        panic!("/cost reports in the transcript");
+    };
+    assert!(report.contains("resets in 2h"), "{report}");
+}
+
+/// A reload reads the project's config with the trust luxe started with, or a trusted project's
+/// custom dock sections would vanish from the dock while the engine went on running them.
+#[test]
+fn reload_config_keeps_the_trust_luxe_started_with() {
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::create_dir(repo.path().join(".luxe")).unwrap();
+    let config = r#"{"dock":{"custom":{"quota":{"command":["luxe-quota"]}}}}"#;
+    std::fs::write(repo.path().join(".luxe/config.json"), config).unwrap();
+    let (tx, _rx) = mpsc::channel(1);
+    let mut app = App::new(tx, KeyMap::defaults(), Config::default());
+    reload_config(&mut app, repo.path());
+    assert!(app.config.dock.custom_section("quota").is_none(), "untrusted, it's dropped");
+
+    app.status.trust_project = true;
+    reload_config(&mut app, repo.path());
+    assert!(app.config.dock.custom_section("quota").is_some(), "trusted, it's kept");
+}
+
 #[test]
 fn reload_config_refreshes_dock_position_and_statusline_visibility() {
     use luxe_core::config::{DockPosition, StatuslineVisibility};

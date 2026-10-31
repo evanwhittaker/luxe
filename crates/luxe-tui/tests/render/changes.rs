@@ -176,7 +176,7 @@ fn clicking_a_dock_change_row_opens_that_files_diff() {
     let row = dock_row_containing(&buffer, "file00.rs", height);
     match left_click(&mut app, 5, row) {
         RouteAction::Msg(message) => assert!(
-            matches!(&*message, Msg::OpenProjectFile(path) if path == "src/module00/file00.rs"),
+            matches!(&*message, Msg::PreviewProjectFile(path) if path == "src/module00/file00.rs"),
             "expected the clicked file's path, got {message:?}"
         ),
         other => panic!("expected a diff to open from the click, got {other:?}"),

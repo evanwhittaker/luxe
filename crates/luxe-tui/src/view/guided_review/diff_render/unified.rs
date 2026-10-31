@@ -43,71 +43,139 @@ pub(in crate::view::guided_review) fn render_first_file_diff(
         return;
     }
 
-    let width = gutter_width(&file.hunks);
-    // One cell at the margin for the bar down the hunk being read, so `Space` is a shape moving
-    // rather than a redraw of the same frame with different code in it.
-    let source_width = usize::from(area.width)
-        .saturating_sub(width.saturating_mul(2) + ACTIVE_BAR_WIDTH + UNIFIED_NUMBER_CHROME);
     let groups = visible_groups(file, &app.guided_review_workspace.fold);
-    let rows = visible_rows(
-        &groups,
-        app.guided_review_workspace.position.line_offset,
-        usize::from(area.height),
-    );
+    let cursor = app.guided_review_workspace.position.line_offset;
+    let total_rows = groups.iter().map(crate::guided_review::VisibleGroup::rows).sum();
+    let drawn = super::fit_window(app, (area.height, total_rows), |top| {
+        let drawn = draw_unified(app, file, &groups, top, area);
+        let cursor_row = drawn.row_ys.iter().find(|(.., row)| *row == cursor);
+        let cursor_row = cursor_row.map(|(y, height, _)| (*y, *height));
+        (drawn, cursor_row)
+    });
+    publish_diff_rows(app, area, &drawn.row_ys, &drawn.rows, file);
+    let drawn_end = drawn.row_ys.last().map_or(0, |(.., row)| row + 1);
+    let mut lines = drawn.lines;
+    append_end_of_reading(&mut lines, app, review, (&groups, drawn_end), area.height);
+    frame.render_widget(Paragraph::new(lines), area);
+}
+
+/// A unified window laid out from one top row, before anything is published or drawn.
+struct UnifiedDrawn<'a> {
+    lines: Vec<Line<'static>>,
+    /// (first visual Y, visual height, absolute row index) per row, so click regions map to the
+    /// right source row despite blank inter-hunk spacers and wrapped continuation lines
+    row_ys: Vec<(u16, u16, usize)>,
+    rows: Vec<UnifiedDiffRow<'a>>,
+}
+
+/// Lays out the rows that fit `area` from row `top`, the cursor's row banded and marked.
+fn draw_unified<'a>(
+    app: &App,
+    file: &'a luxe_core::guided_review::ReviewFile,
+    groups: &[crate::guided_review::VisibleGroup<'a>],
+    top: usize,
+    area: Rect,
+) -> UnifiedDrawn<'a> {
+    let rows = visible_rows(groups, top, usize::from(area.height));
     let emphasized = intraline_emphasis(&rows);
-    let line_offset = app.guided_review_workspace.position.line_offset;
-    // The rows the hunk under the cursor owns, so its bar runs the whole height of it even when
-    // the window starts below its header.
-    let active_rows = app
-        .guided_review_workspace
-        .position
-        .hunk_id
-        .as_ref()
-        .and_then(|hunk_id| crate::guided_review::hunk_row_span(&groups, hunk_id));
-    let mut lines: Vec<Line> = Vec::new();
-    // (first visual Y, visual height, absolute row index) so click regions map to the right source
-    // row despite blank inter-hunk spacers and wrapped continuation lines.
-    let mut row_ys: Vec<(u16, u16, usize)> = Vec::new();
-    let context = UnifiedContext {
-        app,
-        file,
-        width,
-        source_width,
-        area_width: area.width,
-        emphasized: &emphasized,
-    };
+    let context = unified_context(app, (file, groups), (top, area), &emphasized);
+    let mut drawn = UnifiedDrawn { lines: Vec::new(), row_ys: Vec::new(), rows: Vec::new() };
     for (index, row) in rows.iter().enumerate() {
         // Separate stacked blocks with a blank row so each reads as a distinct one.
         if matches!(row, UnifiedDiffRow::HunkHeader { .. } | UnifiedDiffRow::Folded(_))
-            && !lines.is_empty()
+            && !drawn.lines.is_empty()
         {
-            lines.push(Line::default());
+            drawn.lines.push(Line::default());
         }
-        let first_y = lines.len() as u16;
-        let on_active_hunk =
-            active_rows.as_ref().is_some_and(|span| span.contains(&(line_offset + index)));
-        match *row {
-            UnifiedDiffRow::Folded(run) => {
-                let selected = app.guided_review_workspace.position.line_offset
-                    == line_offset + index
-                    && app.guided_review_workspace.position.hunk_id.is_none();
-                lines.push(folded_run_line(app, run, selected, false));
-            }
-            UnifiedDiffRow::HunkHeader { hunk_id, old_range, new_range, heading } => {
-                let header = (hunk_id, old_range, new_range, heading);
-                lines.extend(hunk_header_rows(app, header, on_active_hunk, area.width));
-            }
-            UnifiedDiffRow::Source(line) => {
-                lines.extend(unified_source_rows(&context, line, index, on_active_hunk));
-                append_unified_annotations(&mut lines, app, file, line, usize::from(area.width));
-            }
-        }
-        let visual_height = (lines.len() as u16).saturating_sub(first_y).max(1);
-        row_ys.push((first_y, visual_height, line_offset + index));
+        let first_y = drawn.lines.len() as u16;
+        drawn.lines.extend(unified_row_lines(&context, row, index));
+        let visual_height = (drawn.lines.len() as u16).saturating_sub(first_y).max(1);
+        drawn.row_ys.push((first_y, visual_height, top + index));
     }
-    publish_diff_rows(app, area, &row_ys, &rows, file);
-    append_end_of_reading(&mut lines, app, review, (&groups, rows.len()), area.height);
-    frame.render_widget(Paragraph::new(lines), area);
+    drawn.rows = rows;
+    drawn
+}
+
+/// What every row of a unified window from `top` is drawn against.
+fn unified_context<'a>(
+    app: &'a App,
+    (file, groups): (
+        &'a luxe_core::guided_review::ReviewFile,
+        &[crate::guided_review::VisibleGroup<'_>],
+    ),
+    (top, area): (usize, Rect),
+    emphasized: &'a crate::view::diff_lines::IntralineEmphasis,
+) -> UnifiedContext<'a> {
+    let width = gutter_width(&file.hunks);
+    let position = &app.guided_review_workspace.position;
+    UnifiedContext {
+        app,
+        file,
+        width,
+        // One cell at the margin for the bar down the hunk being read, so `Space` is a shape
+        // moving rather than a redraw of the same frame with different code in it
+        source_width: usize::from(area.width)
+            .saturating_sub(width.saturating_mul(2) + ACTIVE_BAR_WIDTH + UNIFIED_NUMBER_CHROME),
+        area_width: area.width,
+        emphasized,
+        cursor: position.line_offset.checked_sub(top),
+        active_rows: active_window_rows(app, groups, top),
+    }
+}
+
+/// The window rows the hunk under the cursor owns, so its bar runs the whole height of it even
+/// when the window starts below its header.
+fn active_window_rows(
+    app: &App,
+    groups: &[crate::guided_review::VisibleGroup<'_>],
+    top: usize,
+) -> Option<std::ops::Range<usize>> {
+    let hunk_id = app.guided_review_workspace.position.hunk_id.as_ref()?;
+    let span = crate::guided_review::hunk_row_span(groups, hunk_id)?;
+    Some(span.start.saturating_sub(top)..span.end.saturating_sub(top))
+}
+
+/// One row of the window as the lines it draws, the feedback under a line included.
+fn unified_row_lines(
+    ctx: &UnifiedContext<'_>,
+    row: &UnifiedDiffRow<'_>,
+    index: usize,
+) -> Vec<Line<'static>> {
+    let app = ctx.app;
+    let on_active_hunk = ctx.active_rows.as_ref().is_some_and(|span| span.contains(&index));
+    let on_cursor = ctx.cursor == Some(index);
+    match *row {
+        UnifiedDiffRow::Folded(run) => {
+            vec![folded_run_line(app, run, on_folded(app, on_cursor), false)]
+        }
+        UnifiedDiffRow::HunkHeader { hunk_id, old_range, new_range, heading } => {
+            let header = (hunk_id, old_range, new_range, heading);
+            let lines = hunk_header_rows(app, header, (on_active_hunk, on_cursor), ctx.area_width);
+            band_first_line(lines, on_cursor.then(|| app.theme_styles.cursor_line_bg()), ctx)
+        }
+        UnifiedDiffRow::Source(line) => {
+            let mut lines = unified_source_rows(ctx, line, index, on_active_hunk);
+            let width = usize::from(ctx.area_width);
+            append_unified_annotations(&mut lines, app, (ctx.file, line), (width, on_cursor));
+            lines
+        }
+    }
+}
+
+/// A folded run lights only while the cursor sits on it outside any hunk.
+pub(super) fn on_folded(app: &App, on_cursor: bool) -> bool {
+    on_cursor && app.guided_review_workspace.position.hunk_id.is_none()
+}
+
+/// Lays the cursor's `band` across the first line, the header itself rather than the cards under it.
+fn band_first_line(
+    mut lines: Vec<Line<'static>>,
+    band: Option<ratatui::style::Style>,
+    ctx: &UnifiedContext<'_>,
+) -> Vec<Line<'static>> {
+    let (Some(band), Some(first)) = (band, lines.first_mut()) else { return lines };
+    *first = Line::from(tint_row(std::mem::take(&mut first.spans), band, ctx.area_width));
+    lines
 }
 
 /// A hunk's header row, with the comment cards anchored to the whole hunk under it.
@@ -119,17 +187,13 @@ fn hunk_header_rows(
         luxe_core::guided_review::LineRange,
         Option<&str>,
     ),
-    on_active_hunk: bool,
+    (on_active_hunk, on_cursor): (bool, bool),
     width: u16,
 ) -> Vec<Line<'static>> {
     let mut lines =
         vec![hunk_header_line(app, hunk_id, old_range, new_range, heading, on_active_hunk)];
-    use luxe_core::guided_review::FindingAnchor;
-    let on_hunk = |anchor: &FindingAnchor| match anchor {
-        FindingAnchor::Hunk { hunk_id: at, .. } => at == hunk_id,
-        _ => false,
-    };
-    lines.extend(comment_lines(app, &findings_at(app, on_hunk), usize::from(width)));
+    let on_hunk = |anchor: &_| crate::guided_review::hunk_anchor_matches(anchor, hunk_id);
+    lines.extend(comment_lines(app, &findings_at(app, on_hunk), usize::from(width), on_cursor));
     lines
 }
 
@@ -142,6 +206,10 @@ struct UnifiedContext<'a> {
     source_width: usize,
     area_width: u16,
     emphasized: &'a crate::view::diff_lines::IntralineEmphasis,
+    /// Where the cursor's row sits in the window, when the window holds it
+    cursor: Option<usize>,
+    /// Where the active hunk's rows sit in the window
+    active_rows: Option<std::ops::Range<usize>>,
 }
 
 /// One source line as its visual rows: the active bar, both numbers and the sign, then the source
@@ -161,23 +229,24 @@ fn unified_source_rows(
         luxe_core::guided_review::ReviewLineKind::Deletion => app.theme_styles.error,
         _ => app.theme_styles.text,
     };
+    // The cursor's row lights its numbers and marks them, as the Changes pane marks its line, so
+    // the reader can see which line a comment or a question will land on
+    let on_cursor = ctx.cursor == Some(index);
+    let (mark, numbers) = match on_cursor {
+        true => ("›", app.theme_styles.accent.add_modifier(ratatui::style::Modifier::BOLD)),
+        false => (" ", app.theme_styles.muted),
+    };
     // The fixed gutter (active bar + old/new numbers + diff marker) prefixing the
     // first visual line; wrapped continuations align their source under it.
     let gutter = || {
         vec![
             active_bar_span(app, on_active_hunk),
-            Span::styled(format!("{old} {new} "), app.theme_styles.muted),
+            Span::styled(format!("{old} {new}{mark}"), numbers),
             Span::styled(rendered_marker(line.kind), style),
         ]
     };
     let source = crate::tabstop::display_text(&line.text);
-    // Tint add/removed rows with a full-width bar; a search match wins so the located
-    // line stays obvious over the add/del tint.
-    let row_bg = if app.guided_review_workspace.line_matches_search(&source) {
-        Some(app.theme_styles.selected_bg)
-    } else {
-        diff_line_background(line.kind, app)
-    };
+    let row_bg = unified_row_band(app, line.kind, &source, on_cursor);
     let finish = |mut spans: Vec<Span<'static>>| match row_bg {
         Some(background) => Line::from(tint_row(spans, background, ctx.area_width)),
         None => {
@@ -242,6 +311,24 @@ fn unified_source_rows(
     lines
 }
 
+/// The band a unified source row wears: the add or delete tint, a search hit's band over it so
+/// the located line stays obvious, and the cursor's lift over either.
+fn unified_row_band(
+    app: &App,
+    kind: luxe_core::guided_review::ReviewLineKind,
+    source: &str,
+    on_cursor: bool,
+) -> Option<ratatui::style::Style> {
+    let band = match app.guided_review_workspace.line_matches_search(source) {
+        true => Some(app.theme_styles.selected_bg),
+        false => diff_line_background(kind, app),
+    };
+    match on_cursor {
+        true => Some(app.theme_styles.cursor_line_over(band)),
+        false => band,
+    }
+}
+
 /// The comments and earlier threads anchored to a source line, under it.
 ///
 /// The comment sits under the line it is about, the way every review tool shows one: a bare `R1` in
@@ -250,14 +337,14 @@ fn unified_source_rows(
 fn append_unified_annotations(
     lines: &mut Vec<Line<'static>>,
     app: &App,
-    file: &luxe_core::guided_review::ReviewFile,
-    line: &luxe_core::guided_review::ReviewLine,
-    width: usize,
+    (file, line): (&luxe_core::guided_review::ReviewFile, &luxe_core::guided_review::ReviewLine),
+    (width, open): (usize, bool),
 ) {
     lines.extend(comment_lines(
         app,
         &findings_at(app, |anchor| line_anchor_matches(anchor, &file.id, line)),
         width,
+        open,
     ));
     lines.extend(thread_lines(app, &threads_at(app, &file.id, line), width));
 }

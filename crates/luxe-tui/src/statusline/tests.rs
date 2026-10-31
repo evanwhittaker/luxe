@@ -6,6 +6,8 @@ use luxe_core::{
     keymap::KeyMap,
 };
 
+mod custom;
+
 /// The bar, the dock, the transcript, and the pickers must name a concept with the same icon;
 /// re-hardcoding one here is how they drift apart.
 #[test]
@@ -552,7 +554,8 @@ fn configured_left_modules_can_drop_the_activity_module() {
 fn a_retired_module_name_renders_nothing() {
     let mut app = app();
     app.status.git_branch = Some("main".into());
-    app.config.statusline.left = Some(vec![StatuslineModule::Unknown, StatuslineModule::Branch]);
+    app.config.statusline.left =
+        Some(vec![StatuslineModule::Other("mode".into()), StatuslineModule::Branch]);
 
     let text = plain(&status_line(&app, 120));
     assert!(text.contains(Icon::Branch.glyph()), "branch leads: {text:?}");
@@ -637,8 +640,11 @@ fn unknown_and_duplicate_config_entries_are_ignored() {
     let model_icon = Icon::Model.glyph();
     let mut app = app();
     app.status.model = "claude-sonnet".into();
-    app.config.statusline.right =
-        Some(vec![StatuslineModule::Unknown, StatuslineModule::Model, StatuslineModule::Model]);
+    app.config.statusline.right = Some(vec![
+        StatuslineModule::Other("future".into()),
+        StatuslineModule::Model,
+        StatuslineModule::Model,
+    ]);
 
     let text = plain(&status_line(&app, 80));
     assert_eq!(text.matches(format!("{model_icon} claude-sonnet").as_str()).count(), 1);

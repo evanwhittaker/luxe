@@ -12,6 +12,9 @@ pub(super) fn dispatch_review_navigation_action(app: &mut App, action: UiAction)
     if app.current_view != crate::app::ViewMode::GuidedReview {
         return false;
     }
+    if acts_on_a_comment(action) && !aim_at_cursor_comment(app) {
+        return true;
+    }
 
     let message = match action {
         UiAction::ReviewChapterNext => crate::app::Msg::GuidedReviewChapterNext,
@@ -35,7 +38,6 @@ pub(super) fn dispatch_review_navigation_action(app: &mut App, action: UiAction)
         UiAction::ReviewSend => crate::app::Msg::GuidedReviewOpenSendPreview,
         UiAction::ReviewEditFinding => crate::app::Msg::GuidedReviewEditSelectedFinding,
         UiAction::ReviewDeleteFinding => crate::app::Msg::GuidedReviewDeleteSelectedFindingDraft,
-        UiAction::ReviewReanchorFinding => crate::app::Msg::GuidedReviewReanchorSelectedFinding,
         UiAction::ReviewFindings => crate::app::Msg::GuidedReviewToggleFindings,
         UiAction::ReviewResolveFinding => {
             crate::app::Msg::GuidedReviewToggleSelectedFindingResolved
@@ -49,6 +51,40 @@ pub(super) fn dispatch_review_navigation_action(app: &mut App, action: UiAction)
     };
     app.update(message);
     true
+}
+
+/// Whether `action` works on one comment, which the feedback window's cursor picks while it is open
+/// and the diff's cursor picks while it is not.
+fn acts_on_a_comment(action: UiAction) -> bool {
+    matches!(
+        action,
+        UiAction::ReviewEditFinding
+            | UiAction::ReviewDeleteFinding
+            | UiAction::ReviewResolveFinding
+    )
+}
+
+/// Selects the comment on the diff cursor's row, so `x` deletes the comment the reader is looking
+/// at rather than one picked in the feedback window long ago. Answers whether there is one to act
+/// on; with none, says so.
+///
+/// Re-anchoring is left out: a stale comment's line is gone, so it is never under the cursor.
+pub(in crate::app) fn aim_at_cursor_comment(app: &mut App) -> bool {
+    if app.guided_review_workspace.findings_visible {
+        return true;
+    }
+    let files = app.guided_review.as_ref().map_or(&[][..], |review| &review.files[..]);
+    let findings = app.review.session().map_or(&[][..], |session| &session.findings[..]);
+    match app.guided_review_workspace.comment_at_cursor(files, findings) {
+        Some(finding_id) => {
+            app.guided_review_workspace.selected_finding_id = Some(finding_id);
+            true
+        }
+        None => {
+            app.status.flash_toast("No comment on this line \u{b7} alt+c lists them all");
+            false
+        }
+    }
 }
 
 /// Opens the Changes pane on a sensible file, or puts it away.

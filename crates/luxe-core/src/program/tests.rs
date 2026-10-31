@@ -162,6 +162,47 @@ fn the_wsl_launcher_is_never_mistaken_for_a_posix_shell() {
     assert_eq!(posix_shell_on_windows(both, system_root), Some(git));
 }
 
+/// WSL from the Store adds a `bash.exe` alias under the user's `Microsoft\WindowsApps`, which `PATH`
+/// reaches before Git's install directory. Found live: after installing WSL, every `bash` call
+/// ran inside Ubuntu, as root, in `/mnt/c`.
+///
+/// The break this catches: skipping only `System32`, so the alias is taken as the shell.
+#[test]
+fn the_windows_apps_alias_is_never_mistaken_for_a_posix_shell() {
+    let (root, _, git) = windows_layout();
+    let system_root = || Some(root.to_string_lossy().into_owned());
+    let home = if cfg!(windows) { r"C:\Users\evanw" } else { "/Users/evanw" };
+    let alias: PathBuf =
+        [home, "AppData", "Local", "Microsoft", "WindowsApps", "bash.exe"].iter().collect();
+
+    let alias_only = |name: &str| (name == "bash").then(|| alias.clone());
+    assert_eq!(posix_shell_on_windows(alias_only, system_root), None, "falls through to cmd");
+    let alias_then_git = |name: &str| match name {
+        "bash" => Some(alias.clone()),
+        "sh" => Some(git.clone()),
+        _ => None,
+    };
+    assert_eq!(posix_shell_on_windows(alias_then_git, system_root), Some(git.clone()));
+
+    // Only that pair of folders: an `Apps` folder of someone's own is not an alias
+    let own: PathBuf = [home, "WindowsApps", "bash.exe"].iter().collect();
+    let own_only = |name: &str| (name == "bash").then(|| own.clone());
+    assert_eq!(posix_shell_on_windows(own_only, system_root), Some(own.clone()));
+}
+
+/// The system directory is matched whatever its case: `PATH` here spells it both `C:\windows` and
+/// `C:\WINDOWS`, while `%SystemRoot%` says `C:\WINDOWS`. Windows only: unix paths have case.
+#[cfg(windows)]
+#[test]
+fn the_system_directory_is_matched_in_any_case() {
+    let (root, _, _) = windows_layout();
+    let lower =
+        PathBuf::from(root.to_string_lossy().to_lowercase()).join("system32").join("bash.exe");
+    let system_root = || Some(root.to_string_lossy().to_uppercase());
+    let found = posix_shell_on_windows(|name| (name == "bash").then(|| lower.clone()), system_root);
+    assert_eq!(found, None);
+}
+
 /// Git for Windows' default install puts only `Git\cmd` on `PATH`, which holds `git.exe` and
 /// essentially nothing else — so the shell that *is* installed has to be found by looking.
 #[test]

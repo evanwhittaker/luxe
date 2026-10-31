@@ -1,7 +1,7 @@
 use super::rows::{fit_label, picker_row};
 use super::*;
 use crate::glyphs::Icon;
-use crate::mouse::{HitRegions, MouseTarget};
+use crate::mouse::{HitRegions, MouseTarget, OverlayList, TabStrip};
 use crate::theme::styles::ThemeStyles;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{layout::Rect, text::Line};
@@ -424,9 +424,10 @@ fn tabs_sit_above_the_list_and_move_it_down() {
     assert!(row(top + 6).contains('╰'), "the last row sits above the frame");
     assert_eq!(hit.borrow().at(5, top + 3), Some(&MouseTarget::MentionRow(0)));
     assert_eq!(hit.borrow().at(5, top + 5), Some(&MouseTarget::MentionRow(2)));
-    for header in [top + 1, top + 2] {
-        assert_eq!(hit.borrow().at(5, header), None, "the header is not a row");
-    }
+    let tab = |index| MouseTarget::Tab { strip: TabStrip::Picker(OverlayList::Slash), index };
+    assert_eq!(hit.borrow().at(3, top + 1), Some(&tab(0)), "each tab is its own click");
+    assert_eq!(hit.borrow().at(13, top + 1), Some(&tab(1)));
+    assert_eq!(hit.borrow().at(5, top + 2), None, "the rule under them is not a row");
 
     // Squeezed to six rows, the header costs two of the list's: two show, and the selection
     // at the bottom is one of them

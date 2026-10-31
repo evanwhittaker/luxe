@@ -10,6 +10,29 @@ fn a_bare_letter_displays_in_lower_case() {
     }
 }
 
+/// Super is a modifier of its own, written `super` and read from `cmd` or `win` too, and a chord
+/// with it is a different chord from the one without.
+#[test]
+fn super_is_its_own_modifier() {
+    let chord = KeyChord::parse("super+c").unwrap();
+    assert!(chord.super_key && !chord.ctrl && !chord.shift && !chord.alt);
+    assert_eq!(chord.display(), "super+c");
+    for other_name in ["cmd+c", "Win+C"] {
+        assert_eq!(KeyChord::parse(other_name).unwrap(), chord, "{other_name}");
+    }
+    assert_ne!(KeyChord::parse("c").unwrap(), chord);
+}
+
+/// Super+C copies a selection, and plain C, which `resolve` asks about, is not a copy.
+#[test]
+fn super_c_resolves_to_copy_and_plain_c_does_not() {
+    let keymap = KeyMap::defaults();
+    let super_c = KeyChord::parse("super+c").unwrap();
+    assert_eq!(keymap.resolve_chord(&super_c), Some(UiAction::CopySelection));
+    let plain = keymap.resolve(false, false, false, &KeyName::Char('c'));
+    assert_ne!(plain, Some(UiAction::CopySelection));
+}
+
 #[test]
 fn parse_simple_chord() {
     let chord = KeyChord::parse("ctrl+k").unwrap();
@@ -131,7 +154,7 @@ fn guided_review_actions_have_stable_namespaced_ids() {
         assert!(!action.label().is_empty());
         count += 1;
     }
-    assert_eq!(count, 35, "review actions expose stable namespaced ids");
+    assert_eq!(count, 34, "review actions expose stable namespaced ids");
 }
 
 /// No two actions share an id, so a keybinding written for one never lands on another.
@@ -192,10 +215,6 @@ fn guided_review_defaults_match_the_documented_shortcuts() {
         Some(UiAction::ReviewDeleteFinding)
     );
     assert_eq!(
-        keymap.resolve(false, false, true, &KeyName::Char('r')),
-        Some(UiAction::ReviewReanchorFinding)
-    );
-    assert_eq!(
         keymap.resolve(false, false, false, &KeyName::Char('r')),
         Some(UiAction::ReviewResolveFinding)
     );
@@ -219,12 +238,13 @@ fn guided_review_defaults_match_the_documented_shortcuts() {
         keymap.resolve(true, false, false, &KeyName::Char('b')),
         Some(UiAction::ReviewToggleSplit)
     );
-    assert!(keymap.chords_for(UiAction::ReviewRefresh).is_some_and(|chords| {
-        chords == &vec![KeyChord { ctrl: true, shift: false, alt: false, key: KeyName::Char('r') }]
-    }));
-    assert!(keymap.chords_for(UiAction::Reload).is_some_and(|chords| {
-        chords == &vec![KeyChord { ctrl: true, shift: true, alt: false, key: KeyName::Char('r') }]
-    }));
+    let chord = |text| KeyChord::parse(text).unwrap();
+    assert!(keymap
+        .chords_for(UiAction::ReviewRefresh)
+        .is_some_and(|chords| chords == &vec![chord("ctrl+r")]));
+    assert!(keymap
+        .chords_for(UiAction::Reload)
+        .is_some_and(|chords| chords == &vec![chord("ctrl+shift+r")]));
 }
 
 #[test]
@@ -424,7 +444,6 @@ fn the_action_ids_are_pinned() {
             "tui.review.send",
             "tui.review.edit_finding",
             "tui.review.delete_finding",
-            "tui.review.reanchor_finding",
             "tui.review.findings",
             "tui.review.resolve_finding",
             "tui.review.finish",
@@ -484,7 +503,7 @@ fn the_default_bindings_are_pinned() {
         ("tui.app.quit", vec!["ctrl+c"]),
         ("tui.app.reload", vec!["ctrl+shift+r"]),
         ("tui.convo.copy_message", vec!["alt+y"]),
-        ("tui.convo.copy_selection", vec!["ctrl+insert", "ctrl+shift+c"]),
+        ("tui.convo.copy_selection", vec!["ctrl+insert", "ctrl+shift+c", "super+c"]),
         ("tui.convo.edit_resend", vec!["alt+e"]),
         ("tui.convo.open_image", vec!["alt+i"]),
         ("tui.convo.page_down", vec!["pgdn"]),
@@ -497,7 +516,7 @@ fn the_default_bindings_are_pinned() {
         ("tui.convo.select_block_down", vec!["alt+j"]),
         ("tui.convo.select_block_up", vec!["alt+k"]),
         ("tui.convo.toggle_tool_output", vec!["ctrl+o"]),
-        ("tui.editor.cancel", vec!["ctrl+esc"]),
+        ("tui.editor.cancel", vec!["esc", "ctrl+esc"]),
         ("tui.editor.dequeue_message", vec!["alt+up"]),
         ("tui.editor.new_line", vec!["shift+enter"]),
         ("tui.editor.paste", vec!["ctrl+v", "shift+insert"]),
@@ -527,7 +546,6 @@ fn the_default_bindings_are_pinned() {
         ("tui.review.open_in_browser", vec!["o"]),
         ("tui.review.open_in_editor", vec!["shift+e"]),
         ("tui.review.open_selection", vec!["enter"]),
-        ("tui.review.reanchor_finding", vec!["alt+r"]),
         ("tui.review.refresh", vec!["ctrl+r"]),
         ("tui.review.resolve_finding", vec!["r"]),
         ("tui.review.return_chat", vec!["alt+left"]),

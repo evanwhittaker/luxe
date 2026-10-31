@@ -27,10 +27,12 @@ pub fn format_review_feedback_message(
             "Read these comments and say if anything needs clarifying. Make no unrelated edits."
         }
         ReviewFeedbackMode::Question => {
-            "Answer each question simply and directly, pointing to the code. This turn changes \
-             nothing: the shell and every tool that writes are off, so read with `read`, `grep`, \
-             `glob`, and the `git` tool's `log` and `diff`. The reviewer wants to understand the \
-             change, not ask for work. If something should change, say what and let them decide."
+            "Answer each question simply and directly, pointing to the code. Each answer shows in \
+             a small card under the line it asks about, so lead with the answer in a sentence or \
+             two and keep the whole of it to a short paragraph. This turn changes nothing: the \
+             shell and every tool that writes are off, so read with `read`, `grep`, `glob`, and \
+             the `git` tool's `log` and `diff`. The reviewer wants to understand the change, not \
+             ask for work. If something should change, say what and let them decide."
         }
     };
     let mut message = format!(

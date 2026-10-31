@@ -216,12 +216,16 @@ fn pull_request_post(app: &mut App) -> Result<(), String> {
     Ok(())
 }
 
-/// The preview of a branch's pull request, drafted from its review for issue #123: its work not
-/// committed yet, and the branch never pushed.
+/// The preview of a branch's pull request for issue #123 once the agent has drafted it: its work
+/// not committed yet, and the branch never pushed.
 fn open_pull_request(app: &mut App) -> Result<(), String> {
     let review = app.guided_review.as_ref().ok_or("missing fixture review")?;
     let issue = luxe_core::guided_review::ClosedIssue { number: 123, title: None };
-    let draft = luxe_core::guided_review::pull_request_draft(review, Some(&issue));
+    // The working tree's preview opens blank and `d` fills it. The review's own story, drafted as
+    // a commit's would be, stands in for the agent's answer so the picture needs no model
+    let mut drafted = review.clone();
+    drafted.target = luxe_core::guided_review::ReviewTarget::Commit { oid: "c".repeat(40) };
+    let draft = luxe_core::guided_review::pull_request_draft(&drafted, Some(&issue));
     let commits = luxe_core::guided_review::chapter_commits(review, &[])
         .map_err(|error| error.to_string())?
         .into_iter()
@@ -247,6 +251,8 @@ fn open_pull_request(app: &mut App) -> Result<(), String> {
             body_room: std::cell::Cell::new(0),
             opening: false,
             error: None,
+            drafting: None,
+            draft_note: None,
         });
     Ok(())
 }

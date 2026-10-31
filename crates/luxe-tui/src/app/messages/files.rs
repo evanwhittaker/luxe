@@ -6,6 +6,7 @@
 
 use crate::app::{App, Msg};
 use crate::workspace_dock::{DockChangeItem, DockChanges};
+use luxe_core::config::DockSectionName;
 use luxe_core::engine::Action;
 use luxe_core::project_files::ListingRequestId;
 
@@ -81,9 +82,9 @@ pub(crate) fn apply(app: &mut App, event: &luxe_core::event::Event) -> bool {
 pub(crate) fn run_menu(app: &mut App, action: crate::context_menu::MenuAction) {
     use crate::context_menu::MenuAction;
     match action {
-        MenuAction::Preview(path) => app.update(Msg::OpenProjectFile(path)),
+        MenuAction::Preview(path) => app.update(Msg::PreviewProjectFile(path)),
         MenuAction::ShowDiff(path) => {
-            app.update(Msg::OpenProjectFile(path));
+            app.update(Msg::PreviewProjectFile(path));
             if app.changes.as_ref().is_some_and(|view| view.view != crate::changes::PeekView::Diff)
             {
                 app.update(Msg::TogglePeekView);
@@ -113,8 +114,16 @@ pub(crate) fn run_menu(app: &mut App, action: crate::context_menu::MenuAction) {
         MenuAction::ToggleFolder(path) => app.update(Msg::ToggleFolder(path)),
         MenuAction::ToggleScope => app.update(Msg::ToggleFilesScope),
         MenuAction::ToggleIgnored => app.update(Msg::ToggleIgnoredFiles),
+        MenuAction::CopyText => app.update(Msg::CopySelection),
+        MenuAction::ClearText => app.update(Msg::ClearTextSelection),
+        MenuAction::Paste => {
+            crate::app::commands::dispatch_action(app, luxe_core::keymap::UiAction::PasteClipboard);
+        }
         MenuAction::Selection(action) => {
             super::changes::selection_action(app, action);
+        }
+        MenuAction::ReviewKey(action) => {
+            crate::app::commands::dispatch_action(app, action);
         }
     }
 }
@@ -145,10 +154,7 @@ pub(super) fn reduce(app: &mut App, msg: Msg) {
         Msg::FocusPeek => {
             app.files.focused = false;
             if let Some(view) = app.changes.as_mut() {
-                view.focused = true;
-                if view.cursor.is_none() {
-                    view.cursor = Some(view.top_line());
-                }
+                view.focus();
             }
             return;
         }
@@ -161,6 +167,12 @@ pub(super) fn reduce(app: &mut App, msg: Msg) {
                 run_menu(app, action);
             }
             return;
+        }
+        // A tree the config hides is no place to move into, and a key that says why beats silence
+        Msg::FocusFiles
+            if !app.files.focused && !app.config.dock.shows(&DockSectionName::Files) =>
+        {
+            return app.status.flash_toast("FILES is hidden by dock.sections");
         }
         // The keyboard's walk: composer, then the tree, then the preview when one is open, then
         // the composer again. `Tab` inside the tree and the preview trades between those two.

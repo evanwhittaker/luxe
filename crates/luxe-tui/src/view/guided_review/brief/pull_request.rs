@@ -1,9 +1,9 @@
-//! Brief pull request — what the author said, the facts about the pull request, and the conversation
+//! Brief pull request — the facts about the pull request, what it closes, and the conversation
 //! before this review.
 
 use super::super::diff_render::{display_author, is_feedback, thread_is_feedback};
 
-use super::{bullet_lines, prose_lines};
+use super::bullet_lines;
 use crate::app::App;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -65,53 +65,53 @@ pub(in crate::view::guided_review) fn pull_request_facts(
         Some(PullRequestVerdict::ReviewRequired) => fact("review required".into(), styles.dim),
         None => {}
     }
-    crate::widgets::wrap_line(&Line::from(spans), width.max(20))
+    let mut lines = crate::widgets::wrap_line(&Line::from(spans), width.max(20));
+    lines.extend(branch_lines(app, pr, width));
+    lines
 }
 
-/// The author's description and the issues it says it closes, each under its own heading.
-pub(super) fn pull_request_account(
+/// Where the pull request goes, and the key that reads its description over the review. The head
+/// is where that stays on screen, now the guide no longer repeats the description.
+fn branch_lines(
     app: &App,
     pr: &luxe_core::guided_review::PullRequestContext,
     width: usize,
 ) -> Vec<Line<'static>> {
     let styles = &app.theme_styles;
-    let mut lines = Vec::new();
-    lines.push(Line::default());
-    lines.push(Line::from(Span::styled("What the pull request says", styles.accent)));
-    lines.extend(prose_lines(&pr.title, app, width, " "));
-    lines.push(Line::from(Span::styled(
-        format!(" {} \u{2192} {}", pr.head_ref, pr.base_ref),
-        styles.dim,
-    )));
-    let (opening, more) = description_opening(&pr.body);
-    if opening.is_empty() {
-        lines.push(Line::from(Span::styled(" The author wrote no description.", styles.dim)));
-    } else {
-        lines.push(Line::default());
-        lines.extend(prose_lines(&opening, app, width, " "));
-        if more {
-            let whole = " Read the whole description \u{b7} p";
-            lines.push(Line::from(Span::styled(whole, styles.dim)));
-        }
+    let mut spans =
+        vec![Span::styled(format!("{} \u{2192} {}", pr.head_ref, pr.base_ref), styles.dim)];
+    if !pr.body.trim().is_empty() {
+        spans.push(Span::styled(" \u{b7} ", styles.dim));
+        spans.push(Span::styled("p description", styles.dim));
     }
-    if !pr.closing_issues.is_empty() {
-        lines.push(Line::default());
-        lines.push(Line::from(Span::styled("What it closes", styles.accent)));
-        for issue in &pr.closing_issues {
-            let reference = if issue.repository.eq_ignore_ascii_case(&pr.repository) {
-                format!("#{}", issue.number)
-            } else {
-                format!("{}#{}", issue.repository, issue.number)
-            };
-            let title = issue.title.as_deref().unwrap_or("could not be read");
-            lines.extend(bullet_lines(&format!("{reference} {title}"), app, width));
-        }
-        if pr.more_closing_issues > 0 {
-            lines.push(Line::from(Span::styled(
-                format!("   and {} more", pr.more_closing_issues),
-                styles.dim,
-            )));
-        }
+    crate::widgets::wrap_line(&Line::from(spans), width.max(20))
+}
+
+/// The issues the pull request says it closes. Its title and description are not repeated here:
+/// GitHub's view of it and `p` show them whole.
+pub(super) fn closing_issue_lines(
+    app: &App,
+    pr: &luxe_core::guided_review::PullRequestContext,
+    width: usize,
+) -> Vec<Line<'static>> {
+    let styles = &app.theme_styles;
+    if pr.closing_issues.is_empty() {
+        return Vec::new();
+    }
+    let mut lines =
+        vec![Line::default(), Line::from(Span::styled("What it closes", styles.accent))];
+    for issue in &pr.closing_issues {
+        let reference = if issue.repository.eq_ignore_ascii_case(&pr.repository) {
+            format!("#{}", issue.number)
+        } else {
+            format!("{}#{}", issue.repository, issue.number)
+        };
+        let title = issue.title.as_deref().unwrap_or("could not be read");
+        lines.extend(bullet_lines(&format!("{reference} {title}"), app, width));
+    }
+    if pr.more_closing_issues > 0 {
+        let more = format!("   and {} more", pr.more_closing_issues);
+        lines.push(Line::from(Span::styled(more, styles.dim)));
     }
     lines
 }
@@ -295,70 +295,4 @@ fn discussion_item(
         }
     }
     lines
-}
-
-/// Characters of a pull request's description the brief shows before pointing at the whole of it:
-/// a few lines of the guide, enough to hear the author's claim in their own words.
-pub(super) const DESCRIPTION_OPENING_CHARS: usize = 320;
-
-/// The first paragraphs of a description, and whether there is more.
-///
-/// The guide scrolls to keep the current chapter in view, so a long description in full pushes the
-/// chapters down and opens the pane in the middle of someone's prose with its heading gone — which
-/// the first real pull request did. Even one paragraph is cut, at a sentence where it can be,
-/// since an agent's opening paragraph alone can fill the pane and `p` reads the rest. The guide's
-/// prompt still gets all of it. Template headings and a bare `Fixes #n` are skipped: the issues
-/// it closes have their own section.
-pub(super) fn description_opening(body: &str) -> (String, bool) {
-    let paragraphs: Vec<&str> = body
-        .split("\n\n")
-        .map(str::trim)
-        .filter(|paragraph| !paragraph.is_empty())
-        .filter(|paragraph| !paragraph.starts_with('#') || paragraph.contains('\n'))
-        .filter(|paragraph| !is_closing_reference(paragraph))
-        .collect();
-    let Some(first) = paragraphs.first() else { return (String::new(), false) };
-    let mut opening = clip_at_sentence(first, DESCRIPTION_OPENING_CHARS);
-    let mut taken = 1;
-    let cut = opening.len() < first.len();
-    for paragraph in paragraphs.iter().skip(1).take_while(|_| !cut) {
-        if opening.chars().count() + paragraph.chars().count() > DESCRIPTION_OPENING_CHARS {
-            break;
-        }
-        opening.push_str("\n\n");
-        opening.push_str(paragraph);
-        taken += 1;
-    }
-    (opening, cut || taken < paragraphs.len())
-}
-
-/// `text` cut to at most `limit` characters: at the last sentence or line end in the second half
-/// of that, or failing one, at a word with an ellipsis.
-fn clip_at_sentence(text: &str, limit: usize) -> String {
-    if text.chars().count() <= limit {
-        return text.to_owned();
-    }
-    let head: String = text.chars().take(limit).collect();
-    // The punctuation is ASCII, so one byte past it is still a character boundary
-    let sentence_end = head
-        .char_indices()
-        .filter(|(at, mark)| matches!(mark, '.' | '!' | '?') && head[at + 1..].starts_with(' '))
-        .map(|(at, _)| at + 1)
-        .next_back();
-    match sentence_end.max(head.rfind('\n')).filter(|end| *end >= head.len() / 2) {
-        Some(end) => head[..end].trim_end().to_owned(),
-        None => {
-            let word = head.rfind(char::is_whitespace).unwrap_or(head.len());
-            format!("{}\u{2026}", head[..word].trim_end())
-        }
-    }
-}
-
-/// `Fixes #12`, `closes owner/repo#3`: a line GitHub reads as a link to an issue, and nothing more.
-pub(super) fn is_closing_reference(paragraph: &str) -> bool {
-    let lower = paragraph.to_ascii_lowercase();
-    let Some((verb, reference)) = lower.split_once(char::is_whitespace) else { return false };
-    matches!(verb, "fixes" | "fix" | "closes" | "close" | "resolves" | "resolve")
-        && reference.trim().contains('#')
-        && !reference.trim().contains(char::is_whitespace)
 }

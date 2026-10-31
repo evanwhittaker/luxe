@@ -98,14 +98,13 @@ impl KeyMap {
     /// to the editor (for bare printable keys) or ignore it. A chord bound to two actions resolves
     /// to the one declared first in `keymap/actions.rs`.
     pub fn resolve(&self, ctrl: bool, shift: bool, alt: bool, key: &KeyName) -> Option<UiAction> {
-        self.bindings
-            .iter()
-            .find(|(_, chords)| {
-                chords
-                    .iter()
-                    .any(|c| c.ctrl == ctrl && c.shift == shift && c.alt == alt && c.key == *key)
-            })
-            .map(|(action, _)| *action)
+        self.resolve_chord(&KeyChord { ctrl, shift, alt, super_key: false, key: key.clone() })
+    }
+
+    /// Resolve a whole chord, Super included, to the action bound to it, as [`Self::resolve`]
+    /// does.
+    pub fn resolve_chord(&self, chord: &KeyChord) -> Option<UiAction> {
+        self.bindings.iter().find(|(_, chords)| chords.contains(chord)).map(|(action, _)| *action)
     }
 
     /// Get the chords bound to an action (for palette/help display).

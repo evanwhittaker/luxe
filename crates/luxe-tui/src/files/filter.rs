@@ -46,10 +46,14 @@ struct Node {
 }
 
 impl Node {
+    /// Files `path` into the tree; a path ending in `/`, an untracked folder, is all folders.
     fn insert(&mut self, path: &str) {
         let mut node = self;
         let mut parts = path.split('/').peekable();
         while let Some(part) = parts.next() {
+            if part.is_empty() {
+                continue;
+            }
             let key = (part.to_lowercase(), part.to_string());
             if parts.peek().is_none() {
                 node.files.insert(key, path.to_string());
@@ -134,6 +138,7 @@ fn emit(
         }
         rows.push(TreeRow::Folder {
             holds_change: ancestors.contains(&path),
+            untracked: super::untracked_folder(&path, changed),
             path: path.clone(),
             name,
             depth,
@@ -216,6 +221,21 @@ mod tests {
         };
         let (rows, _) = build("new", &files(&["src/old.rs"]), &[change], &HashSet::new());
         assert_eq!(drawn(&rows), ["src/", "  new.rs M"]);
+    }
+
+    /// An untracked folder's `dir/` entry is found as the folder it names, never as a nameless
+    /// file inside it.
+    #[test]
+    fn an_untracked_folder_is_found_as_a_folder() {
+        let change = DockChangeItem {
+            path: "src/__pycache__/".into(),
+            status: FileChangeStatus::Untracked,
+            additions: None,
+            deletions: None,
+        };
+        let (rows, _) = build("pycache", &files(&["src/app.py"]), &[change], &HashSet::new());
+        assert_eq!(drawn(&rows), ["src/__pycache__/"]);
+        assert!(matches!(rows[0], TreeRow::Folder { untracked: true, .. }));
     }
 
     /// The tree draws the best few, and says how many more there are and how to reach them; with

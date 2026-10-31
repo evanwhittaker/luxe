@@ -102,6 +102,9 @@ pub enum Action {
         /// Whether it now has focus
         focused: bool,
     },
+    /// How wide the front-end now draws custom rows, echoed as [`Event::CustomRowWidths`] for the
+    /// custom dock feed to pass on to each program.
+    CustomRowWidths(crate::custom_dock::RowWidths),
     /// Create a new session.
     NewSession,
     /// Switch the active model in-session (id/provider/context/thinking come from `ModelInfo`).

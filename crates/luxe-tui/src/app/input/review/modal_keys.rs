@@ -184,9 +184,9 @@ fn accepting_names_chapters_not_yet_reviewed() {
 fn the_stack_preview_toggles_draft_opens_and_cancels() {
     let mut app = app(FixtureScenario::GuidedReviewOpenStack);
     let draft = |app: &App| app.guided_review_workspace.stack_opening.as_ref().map(|s| s.draft);
-    press_with(&mut app, KeyCode::Char('d'), KeyModifiers::ALT);
-    assert_eq!(draft(&app), Some(false), "alt+d is not d");
     press(&mut app, KeyCode::Char('d'));
+    assert_eq!(draft(&app), Some(false), "d is the agent drafting, which a stack has not");
+    press_with(&mut app, KeyCode::Char('D'), KeyModifiers::SHIFT);
     assert_eq!(draft(&app), Some(true));
     press(&mut app, KeyCode::Esc);
     assert!(app.guided_review_workspace.stack_opening.is_none());
@@ -208,10 +208,8 @@ fn the_pull_request_preview_edits_scrolls_and_toggles_draft() {
 
     let drafted = |app: &App| opening(app).prepared.map(|p| p.pull_request.draft);
     let before = drafted(&app);
-    press_with(&mut app, KeyCode::Char('d'), KeyModifiers::ALT);
-    assert_eq!(drafted(&app), before, "alt+d is not d");
-    press(&mut app, KeyCode::Char('d'));
-    assert_ne!(drafted(&app), before);
+    press_with(&mut app, KeyCode::Char('D'), KeyModifiers::SHIFT);
+    assert_ne!(drafted(&app), before, "D is GitHub's draft; d asks the agent");
 
     let editing = |app: &App| opening(app).editing.map(|(field, _)| field);
     press_with(&mut app, KeyCode::Char('t'), KeyModifiers::ALT);
@@ -262,11 +260,6 @@ fn the_post_preview_moves_its_verdict_and_edits_its_summary() {
     assert!(app.guided_review_workspace.finding_draft.is_none(), "one summary");
     press(&mut app, KeyCode::Char('e'));
     assert!(app.guided_review_workspace.editing_finding_id.is_some(), "e edits the summary");
-    press(&mut app, KeyCode::Esc);
-    press_with(&mut app, KeyCode::Char('w'), KeyModifiers::ALT);
-    assert!(app.guided_review_workspace.pull_request_fix.is_none(), "alt+w is not w");
-    press(&mut app, KeyCode::Char('w'));
-    assert!(app.guided_review_workspace.pull_request_fix.is_some(), "w offers the worktree");
 }
 
 #[test]
@@ -726,12 +719,13 @@ fn leaving_the_feedback_window_closes_the_views_drawn_over_it() {
     nothing_left(&app, "worktree offer");
 }
 
-/// With nothing to send, `u` does nothing at all — it does not reach the send path to say so.
+/// With nothing to send, the window offers no send, and a plain `u` stays a dead key rather than
+/// reaching the send path to say there's nothing.
 #[test]
 fn u_with_nothing_unsent_does_nothing() {
     let mut app = app(FixtureScenario::GuidedReviewFindings);
     set_findings(&mut app, |finding| finding.state = FindingState::Resolved);
-    assert_eq!(crate::app::window_sends(&app), None);
+    assert_eq!(crate::app::window_send_hint(&app), None);
     let before = said(&app).len();
     press(&mut app, KeyCode::Char('u'));
     assert_eq!(said(&app).len(), before);
@@ -757,20 +751,4 @@ fn x_deletes_a_draft_in_the_window() {
         ),
         "x deletes it"
     );
-}
-
-/// Re-anchoring is `Alt+R` in the window, and only that chord.
-#[test]
-fn alt_r_reanchors_in_the_window() {
-    let mut app = app(FixtureScenario::GuidedReviewFindings);
-    let (engine_tx, mut engine_rx) = mpsc::channel(16);
-    app.engine_tx = engine_tx;
-    let stale = app.review.session().unwrap().findings[4].id.clone();
-    app.guided_review_workspace.selected_finding_id = Some(stale);
-    press_with(&mut app, KeyCode::Char('z'), KeyModifiers::ALT);
-    press_with(&mut app, KeyCode::Char('R'), KeyModifiers::SHIFT);
-    press_with(&mut app, KeyCode::Char('r'), KeyModifiers::SHIFT);
-    assert!(engine_rx.try_recv().is_err(), "neither alt+z nor shift+r is alt+r");
-    press_with(&mut app, KeyCode::Char('r'), KeyModifiers::ALT);
-    assert!(engine_rx.try_recv().is_ok(), "alt+r re-anchors");
 }

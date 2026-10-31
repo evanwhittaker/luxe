@@ -2,11 +2,13 @@
 
 use super::{rows, Focus, GithubPanel, SPLIT_MIN_WIDTH};
 use crate::glyphs::Icon;
+use crate::mouse::HitRegions;
 use crate::theme::styles::ThemeStyles;
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, Padding, Paragraph};
 use ratatui::Frame;
+use std::cell::RefCell;
 use unicode_width::UnicodeWidthStr;
 
 /// The icon a section's tab wears, read from what it searches for: your review, issues, your own,
@@ -28,8 +30,15 @@ pub fn section_icon(query: &str) -> Icon {
 
 /// Draws `/github` over `area`, the whole terminal, less a margin.
 ///
-/// Args: `(frame, area, panel, styles, spinner frame)`.
-pub fn render(f: &mut Frame, area: Rect, panel: &GithubPanel, styles: &ThemeStyles, frame: usize) {
+/// Args: `(frame, area, panel, styles, spinner frame, hit)`.
+pub fn render(
+    f: &mut Frame,
+    area: Rect,
+    panel: &GithubPanel,
+    styles: &ThemeStyles,
+    frame: usize,
+    hit: &RefCell<HitRegions>,
+) {
     // The whole screen goes, not just the frame: a sliver of dock beside a modal this size reads
     // as a rendering fault
     f.render_widget(Clear, area);
@@ -57,7 +66,8 @@ pub fn render(f: &mut Frame, area: Rect, panel: &GithubPanel, styles: &ThemeStyl
     // The tabs choose what the whole panel shows, so they run across all of it
     let body = if panel.sections.is_some() && body.height > 2 {
         let tabs = rows::tab_line(panel, usize::from(body.width), styles);
-        f.render_widget(Paragraph::new(tabs), Rect { height: 1, ..body });
+        tabs.publish(&mut hit.borrow_mut(), Rect { height: 1, ..body });
+        f.render_widget(Paragraph::new(tabs.line), Rect { height: 1, ..body });
         let rule = Span::styled("─".repeat(usize::from(body.width)), styles.border_muted);
         f.render_widget(
             Paragraph::new(Line::from(rule)),
@@ -70,13 +80,17 @@ pub fn render(f: &mut Frame, area: Rect, panel: &GithubPanel, styles: &ThemeStyl
 
     if body.width < SPLIT_MIN_WIDTH {
         match detail.filter(|_| !list_focused) {
-            Some(detail) => crate::github_detail::render(f, body, detail, true, now, styles),
-            None => draw_list(f, body, panel, true, now, styles, frame),
+            Some(detail) => crate::github_detail::render(f, body, detail, true, now, styles, hit),
+            None => {
+                draw_list(f, body, panel, true, now, styles, frame);
+                hit.borrow_mut().push_scroll(body, crate::mouse::ScrollRegionId::GithubList);
+            }
         }
     } else {
         let list_width = (body.width * 2 / 5).clamp(56, 76);
         let list = Rect { width: list_width, ..body };
         draw_list(f, list, panel, list_focused, now, styles, frame);
+        hit.borrow_mut().push_scroll(list, crate::mouse::ScrollRegionId::GithubList);
         let rule: Vec<Line> =
             (0..body.height).map(|_| Line::from(Span::styled("│", styles.border_muted))).collect();
         f.render_widget(Paragraph::new(rule), Rect { x: list.right() + 1, width: 1, ..body });
@@ -84,7 +98,7 @@ pub fn render(f: &mut Frame, area: Rect, panel: &GithubPanel, styles: &ThemeStyl
             Rect { x: list.right() + 3, width: body.width.saturating_sub(list_width + 3), ..body };
         match detail {
             Some(detail) => {
-                crate::github_detail::render(f, pane, detail, !list_focused, now, styles)
+                crate::github_detail::render(f, pane, detail, !list_focused, now, styles, hit)
             }
             None if panel.rows().is_empty() => {}
             None if failed(panel).is_some() => {

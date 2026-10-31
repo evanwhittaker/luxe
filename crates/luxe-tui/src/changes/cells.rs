@@ -77,6 +77,31 @@ impl ChangesView {
         }
     }
 
+    /// Moves the selection's free end by `step` over the rows as drawn, the cursor going with it so
+    /// the view follows. False when there is no selection showing to grow.
+    pub(crate) fn step_cells(&mut self, step: crate::selection::SelectionStep) -> bool {
+        let showing = self.cells.filter(|pick| !pick.grid.is_empty() && pick.view == self.view);
+        let Some(pick) = showing else { return false };
+        let Some(last) = self.row_count().checked_sub(1) else { return false };
+        let texts: Vec<String> = self
+            .row_sources(0..=last, pick.side)
+            .into_iter()
+            .map(|source| source.map(crate::tabstop::display_text).unwrap_or_default().into())
+            .collect();
+        let to = crate::selection::step_point(&texts, pick.grid.cursor, step);
+        self.extend_cells(to);
+        self.stand_on_row(to.line);
+        true
+    }
+
+    /// Rows on the face showing.
+    fn row_count(&self) -> usize {
+        match self.view {
+            PeekView::File => self.text_lines().map_or(0, |lines| lines as usize),
+            PeekView::Diff => self.file().map_or(0, |file| diff_row_lines(file).count()),
+        }
+    }
+
     /// Whether the selection covers any text, rather than marking where a click landed.
     pub(crate) fn cells_picked(&self) -> bool {
         self.cells.is_some_and(|pick| !pick.grid.is_empty())

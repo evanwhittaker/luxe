@@ -18,8 +18,8 @@ use crate::app::App;
 pub(super) use description::render_pull_request_description;
 pub(super) use evidence::render_finding_fix;
 pub(super) use finding::{
-    anchor_summary, chapter_kind_label, finding_state_glyph, finding_state_label,
-    render_finding_details, render_finding_draft,
+    anchor_summary, chapter_kind_label, finding_row_note, finding_state_glyph,
+    finding_state_sentence, render_finding_details, render_finding_draft,
 };
 #[cfg(test)]
 use finish::finish_carries;

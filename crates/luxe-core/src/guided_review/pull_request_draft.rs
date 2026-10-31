@@ -1,14 +1,18 @@
 //! Pull request draft — a description a reviewer can read, from the review that was read.
 //!
-//! A branch's Guided Review already says what changed and why, chapter by chapter, in the order it
-//! makes sense. That is the description a pull request usually lacks, so it becomes the draft: the
-//! review's intent, each chapter with its reasons, and `Closes #n` when the session took up an
-//! issue. Anyone reading it on GitHub gets the story, with or without luxe.
+//! A commit's Guided Review already says what changed and why, chapter by chapter, in the order it
+//! makes sense, under a title the commit's author wrote for readers. That is the description a pull
+//! request usually lacks, so it becomes the draft: the review's intent, each chapter with its
+//! reasons, and `Closes #n` when the session took up an issue. Anyone reading it on GitHub gets the
+//! story, with or without luxe.
+//!
+//! A review of this session's own work is titled for the prompt that started it, so its pull
+//! request starts blank (but for the issue) and the agent drafts it on request instead.
 //!
 //! It is a draft. The reader edits it in a preview before anything is sent, and nothing is added
 //! that they did not see: no signature, no marker, nothing about luxe.
 
-use super::{ChapterKind, GuidedReview};
+use super::{ChapterKind, GuidedReview, ReviewTarget};
 
 /// Longest a pull request title runs, in characters, before it is cut.
 const TITLE_MAX_CHARS: usize = 72;
@@ -39,7 +43,14 @@ pub struct PullRequestDraft {
 ///
 /// Generated content — lockfiles and the like — is named in one line rather than given a section:
 /// it is part of the change, and not what a reviewer came to read about.
+///
+/// A review of this session's work starts blank instead, save for the issue: its title is the
+/// latest prompt, which was written for the agent rather than for a reviewer. The reader writes
+/// the pull request, or asks the agent to.
 pub fn pull_request_draft(review: &GuidedReview, issue: Option<&ClosedIssue>) -> PullRequestDraft {
+    if titled_by_prompt(&review.target) {
+        return issue_only_draft(issue);
+    }
     let mut body = String::new();
     if let Some(intent) = review.brief.as_ref().map(|brief| brief.intent.trim()) {
         if !intent.is_empty() {
@@ -74,6 +85,31 @@ pub fn pull_request_draft(review: &GuidedReview, issue: Option<&ClosedIssue>) ->
         _ => title(&review.context.title),
     };
     PullRequestDraft { title, body: body.trim_end().to_string() }
+}
+
+/// Whether a review of `target` takes its title from the session's latest prompt: the targets that
+/// read this session's work, rather than a commit or a pull request with words of its own.
+fn titled_by_prompt(target: &ReviewTarget) -> bool {
+    match target {
+        ReviewTarget::WorkingTree | ReviewTarget::LastTurn { .. } | ReviewTarget::Base { .. } => {
+            true
+        }
+        ReviewTarget::Commit { .. }
+        | ReviewTarget::PullRequest { .. }
+        | ReviewTarget::OwnPullRequest { .. } => false,
+    }
+}
+
+/// A draft that says only what the issue says: its title, and the line that closes it.
+fn issue_only_draft(issue: Option<&ClosedIssue>) -> PullRequestDraft {
+    let Some(issue) = issue else {
+        return PullRequestDraft { title: String::new(), body: String::new() };
+    };
+    let named = issue.title.as_deref().filter(|named| !named.trim().is_empty());
+    PullRequestDraft {
+        title: named.map(title).unwrap_or_default(),
+        body: format!("Closes #{}", issue.number),
+    }
 }
 
 /// One pull request of a stack drafted from a review: the chapters it carries, and its words.

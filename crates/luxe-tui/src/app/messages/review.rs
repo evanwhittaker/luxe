@@ -180,17 +180,6 @@ pub(super) fn delete_selected_finding_draft(app: &mut App) {
     app.send_review_edit(ReviewEditPurpose::Other, ReviewEdit::DeleteComment { finding_id });
 }
 
-/// Re-points a finding whose anchor a refresh invalidated at the cursor's current line.
-pub(super) fn reanchor_selected_finding(app: &mut App) {
-    let Some(finding_id) = app.guided_review_workspace.selected_finding_id.clone() else { return };
-    let Some(review) = app.guided_review.as_ref() else {
-        tracing::warn!("cannot reanchor a finding without an active guided review");
-        return;
-    };
-    let anchor = app.guided_review_workspace.selected_finding_anchor(&review.files);
-    app.send_review_edit(ReviewEditPurpose::Other, ReviewEdit::Reanchor { finding_id, anchor });
-}
-
 /// Why a comment draft could not be saved, in reviewer-facing words.
 fn draft_rejection_reason(
     error: &luxe_core::guided_review::ReviewSessionValidationError,
@@ -317,9 +306,16 @@ pub(super) fn open_in_browser(app: &mut App) {
     }
 }
 
-/// How many comments the feedback window's `u` would send, or `None` where it sends nothing: on
-/// someone else's pull request, whose comments go to GitHub instead, or with nothing unsent.
-pub(crate) fn window_sends(app: &App) -> Option<usize> {
-    let unsent = unsent_finding_ids(app).len();
-    (!super::github_post::is_pull_request(app) && unsent > 0).then_some(unsent)
+/// The feedback window's hint for sending its unsent comments, naming where they go: the agent
+/// on `alt+u`, the key that sends everywhere in a review, or GitHub on `alt+enter` for someone
+/// else's pull request, which isn't checked out for the agent to fix. `None` with nothing unsent.
+pub(crate) fn window_send_hint(app: &App) -> Option<&'static str> {
+    if unsent_finding_ids(app).is_empty() {
+        return None;
+    }
+    Some(if super::github_post::is_pull_request(app) {
+        "alt+enter post to GitHub"
+    } else {
+        "alt+u send to the agent"
+    })
 }

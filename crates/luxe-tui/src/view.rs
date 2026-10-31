@@ -41,18 +41,30 @@ use ratatui::{
     Frame,
 };
 
-/// Draws one frame and hands the terminal whatever that frame owed it.
+/// Draws one frame, hands the terminal whatever that frame owed it, and tells custom programs if it
+/// drew their rows at a new width.
 ///
 /// The single entry point every renderer uses, because the debt is easy to forget and invisible
 /// when you do: the transcript writes placeholder cells for an image the terminal has never been
 /// sent, and a correct-looking layout comes up empty.
 pub fn draw(terminal: &mut crate::terminal::Tui, app: &mut App) -> std::io::Result<()> {
-    crate::terminal::draw_synchronized(terminal, |frame| render(frame, app))?;
-    crate::terminal::write_graphics(&app.images.drain_control())
+    crate::terminal::draw_synchronized_with(terminal, app, render, |app| {
+        dock::report_custom_row_widths(app);
+        crate::terminal::write_graphics(&app.images.drain_control())
+    })
 }
 
 /// Renders the current application surface.
+///
+/// Brackets the surface with the image store's frame, because working out what a Sixel image owes
+/// the terminal needs the finished buffer, whichever surface drew it.
 pub fn render(f: &mut Frame, app: &mut App) {
+    app.images.begin_frame();
+    render_surface(f, app);
+    app.images.finish_frame(f.buffer_mut());
+}
+
+fn render_surface(f: &mut Frame, app: &mut App) {
     let size = f.area();
     // Start each frame with an empty mouse hit registry; surfaces republish their regions below.
     app.hit.borrow_mut().clear();
@@ -167,7 +179,7 @@ fn render_dock_and_conversation(f: &mut Frame, app: &mut App, regions: &ChatRegi
         }
         DockPresentation::Overlay => {
             transcript_area = render_conversation(f, conversation_area, diff_column, app);
-            f.buffer_mut().set_style(stack, app.theme_styles.dim);
+            f.buffer_mut().set_style(stack, app.theme_styles.backdrop);
             let dock_width = workspace_layout::resolve_workspace_layout_with(
                 size.width,
                 app.panes.width(workspace_layout::Pane::Dock),
@@ -284,11 +296,12 @@ fn render_covering_overlays(f: &mut Frame, app: &mut App) {
     // `/github` and `/pr` cover the conversation: each is a place you went, not a strip above
     // the prompt
     if let Some(ref panel) = app.overlays.github {
-        crate::github_panel::render(f, size, panel, &app.theme_styles, app.status.spinner_frame);
+        let frame = app.status.spinner_frame;
+        crate::github_panel::render(f, size, panel, &app.theme_styles, frame, &app.hit);
     }
     if let Some(ref card) = app.overlays.pull_request_card {
         let frame = app.status.spinner_frame;
-        crate::github_detail::render_card(f, size, card, frame, &app.theme_styles);
+        crate::github_detail::render_card(f, size, card, frame, &app.theme_styles, &app.hit);
     }
     if let Some(ref palette) = app.overlays.palette {
         crate::palette::render_palette(f, size, palette, &app.theme_styles, &app.hit);

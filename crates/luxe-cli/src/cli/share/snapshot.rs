@@ -6,6 +6,7 @@
 //! arrives whole once the message commits.
 
 use super::super::rpc::SharedTranscript;
+use luxe_core::custom_dock::DockAnswer;
 use luxe_core::event::SessionMessage;
 use luxe_core::Event;
 use std::mem::discriminant;
@@ -64,6 +65,9 @@ impl Snapshot {
             | Event::ContextUsage { .. }
             | Event::PlanUsage(_)
             | Event::WorkspaceUpdated(_) => replace_kind(&mut self.latest, event),
+            Event::DockSection(answer) | Event::StatuslineModule(answer) => {
+                replace_custom_answer(&mut self.latest, answer, event);
+            }
             Event::ToolActivityUpdated(activity) => self.track_activity(&activity.call_id, event),
             Event::PermissionRequested { .. } | Event::QuestionAsked { .. } => {
                 self.waiting.push(event.clone());
@@ -120,6 +124,28 @@ fn replace_kind(kept: &mut Vec<Event>, event: &Event) {
     let kind = discriminant(event);
     kept.retain(|old| discriminant(old) != kind);
     kept.push(event.clone());
+}
+
+/// Keeps a custom dock section's or statusline module's newest rows and any failure since them. A
+/// failure carries no rows and a front-end keeps the last good ones, so a joiner needs both to draw
+/// what everyone else sees. Answers match by kind and name, since a section and a module may share
+/// a name.
+fn replace_custom_answer(kept: &mut Vec<Event>, answer: &DockAnswer, event: &Event) {
+    let failed = answer.failure.is_some();
+    let kind = discriminant(event);
+    kept.retain(|old| {
+        let Some(old_answer) = custom_answer(old) else { return true };
+        let same = discriminant(old) == kind && old_answer.name == answer.name;
+        !same || (failed && old_answer.failure.is_none())
+    });
+    kept.push(event.clone());
+}
+
+fn custom_answer(event: &Event) -> Option<&DockAnswer> {
+    match event {
+        Event::DockSection(answer) | Event::StatuslineModule(answer) => Some(answer),
+        _ => None,
+    }
 }
 
 /// The id a waiting prompt answers to, in the form `PromptClosed` carries.

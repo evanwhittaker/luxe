@@ -7,6 +7,7 @@ mod auth;
 mod capture;
 mod chat;
 mod corpus;
+mod custom;
 mod demo;
 mod demo_spec;
 #[cfg(test)]
@@ -105,6 +106,7 @@ pub fn seeded_session(
     if !chat::seed(&mut app, scenario)?
         && !review::seed(&mut app, scenario)?
         && !shell::seed(&mut app, scenario)?
+        && !custom::seed(&mut app, scenario)?
     {
         return Err(format!("no fixture seeds the {scenario:?} scenario"));
     }

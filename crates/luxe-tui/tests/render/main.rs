@@ -39,6 +39,7 @@ mod files;
 mod hints;
 mod images;
 mod layout;
+mod peek_cursor;
 mod peek_selection;
 mod pickers;
 mod reasoning;
@@ -49,6 +50,7 @@ mod routing;
 mod selection;
 mod steering;
 mod support;
+mod text_menu;
 mod transcript;
 
 use activity::*;

@@ -30,20 +30,27 @@ fn main() -> Result<()> {
     if let Ok(name) = env::var("LUXE_FIXTURE_DESKTOP") {
         app.theme_styles = desktop_styles(&name)?;
     }
-    // The same knob for the other thing the terminal decides for us:
-    // `LUXE_FIXTURE_IMAGES=pixels|blocks|off` captures an image surface at one fidelity.
-    if let Ok(images) = env::var("LUXE_FIXTURE_IMAGES") {
-        use luxe_tui::graphics::ImageTier;
-        app.images.set_tier(match images.as_str() {
-            "pixels" => ImageTier::Pixels,
-            "off" => ImageTier::Text,
-            _ => ImageTier::Blocks,
-        });
-    }
     let scenario_name = scenario.name();
 
     execute!(io::stdout(), SetTitle(format!("luxe fixture: {scenario_name}")))?;
     let mut terminal = terminal::init()?;
+    // The same knob for the other thing the terminal decides for us, applied once the terminal is
+    // taken over so that `auto` can ask it:
+    // `LUXE_FIXTURE_IMAGES=auto|pixels|sixel|blocks|off` captures an image surface at one fidelity.
+    if let Ok(images) = env::var("LUXE_FIXTURE_IMAGES") {
+        use luxe_tui::graphics::{CellSize, ImageTier};
+        // `auto` is what a real session would pick here, asking the terminal as it does
+        if images == "auto" {
+            app.images.set_cell_size(CellSize::detect());
+        }
+        app.images.set_tier(match images.as_str() {
+            "auto" => ImageTier::resolve(luxe_core::config::ImageStyle::Auto),
+            "pixels" => ImageTier::Pixels,
+            "sixel" => ImageTier::Sixel,
+            "off" => ImageTier::Text,
+            _ => ImageTier::Blocks,
+        });
+    }
     let result = run(&mut terminal, &mut app);
     terminal::restore()?;
     result
@@ -465,7 +472,6 @@ mod tests {
         assert!(usage().contains("guided-review-wide"));
         assert!(usage().contains("guided-review-findings-empty"));
         assert!(usage().contains("guided-review-findings"));
-        assert!(usage().contains("guided-review-needs-verification"));
         assert!(usage().contains("guided-review-finish"));
         assert!(usage().contains("guided-review-medium"));
         assert!(usage().contains("guided-review-narrow"));

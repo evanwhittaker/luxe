@@ -9,6 +9,64 @@ The version on `main` is always the next release. The first change to what ships
 `Cargo.toml`, `Cargo.lock`) after a release bumps it one step and opens its section here, and later
 changes add to that section until it ships; `scripts/version-check.py` holds them to it.
 
+## [0.1.7]
+
+### Added
+
+- On a subscription such as ChatGPT or GitHub Copilot, a **USAGE** section in the dock shows how
+  much of each of the plan's windows you've used and when it resets: `weekly 30% · resets 3d 4h`.
+  It turns yellow at 75% and red at 90%. Suggested by [@cottongin](https://github.com/cottongin)
+  in [#21](https://github.com/evanwhittaker/luxe/issues/21).
+- `dock.sections` chooses which dock sections show, and their order within the top, middle and
+  bottom of the dock. Hiding MODEL still shows its **approvals** row while auto-approve is on.
+- `dock.custom` adds dock sections drawn from your own programs. A program gets the session's
+  model, context and usage as JSON on stdin and answers with rows, in plain text or JSON with
+  labels and theme colors. It runs when a session starts, after each turn, and when the provider
+  reports plan usage. A project's `dock.custom` needs `--trust-project`.
+- `statusline.custom` does the same for the statusline: name a module in `left` or `right` and the
+  bar draws the first row its program prints. One program can feed both, since its input says
+  where it's drawn. A project's `statusline.custom` needs `--trust-project`.
+- A custom program is told its row's width in `COLUMNS`, as a terminal tells a program its own,
+  so it can draw a bar to fit. Drag the dock wider and the program runs again with the new width.
+- `--rpc` sends `dock_section` and `statusline_module` events with a custom program's rows, and a
+  client tells luxe how wide it draws them with `set_row_widths`.
+- Click a tab to open it: in the `@` picker, `/github` and a pull request's **Conversation**.
+- Right-click a selection for **Copy**, or the composer for **Paste**.
+- `shift` with an arrow, `home` or `end` grows or shrinks a selection in the conversation, the
+  composer or the preview, and the conversation scrolls to follow it. `super+c` copies it too, and
+  `super` is a modifier `keybindings.json` takes.
+- The preview's diff has a cursor: `j`/`k` and the arrows move a marked, lit line instead of
+  scrolling. A Guided Review's diff has one too, so you can see which line a comment goes on. Its
+  screen stays put while the cursor moves, and the wheel scrolls the code under it.
+- Screenshots and images are drawn in the conversation in Windows Terminal 1.22 or later, with
+  Sixel, including when luxe runs in WSL. `images = "sixel"` asks for Sixel in another terminal
+  that draws it.
+
+### Changed
+
+- `esc` stops the turn. Windows opens the Start menu for `ctrl+esc`, which still works where the
+  terminal sends it. `esc` only stops a turn once nothing else wants it: it closes an open pane or
+  menu, drops a selection, or clears the composer first.
+- Letting go of a drag no longer copies. The selection stays lit until you copy it with
+  `ctrl+shift+c`, `ctrl+insert`, `super+c` or a right-click, and `esc` drops it.
+- Clicking a file under `FILES` moves the keyboard into its preview, with the cursor on show.
+
+### Fixed
+
+- `luxe update` no longer replaces a luxe you built from a checkout or a fork with
+  `cargo install --path` or `--git`. It tells you to pull and rebuild that source instead.
+- A plan's reset countdown keeps counting down between the provider's reports, instead of
+  standing still until the next turn.
+- On Windows with WSL installed, the `bash` tool runs Git Bash again instead of WSL's `bash.exe`
+  alias, which ran every command inside Linux.
+- The guide's Ghostty setup for copying a selection adds `keybind = copy=copy_to_clipboard`.
+  Without it, Ghostty on Linux kept `ctrl+insert` for itself, so Omarchy's `super+c` never copied.
+
+### Security
+
+- `pulldown-cmark` 0.13.5: with wikilinks on, a crafted document could make the parser's output
+  grow exponentially. luxe never turns wikilinks on, so it never reached that code.
+
 ## [0.1.6]
 
 ### Added

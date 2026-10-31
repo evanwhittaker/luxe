@@ -65,6 +65,7 @@ pub(super) enum Section {
     Files,
     Elsewhere,
     Model,
+    Usage,
     Session,
 }
 
@@ -77,6 +78,7 @@ impl Section {
             Self::Files => "FILES",
             Self::Elsewhere => "ELSEWHERE",
             Self::Model => "MODEL",
+            Self::Usage => "USAGE",
             Self::Session => "SESSION",
         }
     }
@@ -94,7 +96,7 @@ impl Section {
         match self {
             Self::Project | Self::Model => Depth::Hero,
             Self::Plan | Self::Files => Depth::Raised,
-            Self::Elsewhere | Self::Session => Depth::Recessed,
+            Self::Elsewhere | Self::Usage | Self::Session => Depth::Recessed,
         }
     }
 }
@@ -125,15 +127,29 @@ pub(super) fn section_heading_with(section: Section, trailing: String, app: &App
 }
 
 pub(super) fn heading_spans(section: Section, app: &App) -> Vec<Span<'static>> {
+    badge_spans(section.label().into(), section.depth(), app)
+}
+
+/// Heading for a custom section: its title on the same badge as the built-ins, so a section a
+/// program feeds reads as part of the rail rather than something pasted onto it.
+pub(super) fn custom_heading_line(title: String, depth: Depth, app: &App) -> Line<'static> {
+    Line::from(badge_spans(title.into(), depth, app))
+}
+
+fn badge_spans(
+    label: std::borrow::Cow<'static, str>,
+    depth: Depth,
+    app: &App,
+) -> Vec<Span<'static>> {
     let styles = &app.theme_styles;
     if app.config.statusline.style() == StatuslineStyle::Flat {
         return vec![Span::styled(
-            section.label(),
+            label,
             styles.accent.add_modifier(Modifier::BOLD).patch(styles.tool_bg),
         )];
     }
     let canvas = styles.tool_bg.bg.unwrap_or(styles.slab.canvas);
-    crate::widgets::badge(section.label(), section.depth(), canvas, styles)
+    crate::widgets::badge(label, depth, canvas, styles)
 }
 
 pub(super) fn text_line(text: String, app: &App) -> Line<'static> {

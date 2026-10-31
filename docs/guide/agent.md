@@ -128,7 +128,7 @@ start from your configured default rather than your last choice:
 
 ## Turn limits
 
-A turn runs until the agent stops calling tools or you stop it with `ctrl+esc`. To cap the rounds
+A turn runs until the agent stops calling tools or you stop it with `esc`. To cap the rounds
 of tool calls in one turn, where calls the model makes together count as one round:
 
 ```json title="~/.config/luxe/config.json"

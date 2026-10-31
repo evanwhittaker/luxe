@@ -310,6 +310,18 @@ fn every_telemetry_row_fits_the_rail() {
         cost_usd: 98_765.43,
         ..Default::default()
     };
+    // The longest a plan window reads: a full one with days and hours to go
+    let full = luxe_core::provider::PlanWindow {
+        used_percent: 100.0,
+        window_minutes: 20_160,
+        resets_in_secs: Some(603_553),
+    };
+    let plan = luxe_core::provider::PlanUsage {
+        primary: Some(full),
+        secondary: Some(full),
+        ..Default::default()
+    };
+    app.status.on_plan_usage(plan);
 
     let content = usize::from(CONTEXT_DOCK_WIDTH) - 2;
     for row in telemetry_lines(&app).iter().map(text) {

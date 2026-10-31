@@ -43,6 +43,13 @@ pub(crate) struct Policy {
     pub(crate) joined: bool,
 }
 
+impl Policy {
+    /// `list_github` for the sections it names, or for the configured ones when it names none.
+    fn list_github(&self, named: Option<Vec<luxe_core::config::GithubSection>>) -> Action {
+        Action::ListGithub { sections: named.unwrap_or_else(|| self.github_sections.clone()) }
+    }
+}
+
 /// Whether a client may publish to GitHub, and if not, why not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GithubWrites {
@@ -251,9 +258,7 @@ pub(crate) fn to_engine_action(
         WireAction::AnswerThreads { request_id, review_id, answers } => {
             Action::AnswerThreads { request_id, review_id, answers }
         }
-        WireAction::ListGithub { sections } => Action::ListGithub {
-            sections: sections.unwrap_or_else(|| policy.github_sections.clone()),
-        },
+        WireAction::ListGithub { sections } => policy.list_github(sections),
         WireAction::SearchGithub { request, section, after } => {
             Action::SearchGithub { request, section, after }
         }
@@ -277,6 +282,7 @@ pub(crate) fn to_engine_action(
             Action::ReadProjectFile { request_id, path }
         }
         WireAction::SetFocus { focused } => Action::FocusChanged { focused },
+        WireAction::SetRowWidths(widths) => Action::CustomRowWidths(widths),
         WireAction::LinkPullRequest { number, url } => Action::LinkPullRequest { number, url },
         WireAction::PostGithubComment(post) => Action::PostGithubComment(post),
         WireAction::ChangePullRequest { repository, number, write } => {

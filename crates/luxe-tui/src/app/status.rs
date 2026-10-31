@@ -42,7 +42,7 @@ pub struct StatusModel {
     /// Time this turn has spent waiting on a person, and when the open wait began.
     ///
     /// A turn blocked on a permission prompt or the `question` tool is not a turn *working*, and
-    /// the timer beside `Ctrl+Esc to interrupt` is read as how long the agent has been at it. Left
+    /// the timer beside `Esc to interrupt` is read as how long the agent has been at it. Left
     /// running it reports the reader's own deliberation back to them and inflates every figure a
     /// slow decision touches.
     pub(crate) waited_on_user: std::time::Duration,
@@ -77,6 +77,15 @@ pub struct StatusModel {
     pub toast: Option<(String, std::time::Instant)>,
     /// The active subscription's remaining allowance, when the provider reports one.
     pub plan_usage: Option<luxe_core::provider::PlanUsage>,
+    /// When `plan_usage` arrived, so a reset countdown on screen keeps counting between reports
+    pub(crate) plan_usage_at: Option<std::time::Instant>,
+    /// What each custom dock section's program last said
+    pub(crate) custom_dock: super::custom_dock::CustomDockAnswers,
+    /// What each custom statusline module's program last said
+    pub(crate) custom_statusline: super::custom_dock::CustomDockAnswers,
+    /// Whether luxe was launched with `--trust-project`, so a config reload reads the project's
+    /// own config the way the engine does. Without it, a project's custom programs run nowhere.
+    pub(crate) trust_project: bool,
     /// The session's spend, as the engine reports it.
     ///
     /// Not derived here. Usage events arrive **per provider call**, and a turn that uses tools
@@ -127,6 +136,10 @@ impl Default for StatusModel {
             frame_clock: None,
             toast: None,
             plan_usage: None,
+            plan_usage_at: None,
+            custom_dock: Default::default(),
+            custom_statusline: Default::default(),
+            trust_project: false,
         }
     }
 }
@@ -186,6 +199,39 @@ impl StatusModel {
         }
     }
 
+    /// Takes in an event that only moves the figures this model keeps: usage, the plan, and what
+    /// the custom programs said. Any other event is left alone.
+    pub(crate) fn on_figures(&mut self, event: luxe_core::event::Event) {
+        use luxe_core::event::Event;
+        match event {
+            Event::ContextUsage { used_tokens, context_window } => {
+                self.on_context_usage(used_tokens, context_window);
+            }
+            Event::TurnUsage {
+                prompt_tokens,
+                completion_tokens,
+                cost_usd,
+                cache_read_tokens,
+                ..
+            } => self.on_call_usage(prompt_tokens, completion_tokens, cache_read_tokens, cost_usd),
+            Event::SessionUsage(usage) => self.on_session_usage(usage),
+            Event::PlanUsage(plan) => self.on_plan_usage(plan),
+            Event::DockSection(answer) => self.custom_dock.record(answer),
+            Event::StatuslineModule(answer) => self.custom_statusline.record(answer),
+            _ => {}
+        }
+    }
+
+    /// Takes in how full the window is. A model whose window isn't known reports zero, which says
+    /// nothing about the fill, so it leaves the last reading standing.
+    pub(crate) fn on_context_usage(&mut self, used_tokens: u32, context_window: u32) {
+        if context_window == 0 {
+            return;
+        }
+        self.context_window = context_window;
+        self.context_pct = crate::statusline::context_percent(used_tokens, context_window);
+    }
+
     /// Adopts the session totals the engine just published; they are never derived here.
     pub fn on_session_usage(&mut self, usage: luxe_core::usage::SessionUsage) {
         self.session = usage;
@@ -209,6 +255,33 @@ impl StatusModel {
     /// actual constraint. Absent for API-key providers.
     pub fn plan_summary(&self) -> Option<String> {
         self.plan_usage.as_ref().and_then(luxe_core::provider::PlanUsage::summary)
+    }
+
+    /// Records what the plan reported, and when, so its resets can be counted down from there.
+    pub(crate) fn on_plan_usage(&mut self, plan: luxe_core::provider::PlanUsage) {
+        self.plan_usage = Some(plan);
+        self.plan_usage_at = Some(self.now());
+    }
+
+    /// Every window the plan reported, as it stands at `now`: each reset as far off as it is now,
+    /// not as it was when the report came in. Empty without a plan.
+    pub(crate) fn plan_windows(
+        &self,
+        now: std::time::Instant,
+    ) -> Vec<luxe_core::provider::PlanWindow> {
+        let plan = self.plan_usage_now(now);
+        plan.map(|plan| plan.windows().copied().collect()).unwrap_or_default()
+    }
+
+    /// The plan's report as it stands at `now`, its resets counted down since it arrived, for
+    /// anything that shows a reset after the moment it was reported.
+    pub(crate) fn plan_usage_now(
+        &self,
+        now: std::time::Instant,
+    ) -> Option<luxe_core::provider::PlanUsage> {
+        let plan = self.plan_usage.as_ref()?;
+        let since = |at: std::time::Instant| now.saturating_duration_since(at);
+        Some(plan.aged(self.plan_usage_at.map_or(std::time::Duration::ZERO, since)))
     }
 
     /// The status-line form of the same thing, sized for a segment that competes for space.

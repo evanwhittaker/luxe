@@ -109,11 +109,39 @@ fn the_showing_file_wears_its_name_and_the_keyboard_row_wears_the_band() {
         depth: 0,
         open: false,
         holds_change: false,
+        untracked: false,
         ignored: false,
     };
     let line = tree_row_line(&keyed, 40, Some("CHANGELOG.md"), None, &app);
     let name = line.spans.iter().find(|span| span.content == "src").unwrap();
     assert_eq!(name.style.bg, app.theme_styles.selected_bg.bg, "the keyboard's row is banded");
+}
+
+/// A folder git reports as new wears CHANGES' `?` whether it is open or not, since that is the
+/// folder's own status; a folder that only holds a change shows its dot while closed, as before.
+#[test]
+fn an_untracked_folder_says_so_open_or_closed() {
+    let app = app();
+    let folder = |open, holds_change, untracked| TreeRow::Folder {
+        path: "__pycache__".into(),
+        name: "__pycache__".into(),
+        depth: 0,
+        open,
+        holds_change,
+        untracked,
+        ignored: false,
+    };
+    // The row with its padding squeezed out, so only what is drawn is compared
+    let drawn = |row: &TreeRow| {
+        let line = text(&tree_row_line(row, 40, None, None, &app));
+        line.split_whitespace().collect::<Vec<_>>().join(" ")
+    };
+    for open in [false, true] {
+        let row = drawn(&folder(open, false, true));
+        assert!(row.ends_with("__pycache__ ?"), "open={open}: {row:?}");
+    }
+    assert!(drawn(&folder(false, true, false)).ends_with("__pycache__ •"));
+    assert!(drawn(&folder(true, true, false)).ends_with("__pycache__"));
 }
 
 /// The tree says how to reach it from the keyboard, and once the keyboard is in it, what the

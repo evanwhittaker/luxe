@@ -7,6 +7,7 @@
 
 use luxe_core::github::overview::RowFacts;
 use luxe_core::github::{rfc3339_seconds, Author, ListItem, ReviewDecision};
+use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
 use unicode_width::UnicodeWidthStr;
 
@@ -35,11 +36,33 @@ const QUALIFIERS: &[&str] = &[
     "sort:created-asc",
 ];
 
+/// The tab line as drawn, and what a click on it needs to know.
+pub(super) struct TabRow {
+    /// What draws
+    pub(super) line: Line<'static>,
+    /// The labels drawn, left to right
+    pub(super) shown: Vec<String>,
+    /// The index of the leftmost label drawn among every tab
+    pub(super) first: usize,
+}
+
+impl TabRow {
+    /// Publishes a click region for each tab drawn, the line drawn along `area`'s top row.
+    pub(super) fn publish(&self, hit: &mut crate::mouse::HitRegions, area: Rect) {
+        // The `‹` before a run that starts past the first tab takes a cell
+        let lead = u16::from(self.first > 0);
+        let area = Rect { x: area.x + lead, width: area.width.saturating_sub(lead), ..area };
+        let shown: Vec<&str> = self.shown.iter().map(String::as_str).collect();
+        let strip = crate::mouse::TabStrip::GithubSections;
+        crate::picker::publish_tabs(hit, area, &shown, self.first, strip);
+    }
+}
+
 /// The tabs, on one line `width` wide: each named with its count, then without when the counts
 /// will not fit, then a run of them around the open one, with `‹` and `›` saying more are aside.
-pub(super) fn tab_line(panel: &GithubPanel, width: usize, styles: &ThemeStyles) -> Line<'static> {
+pub(super) fn tab_line(panel: &GithubPanel, width: usize, styles: &ThemeStyles) -> TabRow {
     let Some(sections) = &panel.sections else {
-        return Line::default();
+        return TabRow { line: Line::default(), shown: Vec::new(), first: 0 };
     };
     let label = |index: usize, counted: bool| {
         let section = &sections[index];
@@ -75,7 +98,7 @@ pub(super) fn tab_line(panel: &GithubPanel, width: usize, styles: &ThemeStyles) 
     if last < labels.len() {
         line.spans.push(Span::styled("›", styles.muted));
     }
-    line
+    TabRow { line, shown: labels[first..last].to_vec(), first }
 }
 
 /// The run of `labels` around `open` that fits `width` with room for a marker each side, as a

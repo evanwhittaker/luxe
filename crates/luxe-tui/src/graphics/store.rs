@@ -1,12 +1,15 @@
 //! The image store — every image's bytes and its prepared, live form, and their bounded lifetimes.
 
 use super::detect::ImageTier;
-use super::raster::{fit_within, probe_dimensions, scale_to_png};
+use super::raster::{composite_on_canvas, fit_within, probe_dimensions, scale_to_png};
 use super::{blocks, kitty, CellSize, Fit, ImageKey, ImageOrigin};
 use ratatui::buffer::Buffer;
 use ratatui::style::Color;
+use sixel_frame::{PaintedRow, Placement, SixelLive};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+mod sixel_frame;
 
 /// Bytes one image may carry before it is refused.
 const MAX_SOURCE_BYTES: usize = 24 * 1024 * 1024;
@@ -40,6 +43,8 @@ struct Source {
 /// What has been prepared for drawing, at the size it was prepared for.
 struct Live {
     fit: Fit,
+    /// What a Sixel image was composited over; a different canvas needs a new picture.
+    canvas: Color,
     seen: u64,
     kind: LiveKind,
 }
@@ -49,6 +54,8 @@ enum LiveKind {
     Pixels(u32),
     /// Rasterized to half-block cells.
     Blocks(blocks::Raster),
+    /// Quantized for Sixel, and drawn over blank cells after the frame.
+    Sixel(SixelLive),
 }
 
 /// Decoded images, what has been prepared from them, and what the terminal must be told.
@@ -59,6 +66,12 @@ pub struct ImageStore {
     live: HashMap<ImageKey, Live>,
     /// Escapes owed to the terminal that are not cell content.
     control: String,
+    /// Rows of images this frame has painted, in paint order.
+    painted_rows: Vec<PaintedRow>,
+    /// Sixel images the terminal is showing, as the last frame left them.
+    shown: Vec<Placement>,
+    /// The Sixel data the last frame owes the terminal, once its cells are out.
+    overlay: String,
     clock: u64,
     next_id: u32,
     total_source_bytes: usize,
@@ -81,6 +94,9 @@ impl ImageStore {
             sources: HashMap::new(),
             live: HashMap::new(),
             control: String::new(),
+            painted_rows: Vec::new(),
+            shown: Vec::new(),
+            overlay: String::new(),
             clock: 0,
             // Ids are global to the terminal, so a fixed base would collide with any other program
             // drawing images in the same window — and a collision silently replaces *their* image.
@@ -199,7 +215,7 @@ impl ImageStore {
         if !self.tier.draws_pixels() || fit.cols == 0 || fit.rows == 0 || image_row >= fit.rows {
             return false;
         }
-        if !self.prepare(key, fit) {
+        if !self.prepare(key, fit, canvas) {
             return false;
         }
         self.clock += 1;
@@ -210,28 +226,12 @@ impl ImageStore {
         live.seen = clock;
 
         match &live.kind {
-            LiveKind::Pixels(id) => {
-                let color = kitty::id_color(*id);
-                for col in 0..fit.cols {
-                    let Some(cell) = buf.cell_mut((x + col, y)) else {
-                        break;
-                    };
-                    // The background shows through wherever the image is transparent, so it stays
-                    // whatever the transcript painted the band.
-                    cell.set_symbol(&kitty::placeholder(image_row, col))
-                        .set_fg(color)
-                        .set_bg(canvas);
-                }
-            }
-            LiveKind::Blocks(raster) => {
-                let under = blocks::canvas_rgb(canvas);
-                for col in 0..fit.cols.min(raster.cols()) {
-                    let Some(cell) = buf.cell_mut((x + col, y)) else {
-                        break;
-                    };
-                    let (upper, lower) = raster.cell(col, image_row, under);
-                    cell.set_symbol(blocks::Raster::symbol()).set_fg(upper).set_bg(lower);
-                }
+            LiveKind::Pixels(id) => paint_pixels(buf, (x, y), (*id, fit.cols), image_row, canvas),
+            LiveKind::Blocks(raster) => paint_blocks(buf, (x, y), raster, fit, image_row, canvas),
+            LiveKind::Sixel(sixel) => {
+                let row = PaintedRow::new(key, sixel.id(), (x, y), fit.cols, image_row);
+                paint_sixel(buf, row.at(), sixel.id(), fit.cols, canvas);
+                self.painted_rows.push(row);
             }
         }
         true
@@ -242,7 +242,9 @@ impl ImageStore {
     /// Written to the stream by the event loop rather than through the cell buffer, so ratatui's
     /// diff never has to reason about a symbol that is really a command.
     pub fn drain_control(&mut self) -> String {
-        std::mem::take(&mut self.control)
+        let mut owed = std::mem::take(&mut self.control);
+        owed.push_str(&std::mem::take(&mut self.overlay));
+        owed
     }
 
     /// Releases images past `LIVE_CAPACITY`, oldest sight first.
@@ -278,8 +280,8 @@ impl ImageStore {
     }
 
     /// Ensures `key` is prepared at `fit`, re-preparing when the size changed.
-    fn prepare(&mut self, key: &ImageKey, fit: Fit) -> bool {
-        if self.live.get(key).is_some_and(|live| live.fit == fit) {
+    fn prepare(&mut self, key: &ImageKey, fit: Fit, canvas: Color) -> bool {
+        if self.live.get(key).is_some_and(|live| live.is_current(fit, canvas)) {
             return true;
         }
         self.forget(key);
@@ -307,11 +309,18 @@ impl ImageStore {
                 self.control.push_str(&kitty::transmit(id, &png, fit.cols, fit.rows));
                 LiveKind::Pixels(id)
             }
+            ImageTier::Sixel => {
+                let backdrop = blocks::canvas_rgb(canvas).unwrap_or([0, 0, 0]);
+                let Some(page) = composite_on_canvas(&decoded, fit, self.cell, backdrop) else {
+                    return false;
+                };
+                LiveKind::Sixel(SixelLive::new(self.allocate_id(), self.cell, &page))
+            }
             ImageTier::Text => return false,
         };
 
         self.clock += 1;
-        self.live.insert(key.clone(), Live { fit, seen: self.clock, kind });
+        self.live.insert(key.clone(), Live { fit, canvas, seen: self.clock, kind });
         true
     }
 
@@ -359,6 +368,66 @@ impl ImageStore {
         let id = self.next_id;
         self.next_id = if id >= kitty::MAX_ID { 1 } else { id + 1 };
         id
+    }
+}
+
+impl Live {
+    /// Whether what was prepared still fits the size and, for Sixel, the canvas it was made for.
+    fn is_current(&self, fit: Fit, canvas: Color) -> bool {
+        self.fit == fit && (self.canvas == canvas || !matches!(self.kind, LiveKind::Sixel(_)))
+    }
+}
+
+/// Paints the placeholder cells of one row of a kitty image.
+fn paint_pixels(
+    buf: &mut Buffer,
+    (x, y): (u16, u16),
+    (id, cols): (u32, u16),
+    image_row: u16,
+    canvas: Color,
+) {
+    let color = kitty::id_color(id);
+    for col in 0..cols {
+        let Some(cell) = buf.cell_mut((x + col, y)) else {
+            break;
+        };
+        // The background shows through wherever the image is transparent, so it stays whatever
+        // the transcript painted the band.
+        cell.set_symbol(&kitty::placeholder(image_row, col)).set_fg(color).set_bg(canvas);
+    }
+}
+
+/// Paints one row of a half-block image.
+fn paint_blocks(
+    buf: &mut Buffer,
+    (x, y): (u16, u16),
+    raster: &blocks::Raster,
+    fit: Fit,
+    image_row: u16,
+    canvas: Color,
+) {
+    let under = blocks::canvas_rgb(canvas);
+    for col in 0..fit.cols.min(raster.cols()) {
+        let Some(cell) = buf.cell_mut((x + col, y)) else {
+            break;
+        };
+        let (upper, lower) = raster.cell(col, image_row, under);
+        cell.set_symbol(blocks::Raster::symbol()).set_fg(upper).set_bg(lower);
+    }
+}
+
+/// Blanks the cells a Sixel image will be drawn over, marking them with the image's id.
+///
+/// The mark is how the frame tells, afterwards, that these cells are still this image's and not
+/// something drawn over them. It also keeps the cells different from empty ones, so ratatui writes
+/// them — and a written cell is what wipes the terminal's old picture from under it.
+fn paint_sixel(buf: &mut Buffer, (x, y): (u16, u16), id: u32, cols: u16, canvas: Color) {
+    let mark = kitty::id_color(id);
+    for col in 0..cols {
+        let Some(cell) = buf.cell_mut((x + col, y)) else {
+            break;
+        };
+        cell.set_symbol(" ").set_fg(mark).set_bg(canvas);
     }
 }
 

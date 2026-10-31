@@ -77,6 +77,75 @@ fn secondary_text_stays_visible_on_a_selected_row() {
     }
 }
 
+/// Secondary and tertiary text stay readable on every shipped theme, whatever its palette picked.
+///
+/// The break this catches: reading `dim` and `muted` straight from the theme, where Everforest's
+/// `dim` sits 1.3:1 off its canvas and Tokyo Night's `muted` 2.8:1.
+#[test]
+fn secondary_text_clears_its_contrast_floor_on_every_theme() {
+    let registry = ThemeRegistry::new();
+    for name in registry.names() {
+        let Some(resolved) = registry.resolve(&name) else { continue };
+        let styles = ThemeStyles::from_resolved(&resolved, &name);
+        let (Some(canvas), Some(muted), Some(dim)) =
+            (styles.background.bg, styles.muted.fg, styles.dim.fg)
+        else {
+            continue;
+        };
+        let (muted, dim) = (contrast(muted, canvas), contrast(dim, canvas));
+        assert!(muted >= color::MUTED_CONTRAST, "{name}: muted is {muted:.2}:1");
+        assert!(dim >= color::DIM_CONTRAST, "{name}: dim is {dim:.2}:1");
+        assert!(dim < muted, "{name}: dim ({dim:.2}) must stay quieter than muted ({muted:.2})");
+    }
+}
+
+/// A shade that already clears the floor keeps the theme's own color, and the backdrop keeps the
+/// theme's `dim` unlifted so a surface behind a modal still recedes.
+#[test]
+fn a_readable_shade_is_left_alone_and_the_backdrop_is_not_lifted() {
+    let resolved = HashMap::from([
+        ("background".to_string(), ColorValue::Rgb(0x10, 0x10, 0x10)),
+        ("text".to_string(), ColorValue::Rgb(0xe0, 0xe0, 0xe0)),
+        ("muted".to_string(), ColorValue::Rgb(0xa0, 0xa0, 0xa0)),
+        ("dim".to_string(), ColorValue::Rgb(0x30, 0x30, 0x30)),
+    ]);
+    let styles = ThemeStyles::from_resolved(&resolved, "custom");
+    assert_eq!(styles.muted.fg, Some(RatatuiColor::Rgb(0xa0, 0xa0, 0xa0)));
+    assert_eq!(styles.backdrop.fg, Some(RatatuiColor::Rgb(0x30, 0x30, 0x30)));
+    assert_ne!(styles.dim.fg, styles.backdrop.fg, "dim at 1.3:1 is lifted");
+}
+
+/// A light theme lifts toward its dark body text, and a floor the text itself can't reach stops at
+/// the text rather than overshooting it.
+#[test]
+fn the_lift_runs_toward_the_text_and_stops_there() {
+    let light = crate::fixture::light_theme_styles();
+    let (Some(canvas), Some(dim)) = (light.background.bg, light.dim.fg) else {
+        panic!("the light fixture is RGB");
+    };
+    assert!(contrast(dim, canvas) >= color::DIM_CONTRAST, "light dim clears the floor");
+
+    let faint_text = HashMap::from([
+        ("background".to_string(), ColorValue::Rgb(0x10, 0x10, 0x10)),
+        ("text".to_string(), ColorValue::Rgb(0x50, 0x50, 0x50)),
+        ("muted".to_string(), ColorValue::Rgb(0x20, 0x20, 0x20)),
+    ]);
+    let styles = ThemeStyles::from_resolved(&faint_text, "custom");
+    assert_eq!(styles.muted.fg, styles.text.fg);
+}
+
+/// A theme in terminal palette colors has nothing to measure, so its tokens pass through.
+#[test]
+fn an_ansi_theme_keeps_its_secondary_tokens() {
+    let resolved = HashMap::from([
+        ("background".to_string(), ColorValue::Ansi(0)),
+        ("text".to_string(), ColorValue::Ansi(7)),
+        ("dim".to_string(), ColorValue::Ansi(8)),
+    ]);
+    let styles = ThemeStyles::from_resolved(&resolved, "ansi");
+    assert_eq!(styles.dim.fg, Some(RatatuiColor::DarkGray));
+}
+
 /// The focused row must be legible from weight alone, so a terminal that drops the
 /// selection background (or a theme that barely tints it) still shows where the cursor is.
 #[test]

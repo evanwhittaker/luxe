@@ -5,11 +5,14 @@
 
 mod anchors;
 mod chrome;
+mod custom;
 mod elsewhere;
 mod files;
 mod plan;
+mod runtime;
 mod telemetry;
 mod tree;
+mod usage;
 
 use crate::app::App;
 use crate::workspace_dock::{DockPresentation, DockSectionModel};
@@ -22,12 +25,13 @@ use ratatui::{
 };
 
 use crate::glyphs::{icon_label, Icon};
-use anchors::{DockHit, DockHitAnchors, DockListAnchor};
+use anchors::{DockHit, DockHitAnchors, DockListAnchor, DockSection};
 pub(crate) use chrome::status_mark;
 use chrome::{muted_line, section_heading_line, text_line, Section};
 pub(crate) use elsewhere::external_place_folded;
 use elsewhere::{external_lines, external_row_cap};
 use files::{file_lines, files_row_cap};
+use luxe_core::config::DockSectionName;
 use plan::plan_lines;
 use telemetry::footer_lines;
 #[cfg(test)]
@@ -38,7 +42,6 @@ use {
     crate::workspace_dock::{
         DockChangeRow, DockChanges, DockExternal, DockExternalGroup, DockPlan, DockPlanItem,
     },
-    anchors::DockSection,
     chrome::section_heading_with,
     elsewhere::{external_context, external_rows, ExternalRow},
     files::{change_hints, hint_line, ChangeHint, FILES_FIXED_ROWS, FILE_ROWS_MIN},
@@ -305,6 +308,32 @@ fn row_width(app: &App) -> usize {
     usize::from(app.dock_rail.get()).saturating_sub(2)
 }
 
+/// Tells the engine the widths custom rows were just drawn at, when they differ from the last it
+/// took. A drag sends one per step it moves the rail; the feed folds those into one more run.
+pub(super) fn report_custom_row_widths(app: &mut App) {
+    let widths = custom_row_widths(app);
+    if app.reported_row_widths == Some(widths) {
+        return;
+    }
+    let action = luxe_core::Action::CustomRowWidths(widths);
+    if app.send_quietly(action, "report custom row widths") {
+        app.reported_row_widths = Some(widths);
+    }
+}
+
+/// The widths custom rows are drawn at, for their programs: the rail the last frame measured, its
+/// label column, and the statusline's fixed cap.
+fn custom_row_widths(app: &App) -> luxe_core::custom_dock::RowWidths {
+    let row = row_width(app);
+    let label = telemetry::telemetry_label_width(row, telemetry::WIDEST_TELEMETRY_LABEL);
+    let cells = |width: usize| u16::try_from(width).unwrap_or(u16::MAX);
+    luxe_core::custom_dock::RowWidths {
+        dock: cells(row),
+        dock_label: cells(label),
+        statusline: cells(crate::statusline::MAX_CUSTOM_WIDTH),
+    }
+}
+
 fn loading_regions(
     app: &App,
     show_telemetry: bool,
@@ -335,6 +364,24 @@ fn region_lines(
     show_telemetry: bool,
     presentation: DockPresentation,
 ) -> (Vec<Line<'static>>, Vec<Line<'static>>, Vec<Line<'static>>, DockHitAnchors) {
+    let sections = app.config.dock.sections();
+    let header = header_lines(model, app, &sections);
+    let (footer, footer_rows) = footer_lines(app, show_telemetry, presentation);
+    let mut anchors = DockHitAnchors { footer_rows, ..DockHitAnchors::default() };
+    let room = MiddleRoom { available_height, outside: header.len() + footer.len() };
+    let middle = middle_lines(model, app, room, &sections, &mut anchors);
+    (header, middle, footer, anchors)
+}
+
+/// The pinned PROJECT block, or nothing when `dock.sections` leaves it out.
+fn header_lines(
+    model: &DockSectionModel,
+    app: &App,
+    sections: &[DockSectionName],
+) -> Vec<Line<'static>> {
+    if !sections.contains(&DockSectionName::Project) {
+        return Vec::new();
+    }
     let mut header = vec![section_heading_line(Section::Project, app)];
     // The statusline's project module, in the dock: the same folder beside the name, as the branch,
     // pull request and model rows here already carry their modules' icons
@@ -346,31 +393,66 @@ fn region_lines(
     if let Some(pull_request) = model.identity.pull_request.as_deref() {
         header.push(muted_line(icon_label(Icon::PullRequest.glyph(), pull_request), app));
     }
+    header
+}
 
-    let (footer, footer_rows) = footer_lines(app, show_telemetry, presentation);
+/// The dock's height, and how much of it the pinned header and footer already took.
+struct MiddleRoom {
+    available_height: usize,
+    outside: usize,
+}
 
-    // Build the fixed-size sections first so Changes can size itself to the leftover height: it
-    // shares the scrollable middle with them and shouldn't push them off-screen.
-    let plan = model.plan.as_ref().map(|plan| plan_lines(plan, app));
-    let external =
-        model.external.as_ref().map(|e| external_lines(e, app, external_row_cap(available_height)));
-    let reserved = header.len()
-        + footer.len()
+/// PLAN, FILES and ELSEWHERE in the order `dock.sections` lists them, leaving out what it leaves
+/// out.
+///
+/// The others are built first so FILES can size itself to the leftover height: it shares the
+/// scrollable middle with them and shouldn't push them off-screen. By default ELSEWHERE sits
+/// directly under FILES, since it answers the question that section just raised: is that all of it?
+fn middle_lines(
+    model: &DockSectionModel,
+    app: &App,
+    room: MiddleRoom,
+    sections: &[DockSectionName],
+    anchors: &mut DockHitAnchors,
+) -> Vec<Line<'static>> {
+    let shows = |name: DockSectionName| sections.contains(&name);
+    let plan = model.plan.as_ref().filter(|_| shows(DockSectionName::Plan));
+    let plan = plan.map(|plan| plan_lines(plan, app));
+    let external_cap = external_row_cap(room.available_height);
+    let external = model.external.as_ref().filter(|_| shows(DockSectionName::Elsewhere));
+    let external = external.map(|external| external_lines(external, app, external_cap));
+    let reserved = room.outside
         + plan.as_ref().map_or(0, |section| section.lines.len())
         + external.as_ref().map_or(0, |section| section.lines.len());
+    let customs = custom::middle_sections(app, sections, row_width(app));
+    let reserved = reserved + customs.iter().map(|(_, section)| section.lines.len()).sum::<usize>();
+    let files_cap = files_row_cap(room.available_height, reserved);
+    let files =
+        shows(DockSectionName::Files).then(|| file_lines(model.changes.as_ref(), app, files_cap));
 
+    let mut built = vec![
+        (DockSectionName::Plan, plan),
+        (DockSectionName::Files, files),
+        (DockSectionName::Elsewhere, external),
+    ];
+    built.extend(customs.into_iter().map(|(name, section)| (name, Some(section))));
+    land_in_order(built, sections, anchors)
+}
+
+/// Lands each built section in the order `sections` names them, once each.
+fn land_in_order(
+    mut built: Vec<(DockSectionName, Option<DockSection>)>,
+    sections: &[DockSectionName],
+    anchors: &mut DockHitAnchors,
+) -> Vec<Line<'static>> {
     let mut middle = Vec::new();
-    let mut anchors = DockHitAnchors { footer_rows, ..DockHitAnchors::default() };
-    if let Some(plan) = plan {
-        plan.land(&mut middle, &mut anchors);
+    for name in sections {
+        let slot = built.iter_mut().find(|(built_name, _)| built_name == name);
+        if let Some(section) = slot.and_then(|(_, section)| section.take()) {
+            section.land(&mut middle, anchors);
+        }
     }
-    file_lines(model.changes.as_ref(), app, files_row_cap(available_height, reserved))
-        .land(&mut middle, &mut anchors);
-    // Directly under FILES: it answers the question that section just raised — is that all of it?
-    if let Some(external) = external {
-        external.land(&mut middle, &mut anchors);
-    }
-    (header, middle, footer, anchors)
+    middle
 }
 
 #[cfg(test)]

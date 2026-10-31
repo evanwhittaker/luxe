@@ -6,7 +6,7 @@
 
 /// Strips ANSI/VT escape sequences (CSI `ESC [ … final`, OSC `ESC ] … BEL|ESC\`, and lone escapes).
 /// Terminal color/cursor codes are pure noise to a model, so this is always safe to apply.
-pub(super) fn strip_ansi(input: &str) -> String {
+pub(crate) fn strip_ansi(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
     let mut chars = input.chars().peekable();
     while let Some(c) = chars.next() {

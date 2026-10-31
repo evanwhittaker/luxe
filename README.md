@@ -115,7 +115,7 @@ luxe uses these when they are installed, and works without them:
    opens.
 
 3. **Ask for something.** Type it and press `enter`. Each step the agent takes appears as a card;
-   type while it works to steer it, and `ctrl+esc` stops the turn.
+   type while it works to steer it, and `esc` stops the turn.
 
 4. **Review it.** Press `ctrl+g`. When `review ready` shows, press it again: `space` steps through
    the change, `c` comments on a line, `a` asks the agent about it.

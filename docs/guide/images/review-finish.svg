@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 572" width="1100" height="572" font-family="'JetBrainsMono Nerd Font Mono', 'AdwaitaMono Nerd Font Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16.67">
   <rect width="1100" height="572" fill="#12100e"/>
   <g shape-rendering="crispEdges">
+    <rect x="10" y="198" width="20" height="22" fill="#211e1c"/>
     <rect x="30" y="198" width="200" height="22" fill="#2e2b27"/>
+    <rect x="870" y="198" width="220" height="22" fill="#211e1c"/>
     <rect x="30" y="242" width="200" height="22" fill="#3f2020"/>
     <rect x="260" y="242" width="590" height="22" fill="#2e2b27"/>
     <rect x="870" y="242" width="120" height="22" fill="#2f503d"/>
@@ -207,7 +209,7 @@
   </g>
   <text x="0" y="17.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
   <text x="0" y="39.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#4d4a45" font-weight="700">Refactor notification model</tspan><tspan>                                                                                   </tspan></text>
-  <text x="0" y="61.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#4d4a45">working tree · 2 to review · Feedback 5 · 1 unsent · Chapters 0/1 · 1 file · +2 −1 · 2 hunks                  </tspan></text>
+  <text x="0" y="61.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#4d4a45">working tree · 2 to review · Feedback 5 · 1 not sent · Chapters 0/1 · 1 file · +2 −1                          </tspan></text>
   <text x="0" y="83.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#4d4a45">01 / 01                                                                                                       </tspan></text>
   <text x="0" y="105.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#4d4a45">Shared notification model                                                                                     </tspan></text>
   <text x="0" y="127.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#4d4a45">Separates category concepts so platform clients share one stable shape.                                       </tspan></text>
@@ -222,7 +224,7 @@
   <text x="0" y="325.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#4d4a45">   18  impl Notificatio</tspan><tspan> </tspan><tspan fill="#e4dfd6">     Comment only</tspan><tspan fill="#97938c"> — send them without requesting edits</tspan><tspan>        </tspan><tspan> </tspan><tspan>                       </tspan></text>
   <text x="0" y="347.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                       </tspan><tspan> </tspan><tspan fill="#e4dfd6">     Keep reviewing</tspan><tspan fill="#97938c"> — nothing is sent; comments stay</tspan><tspan>          </tspan><tspan> </tspan><tspan fill="#4d4a45">) -&gt; &amp;str { "notifica  </tspan></text>
   <text x="0" y="369.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                       </tspan><tspan> </tspan><tspan>                                                              </tspan><tspan> </tspan><tspan>                       </tspan></text>
-  <text x="0" y="391.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                       </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#ddc084">enter</tspan><tspan fill="#e4dfd6"> finish</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">↑/↓</tspan><tspan fill="#e4dfd6"> choose</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">esc</tspan><tspan fill="#e4dfd6"> cancel                       </tspan><tspan> </tspan><tspan>                       </tspan></text>
+  <text x="0" y="391.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#4d4a45"> — end of file —       </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#ddc084">enter</tspan><tspan fill="#e4dfd6"> finish</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">↑/↓</tspan><tspan fill="#e4dfd6"> choose</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">esc</tspan><tspan fill="#e4dfd6"> cancel                       </tspan><tspan> </tspan><tspan>                       </tspan></text>
   <text x="0" y="413.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                       </tspan><tspan>                                                                </tspan><tspan>                       </tspan></text>
   <text x="0" y="435.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
   <text x="0" y="457.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>

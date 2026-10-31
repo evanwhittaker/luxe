@@ -166,7 +166,8 @@ pub(super) fn ready_footer_segments(app: &App, width: u16) -> Vec<FooterSegment>
     //
     // Finishing is where everything that happens *after* reading lives — committing, opening a
     // pull request, posting — and nothing else on screen says it exists. The feedback window
-    // earns its cells once there is feedback in it.
+    // earns its cells once there is feedback in it. The layout keys ride last in line to go: on a
+    // wide screen there is room to say how to change the view, and on a narrow one `? help` does.
     let finish =
         format!("{} finish", chord(app, luxe_core::keymap::UiAction::ReviewFinish, "alt+enter"));
     let feedback =
@@ -179,12 +180,38 @@ pub(super) fn ready_footer_segments(app: &App, width: u16) -> Vec<FooterSegment>
         segment("a ask agent", A::AskQuestion, 5),
         segment(feedback, A::Feedback, 4),
         segment(finish, A::Finish, 2),
-        segment("? help", A::ToggleHelp, 1),
     ];
+    segments.extend(layout_segments(app));
+    segments.push(segment("? help", A::ToggleHelp, 1));
     if !has_feedback {
         segments.retain(|cell| cell.action != A::Feedback);
     }
     segments
+}
+
+/// The side-by-side and wrap switches, each named for what it changes the view to, and the first
+/// shortcuts to give up their cells.
+fn layout_segments(app: &App) -> [FooterSegment; 2] {
+    use luxe_core::keymap::UiAction;
+    let workspace = &app.guided_review_workspace;
+    let split = app
+        .guided_review
+        .as_ref()
+        .is_some_and(|review| workspace.split_layout_showing(&review.files));
+    let split_chord = chord(app, UiAction::ReviewToggleSplit, "ctrl+b");
+    let wrap_chord = chord(app, UiAction::ReviewToggleWordWrap, "w");
+    [
+        segment(
+            format!("{split_chord} {}", if split { "unified" } else { "side by side" }),
+            ReviewFooterAction::ToggleSplit,
+            6,
+        ),
+        segment(
+            format!("{wrap_chord} {}", if workspace.word_wrap { "no wrap" } else { "wrap" }),
+            ReviewFooterAction::ToggleWordWrap,
+            7,
+        ),
+    ]
 }
 
 /// The first key bound to `action`, as the footer names keys, or `fallback` when nothing is bound.

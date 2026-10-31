@@ -103,11 +103,46 @@ fn render_diff_scrollbar(
         &mut app.hit.borrow_mut(),
         area,
         crate::mouse::ScrollRegionId::ReviewDiff,
-        app.guided_review_workspace.position.line_offset.min(total.saturating_sub(1)),
+        app.guided_review_workspace.diff_top().min(total.saturating_sub(1)),
         total,
         usize::from(area.height),
         &app.theme_styles,
     );
+}
+
+/// Lines the end-of-reading marker takes under the last row: a blank, then the marker.
+const END_OF_READING_LINES: u16 = 2;
+
+/// Draws the diff from the first top row that keeps the cursor's row on screen, and records that
+/// window. `draw` lays the rows out from a top row and says where the cursor's row starts and how
+/// many lines it takes, if it drew it; a row pushed off the bottom by wrapped lines or comment
+/// cards tries a row lower. The cards count, since the one under the cursor opens to its whole
+/// answer and the reader cannot scroll down to it without moving the cursor off it. On the file's
+/// last row the marker under it has to fit too, or reaching the end would not say so.
+fn fit_window<T>(
+    app: &App,
+    (height, total_rows): (u16, usize),
+    mut draw: impl FnMut(usize) -> (T, Option<(u16, u16)>),
+) -> T {
+    let workspace = &app.guided_review_workspace;
+    let cursor = workspace.position.line_offset;
+    let after = if cursor + 1 >= total_rows { END_OF_READING_LINES } else { 0 };
+    let reach = usize::from(height.saturating_sub(after));
+    let mut top = workspace.diff_window_start(reach);
+    loop {
+        let (drawn, cursor_row) = draw(top);
+        if top >= cursor || cursor_row.is_some_and(|row| row_fits(row, after, height)) {
+            workspace.record_diff_window(top);
+            return drawn;
+        }
+        top += 1;
+    }
+}
+
+/// Whether a row starting at line `y` and `rows` lines tall fits a window `height` lines tall with
+/// `after` more lines under it. One taller than the window fits at the top, cut off.
+fn row_fits((y, rows): (u16, u16), after: u16, height: u16) -> bool {
+    y.saturating_add(rows.max(1).saturating_add(after).min(height)) <= height
 }
 
 /// The file the diff pane is showing: the selection, else the first item worth landing on.
@@ -143,18 +178,17 @@ fn visible_row_total(app: &App, review: &luxe_core::guided_review::GuidedReview)
 /// Appends the end-of-reading marker under the rows when the pane has room for it, so the last
 /// screen of a file is not indistinguishable from a scroll that stopped working.
 ///
-/// Args: `(lines, app, review, (groups, shown), height)` — the visible groups and how many rows
-/// from the offset the pane drew.
+/// Args: `(lines, app, review, (groups, drawn_end), height)` — the visible groups, and one past
+/// the last unified row the pane drew.
 fn append_end_of_reading(
     lines: &mut Vec<Line<'static>>,
     app: &App,
     review: &luxe_core::guided_review::GuidedReview,
-    (groups, shown): (&[VisibleGroup<'_>], usize),
+    (groups, drawn_end): (&[VisibleGroup<'_>], usize),
     height: u16,
 ) {
     let total_rows: usize = groups.iter().map(VisibleGroup::rows).sum();
-    let at_file_end =
-        app.guided_review_workspace.position.line_offset.saturating_add(shown) >= total_rows;
+    let at_file_end = drawn_end >= total_rows;
     if (lines.len() as u16) < height {
         if let Some(marker) = end_of_reading_marker(app, review, at_file_end) {
             lines.push(Line::default());

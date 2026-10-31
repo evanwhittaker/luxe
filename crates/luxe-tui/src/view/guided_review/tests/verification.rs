@@ -8,8 +8,8 @@ use luxe_core::guided_review::{
 };
 use ratatui::{backend::TestBackend, Terminal};
 
-/// `NeedsVerification` used to be verified on trust: there was no way to see what the agent
-/// changed at the anchor without refreshing the whole review and hunting for it.
+/// A reported fix is checked against the code, not trust: `v` shows what the agent changed at the
+/// anchor without refreshing the whole review and hunting for it.
 #[test]
 fn the_fix_view_shows_the_anchor_before_and_after() {
     let mut app = seeded_app("nord", FixtureScenario::GuidedReviewFindings).expect("fixture app");
@@ -30,7 +30,7 @@ fn the_fix_view_shows_the_anchor_before_and_after() {
             line: anchored.new_line.expect("new-side line"),
             context_hash: anchored.context_hash(),
         };
-        finding.state = FindingState::NeedsVerification;
+        finding.state = FindingState::Open;
         finding.thread.push(FindingMessage {
             author: FindingMessageAuthor::Agent,
             body: "Fixed by bounding the retry loop.".into(),
@@ -62,7 +62,7 @@ fn the_fix_view_shows_the_anchor_before_and_after() {
     assert!(text.contains("Now"), "the current state is shown: {text}");
     // The agent's word is presented as a claim, next to the code that settles it.
     assert!(text.contains("a claim, not proof"), "{text}");
-    assert!(text.contains("r verify and resolve"), "{text}");
+    assert!(text.contains("r resolve"), "{text}");
 }
 
 /// Remediation usually *moves* code, and "refresh and look for it yourself" abandons the
@@ -93,7 +93,7 @@ fn a_moved_anchor_reports_where_the_line_went() {
             line: 4_242,
             context_hash: moved_line.context_hash(),
         };
-        finding.state = FindingState::NeedsVerification;
+        finding.state = FindingState::Open;
     }
     let submission_id = SubmissionId::new();
     session

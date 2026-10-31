@@ -2,9 +2,12 @@
 
 use super::*;
 
-/// A pull request's review leads with where it stands and who opened it, then gives the
-/// author's own account under a heading that says whose words they are. It says once that the
-/// work was done elsewhere, instead of the "no record" row a working-tree review would get.
+/// A pull request's review leads with where it stands and who opened it, and points at its
+/// description rather than repeating it: GitHub's view and `p` show it whole. It says once that
+/// the work was done elsewhere, instead of the "no record" row a working-tree review would get.
+///
+/// The break this catches: the description section coming back into the guide, or `p` losing
+/// the one place that names it.
 #[test]
 fn a_pull_request_review_leads_with_the_pull_request() {
     let mut app =
@@ -17,7 +20,8 @@ fn a_pull_request_review_leads_with_the_pull_request() {
     assert!(has("by copilot-swe-agent (bot)"), "{text}");
     assert!(has("1 failing") && has("11 checks") && has("changes requested"), "{text}");
     assert!(has("copilot/category-enum") && has("→ main"), "{text}");
-    assert!(has("What the pull request says"), "{text}");
+    assert!(!has("What the pull request says"), "{text}");
+    assert!(has("p description"), "{text}");
     assert!(has("What it closes") && has("#318 A typo in a webhook"), "{text}");
     assert!(!has("No record of the work behind this source"), "{text}");
 }
@@ -41,7 +45,7 @@ fn the_guide_rules_off_its_head_and_its_foot() {
         seeded_app("nord", FixtureScenario::GuidedReviewPullRequest).expect("fixture app");
     let rows = frame_rows(&mut app, 160, 46);
     let text = rows.join("\n");
-    let head_end = rows.iter().position(|row| row.contains("changes requested")).expect("head");
+    let head_end = rows.iter().position(|row| row.contains("p description")).expect("head");
     assert!(ruled(&rows[head_end + 1]), "under the head: {text}");
     assert!(!rows.iter().any(|row| row.contains("FEEDBACK")), "nothing to list: {text}");
     assert_eq!(rows.iter().filter(|row| ruled(row)).count(), 1, "{text}");

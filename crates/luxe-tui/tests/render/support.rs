@@ -51,6 +51,28 @@ pub(crate) fn click_cell(app: &mut App, column: u16, row: u16, at: std::time::In
     }
 }
 
+/// Presses at `from` on `row`, drags to `to` and lets go.
+pub(crate) fn drag_along(app: &mut App, row: u16, from: u16, to: u16) {
+    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    for (kind, column) in [
+        (MouseEventKind::Down(MouseButton::Left), from),
+        (MouseEventKind::Drag(MouseButton::Left), to),
+        (MouseEventKind::Up(MouseButton::Left), to),
+    ] {
+        let event = MouseEvent { kind, column, row, modifiers: KeyModifiers::NONE };
+        let action = route_mouse(app, &event);
+        apply(app, action);
+    }
+}
+
+/// Presses Ctrl+Shift+C, the default copy key, then draws a frame: the transcript's text only
+/// exists in the frame that lays it out, so its copy lands there.
+pub(crate) fn press_copy(app: &mut App, backend: &TestBackend) -> Buffer {
+    let modifiers = KeyModifiers::CONTROL | KeyModifiers::SHIFT;
+    app.update(Msg::Key(crossterm::event::KeyEvent::new(KeyCode::Char('c'), modifiers)));
+    render_app(app, backend)
+}
+
 /// Helper to render the app and get the buffer.
 pub(crate) fn render_app(app: &mut App, backend: &TestBackend) -> Buffer {
     let mut terminal = Terminal::new(backend.clone()).unwrap();

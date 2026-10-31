@@ -211,28 +211,20 @@ impl GuidedReviewWorkspace {
             return self.chapter_or_review_anchor();
         };
 
-        let mut row = 0usize;
-        for group in visible_groups(file, &self.fold) {
-            let VisibleGroup::Hunk(hunk) = group else {
-                // A collapsed run is one row, and comments do not anchor to it.
-                row = row.saturating_add(1);
-                continue;
-            };
-            if row == self.position.line_offset {
-                return FindingAnchor::Hunk { file_id: file.id.clone(), hunk_id: hunk.id.clone() };
+        let whole = |hunk: &ReviewHunk| FindingAnchor::Hunk {
+            file_id: file.id.clone(),
+            hunk_id: hunk.id.clone(),
+        };
+        match self.cursor_row(file) {
+            Some(CursorRow::Header(hunk)) => return whole(hunk),
+            Some(CursorRow::Line(hunk, index)) => {
+                let line = hunk.lines.get(index);
+                let anchor = line.and_then(|line| finding_anchor_for_line(file, hunk, line));
+                return anchor.unwrap_or_else(|| whole(hunk));
             }
-            row = row.saturating_add(1);
-
-            for line in &hunk.lines {
-                if row == self.position.line_offset {
-                    return finding_anchor_for_line(file, hunk, line).unwrap_or_else(|| {
-                        FindingAnchor::Hunk { file_id: file.id.clone(), hunk_id: hunk.id.clone() }
-                    });
-                }
-                row = row.saturating_add(1);
-            }
+            // A collapsed run is one row, and comments do not anchor to it
+            Some(CursorRow::Folded) | None => {}
         }
-
         self.position.hunk_id.clone().map_or_else(
             || self.chapter_or_review_anchor(),
             |hunk_id| FindingAnchor::Hunk { file_id: file.id.clone(), hunk_id },
@@ -247,27 +239,14 @@ impl GuidedReviewWorkspace {
         files: &'a [ReviewFile],
     ) -> Option<(&'a ReviewFile, Option<u32>)> {
         let file = self.selected_file(files)?;
-        let mut row = 0usize;
-        for group in visible_groups(file, &self.fold) {
-            let VisibleGroup::Hunk(hunk) = group else {
-                if row == self.position.line_offset {
-                    return Some((file, None));
-                }
-                row = row.saturating_add(1);
-                continue;
-            };
-            if row == self.position.line_offset {
-                return Some((file, (hunk.new_range.start > 0).then_some(hunk.new_range.start)));
+        let line = match self.cursor_row(file) {
+            Some(CursorRow::Header(hunk)) => {
+                (hunk.new_range.start > 0).then_some(hunk.new_range.start)
             }
-            row = row.saturating_add(1);
-            for index in 0..hunk.lines.len() {
-                if row == self.position.line_offset {
-                    return Some((file, new_side_line(hunk, index)));
-                }
-                row = row.saturating_add(1);
-            }
-        }
-        Some((file, None))
+            Some(CursorRow::Line(hunk, index)) => new_side_line(hunk, index),
+            Some(CursorRow::Folded) | None => None,
+        };
+        Some((file, line))
     }
 
     fn chapter_or_review_anchor(&self) -> FindingAnchor {

@@ -32,6 +32,25 @@ impl Roots {
     }
 }
 
+/// `events` with the custom dock sections and statusline modules running beside them, for the
+/// session `session_id`.
+///
+/// Read with the engine's trust, so a project's programs run only under `--trust-project`. The TUI
+/// and `--rpc` run it, the two front-ends that draw or forward a dock; headless has neither.
+pub(crate) fn custom_dock_feed(
+    events: mpsc::Receiver<Event>,
+    settings: &crate::engine_setup::AgentSettings,
+    session_id: &str,
+) -> mpsc::Receiver<Event> {
+    use luxe_core::custom_dock::{feed, shown_programs, DockInputContext, FeedSession};
+    let config = luxe_core::Config::load_trusted(&settings.state_root, settings.trust_project);
+    let context = DockInputContext {
+        session_id: session_id.to_string(),
+        cwd: luxe_core::paths::display(&settings.work_root),
+    };
+    feed(events, FeedSession { context, programs: shown_programs(&config) })
+}
+
 /// Starts the CLI-owned workspace event bridge.
 ///
 /// `watch`, when given, keeps the branch's pull request in the snapshot; the TUI and `--rpc` pass

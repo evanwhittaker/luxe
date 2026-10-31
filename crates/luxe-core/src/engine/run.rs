@@ -85,8 +85,8 @@ impl Engine {
                 }
                 Action::CheckWorktreeRemoval => self.check_worktree_removal(&event_tx),
                 Action::SetSessionBrief(brief) => *self.pending_brief.lock().await = Some(brief),
-                Action::FocusChanged { focused } => {
-                    let _ = event_tx.send(Event::TerminalFocusChanged { focused }).await;
+                report @ (Action::FocusChanged { .. } | Action::CustomRowWidths(_)) => {
+                    echo_front_end_report(report, &event_tx).await
                 }
                 Action::NewSession => self.new_session(&event_tx).await,
                 Action::LoadGuidedReview { request_id, target } => {
@@ -333,6 +333,18 @@ impl Engine {
         let state = self.state_snapshot(format!("picker: {picker_kind:?}"), false).await;
         let _ = event_tx.send(Event::StateChanged(state)).await;
     }
+}
+
+/// Passes on what the front-end reported about itself, for a consumer downstream of the engine:
+/// focus paces the GitHub refreshes, row widths reach the custom dock feed. The engine keeps
+/// neither, so it only echoes them.
+async fn echo_front_end_report(report: Action, event_tx: &mpsc::Sender<Event>) {
+    let event = match report {
+        Action::FocusChanged { focused } => Event::TerminalFocusChanged { focused },
+        Action::CustomRowWidths(widths) => Event::CustomRowWidths(widths),
+        _ => return,
+    };
+    let _ = event_tx.send(event).await;
 }
 
 /// Whether `action` changes what the next request will look like, so the cache being kept warm

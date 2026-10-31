@@ -97,6 +97,10 @@ pub enum ScrollRegionId {
     ReviewFeedback,
     /// The pull request opening's description.
     PullRequestBody,
+    /// `/github`'s list of pull requests and issues (walks its rows).
+    GithubList,
+    /// The open tab of a pull request or issue, in `/github` or `/pr`.
+    GithubDetail,
     /// A modal list whose window follows its cursor (walks its rows).
     ///
     /// Args: which list.
@@ -122,6 +126,17 @@ pub enum OverlayList {
     Mention,
     /// Whichever list the configuration surface is showing: settings, or a setup step
     Configuration,
+}
+
+/// A row of tabs a click can switch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TabStrip {
+    /// `/github`'s sections: Review Requested, Mine and the rest
+    GithubSections,
+    /// A pull request's or issue's Overview and Conversation, under `/github` or `/pr`
+    GithubDetail,
+    /// A picker's sources, named by the list under them
+    Picker(OverlayList),
 }
 
 /// A clickable target, resolved from the cursor position to an action on left-click.
@@ -153,6 +168,13 @@ pub enum MouseTarget {
     ConfigRow(usize),
     /// A settings page in the list down the left, by its index.
     ConfigPage(usize),
+    /// A tab along the top of a surface, which a click opens.
+    Tab {
+        /// Which row of tabs it belongs to
+        strip: TabStrip,
+        /// Its index among every tab in that row, the ones scrolled out of view included
+        index: usize,
+    },
     /// A project-context row, by its index into the list the surface is showing.
     ContextFileRow(usize),
     /// A thinking-level-picker row, by its index.

@@ -2,10 +2,10 @@
 
 use super::*;
 
-/// A modal overlay dims the review behind it, but a blanket `set_style(dim)` patched every cell's
-/// foreground — and nearly every bundled theme maps `selectedBg` to the same color as `dim`, so the
-/// selected file row and diff line rendered as unreadable solid blocks. Highlighted cells must step
-/// up to `muted` instead.
+/// A modal overlay dims the review behind it, but a blanket `set_style(backdrop)` patched every
+/// cell's foreground — and nearly every bundled theme maps `selectedBg` to the same color as its
+/// `dim`, the backdrop's ink, so the selected file row and diff line rendered as unreadable solid
+/// blocks. Highlighted cells must step up to `muted` instead.
 #[test]
 fn modal_backdrop_keeps_highlighted_review_rows_readable() {
     let (width, height) = (160, 40);
@@ -14,7 +14,7 @@ fn modal_backdrop_keeps_highlighted_review_rows_readable() {
     app.update(Msg::TerminalResized { width, height });
 
     let selected_bg = app.theme_styles.selected_bg.bg.expect("selection background");
-    let dim = app.theme_styles.dim.fg.expect("dim foreground");
+    let dim = app.theme_styles.backdrop.fg.expect("backdrop foreground");
     let muted = app.theme_styles.muted.fg.expect("muted foreground");
     assert_eq!(dim, selected_bg, "nord maps selectedBg onto dim — the case this guards");
 

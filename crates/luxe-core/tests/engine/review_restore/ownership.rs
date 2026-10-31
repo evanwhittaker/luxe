@@ -109,7 +109,7 @@ async fn the_engine_owns_a_review_from_comment_to_report_and_through_a_restart()
         _ => None,
     })
     .await;
-    assert_eq!(finished.findings[0].state, FindingState::NeedsVerification, "the agent says fixed");
+    assert_eq!(finished.findings[0].state, FindingState::Open, "only the reviewer moves it");
     assert!(finished.findings[0]
         .thread
         .iter()

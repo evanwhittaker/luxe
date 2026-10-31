@@ -187,7 +187,6 @@ fn keys_and_mechanics_are_not_commands() {
         UiAction::ReviewEditFinding,
         UiAction::ReviewDeleteFinding,
         UiAction::ReviewResolveFinding,
-        UiAction::ReviewReanchorFinding,
         UiAction::ReviewHelp,
         UiAction::DashboardQuit,
     ] {

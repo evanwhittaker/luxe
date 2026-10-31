@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 748" width="1100" height="748" font-family="'JetBrainsMono Nerd Font Mono', 'AdwaitaMono Nerd Font Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16.67">
   <rect width="1100" height="748" fill="#12100e"/>
   <g shape-rendering="crispEdges">
+    <rect x="10" y="220" width="20" height="22" fill="#211e1c"/>
     <rect x="30" y="220" width="430" height="22" fill="#2e2b27"/>
+    <rect x="460" y="220" width="630" height="22" fill="#211e1c"/>
     <rect x="30" y="264" width="220" height="22" fill="#3f2020"/>
     <rect x="250" y="264" width="60" height="22" fill="#603434"/>
     <rect x="310" y="264" width="230" height="22" fill="#3f2020"/>
@@ -150,7 +152,7 @@
   </g>
   <text x="0" y="17.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
   <text x="0" y="39.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#ddc084" font-weight="700">Type the notification category</tspan><tspan>                                                                                </tspan></text>
-  <text x="0" y="61.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#97938c">working tree · 6 to review · 1 accounted for · No feedback yet · Chapters 0/4 · 6 files · +50 −12 · 7 hunks</tspan><tspan>   </tspan></text>
+  <text x="0" y="61.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#97938c">working tree · 6 to review · 1 accounted for · No feedback yet · Chapters 0/4 · 6 files · +50 −12</tspan><tspan>             </tspan></text>
   <text x="0" y="83.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#97938c">01 / 04</tspan><tspan>                                                                                                       </tspan></text>
   <text x="0" y="105.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#e4dfd6">Make an invalid category unrepresentable</tspan><tspan>                                                                      </tspan></text>
   <text x="0" y="127.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan fill="#97938c">A category was a string, so a typo type-checked. This is the type that stops it.</tspan><tspan>                              </tspan></text>
@@ -173,7 +175,7 @@
   <text x="0" y="501.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>   </tspan><tspan>                                                   </tspan><tspan>   </tspan><tspan fill="#97938c">40 </tspan><tspan fill="#81caa0">+        }</tspan><tspan>                                        </tspan></text>
   <text x="0" y="523.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>   </tspan><tspan>                                                   </tspan><tspan>   </tspan><tspan fill="#97938c">41 </tspan><tspan fill="#81caa0">+    }</tspan><tspan>                                            </tspan></text>
   <text x="0" y="545.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
-  <text x="0" y="567.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
+  <text x="0" y="567.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan fill="#97938c">— end of file —</tspan><tspan>                                                                                              </tspan></text>
   <text x="0" y="589.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
   <text x="0" y="611.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
   <text x="0" y="633.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
@@ -181,5 +183,5 @@
   <text x="0" y="677.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
   <text x="0" y="699.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan>                                                                                                              </tspan></text>
   <text x="0" y="721.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan>                                                                                                             </tspan></text>
-  <text x="0" y="743.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan fill="#ddc084">space</tspan><tspan fill="#e4dfd6"> next</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">c</tspan><tspan fill="#e4dfd6"> comment</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">a</tspan><tspan fill="#e4dfd6"> ask agent</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">alt+enter</tspan><tspan fill="#e4dfd6"> finish</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">?</tspan><tspan fill="#e4dfd6"> help</tspan><tspan>                                             </tspan></text>
+  <text x="0" y="743.0" textLength="1100" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan fill="#ddc084">space</tspan><tspan fill="#e4dfd6"> next</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">c</tspan><tspan fill="#e4dfd6"> comment</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">a</tspan><tspan fill="#e4dfd6"> ask agent</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">alt+enter</tspan><tspan fill="#e4dfd6"> finish</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">ctrl+b</tspan><tspan fill="#e4dfd6"> unified</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">w</tspan><tspan fill="#e4dfd6"> wrap</tspan><tspan fill="#97938c"> · </tspan><tspan fill="#ddc084">?</tspan><tspan fill="#e4dfd6"> help</tspan><tspan>                   </tspan></text>
 </svg>

@@ -22,6 +22,10 @@ pub enum Msg {
     ExitGuidedReview,
     GuidedReviewLineNext,
     GuidedReviewLinePrevious,
+    /// One wheel notch over the review diff: the code scrolls a row and the cursor rides along
+    GuidedReviewWheel {
+        forward: bool,
+    },
     GuidedReviewPageNext,
     GuidedReviewPagePrevious,
     /// Move the full-screen review diff half a viewport, forward when `true`.
@@ -121,6 +125,12 @@ pub enum Msg {
     ScrollContextFiles {
         up: bool,
     },
+    /// A wheel notch over `/github`'s list, which walks its rows, or over the open tab of a pull
+    /// request or issue in `/github` or `/pr`, which scrolls it.
+    GithubWheel {
+        list: bool,
+        up: bool,
+    },
     /// Walks a modal list's cursor one row (mouse wheel over it).
     ScrollOverlayList {
         list: crate::mouse::OverlayList,
@@ -182,6 +192,9 @@ pub enum Msg {
     ChangesOpenReview,
     /// Shows a project file in the pane: its diff when it changed, its text when it did not.
     OpenProjectFile(String),
+    /// Shows a project file and gives the pane the keyboard, as a pointer picking a file means to
+    /// read it rather than to keep browsing the tree.
+    PreviewProjectFile(String),
     TogglePeekView,
     /// Starts picking lines in the File view at this 1-based line: a click picks one line, a
     /// second click on the only line picked lets it go.
@@ -201,6 +214,11 @@ pub enum Msg {
     FocusPeek,
     /// Does what an open context menu's item at this index offers, and closes the menu.
     ChooseMenuItem(usize),
+    /// Opens the tab a click landed on.
+    OpenTab {
+        strip: crate::mouse::TabStrip,
+        index: usize,
+    },
     /// Starts a mouse text selection at `hit`, claiming `span` of the text under it.
     BeginTextSelection {
         hit: crate::mouse::TextHit,
@@ -234,7 +252,6 @@ pub enum Msg {
     GuidedReviewSaveFinding,
     GuidedReviewToggleSelectedFindingResolved,
     GuidedReviewDeleteSelectedFindingDraft,
-    GuidedReviewReanchorSelectedFinding,
     GuidedReviewSetOutcome(luxe_core::guided_review::ReviewOutcome),
     GuidedReviewRetryFeedback(luxe_core::guided_review::SubmissionId),
     /// Removes one saved queued submission while retaining its reviewer findings.
@@ -282,8 +299,6 @@ pub enum Msg {
     GuidedReviewConfirmStack,
     /// Closes the stack preview, unless it is opening.
     GuidedReviewCancelStack,
-    /// Asks whether someone else's pull request can be checked out to fix, and offers it.
-    GuidedReviewOpenPullRequestFix,
     GuidedReviewConfirmPullRequestFix,
     GuidedReviewCancelPullRequestFix,
     GuidedReviewOpenPullRequest,
@@ -291,6 +306,8 @@ pub enum Msg {
     GuidedReviewSavePullRequestEdit,
     GuidedReviewCancelPullRequestEdit,
     GuidedReviewTogglePullRequestDraft,
+    /// Has the agent draft the title and description of the pull request being opened
+    GuidedReviewDraftPullRequest,
     GuidedReviewConfirmPullRequest,
     GuidedReviewCancelPullRequest,
 

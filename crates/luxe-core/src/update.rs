@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+mod cargo_record;
 pub mod installer;
 
 pub use installer::{InstallReceipt, InstallTarget, LEGACY_UPDATER};
@@ -57,6 +58,9 @@ pub enum InstallSource {
     Installer,
     /// A release archive, `/usr/local/bin`, or a local build.
     Archive,
+    /// `cargo install --path` or `--git`: somebody's own build, often a fork, which only they know
+    /// how to update. `cargo install luxe-cli` would replace it with the published crate.
+    SourceBuild,
 }
 
 impl InstallSource {
@@ -67,9 +71,9 @@ impl InstallSource {
         std::env::current_exe().map(|path| Self::from_install(&path)).unwrap_or(Self::Archive)
     }
 
-    /// Classify a binary by the installer's receipt, then by what sits beside it, then by its
-    /// path. The installer goes wherever it is told, `~/.cargo/bin` included, and no path says
-    /// "installer" on its own.
+    /// Classify a binary by the installer's receipt, then by what sits beside it, then by cargo's
+    /// install record, then by its path. The installer goes wherever it is told, `~/.cargo/bin`
+    /// included, and no path says "installer" on its own; nor does one say "built from a fork".
     pub fn from_install(binary: &Path) -> Self {
         Self::from_install_with(binary, InstallReceipt::load().as_ref())
     }
@@ -84,6 +88,7 @@ impl InstallSource {
         let updater = format!("{LEGACY_UPDATER}{}", std::env::consts::EXE_SUFFIX);
         match binary.parent().map(|dir| dir.join(updater)) {
             Some(path) if path.is_file() => Self::Installer,
+            _ if cargo_record::built_from_source(binary) => Self::SourceBuild,
             _ => Self::from_path(binary),
         }
     }
@@ -129,6 +134,8 @@ impl InstallSource {
             // `apt` on an Arch machine is the failure this whole function exists to avoid.
             Self::SystemPackage => None,
             Self::Archive => None,
+            // Pulling and rebuilding is theirs to do: luxe can't know which branch or remote
+            Self::SourceBuild => None,
         }
     }
 
@@ -145,6 +152,9 @@ impl InstallSource {
             None if *self == Self::Installer => "`luxe update`".to_string(),
             None if *self == Self::SystemPackage => {
                 "update it with your system package manager".to_string()
+            }
+            None if *self == Self::SourceBuild => {
+                "pull and rebuild the source you installed it from".to_string()
             }
             None => format!("download it from {RELEASES_PAGE}"),
         }

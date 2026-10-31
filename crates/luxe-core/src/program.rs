@@ -27,6 +27,7 @@ pub use opener::{
     desktop_opener, editor, editor_file_args, file_manager, file_manager_from, parse_editor,
     EditorError,
 };
+pub(crate) use process::exited_unreaped;
 pub use process::{
     captured_command, detach_from_terminal, group_members, hostname, kill_tree, process_is_alive,
     take_stdin, GroupMember, TreeGuard,
@@ -254,8 +255,9 @@ pub fn has_posix_shell() -> bool {
 /// `C:\Windows\System32\bash.exe` is the WSL launcher. It is on `PATH` before anything else the
 /// moment WSL is installed, and running an agent's commands through it would execute them inside a
 /// Linux VM with a different filesystem — `cd` into the project would fail, and every subsequent
-/// error would describe a machine the user is not looking at. So a candidate sitting in the Windows
-/// system directory is skipped rather than taken.
+/// error would describe a machine the user is not looking at. WSL from the Store also puts a
+/// `bash.exe` alias in `%LOCALAPPDATA%\Microsoft\WindowsApps`, which `PATH` reaches before the
+/// well-known Git directories. A candidate in either place is skipped rather than taken.
 ///
 /// Args: `(program lookup, `%SystemRoot%` lookup)` — both injected so the rule is testable from any
 /// platform.
@@ -269,7 +271,23 @@ fn posix_shell_on_windows(
     ["bash", "sh"]
         .iter()
         .filter_map(|name| lookup(name))
-        .find(|path| path.parent().is_none_or(|parent| !crate::paths::contains(&system, parent)))
+        .find(|path| !is_wsl_launcher(path, &system))
+}
+
+/// Whether `path` is one of the places WSL puts a `bash.exe` that launches Linux.
+fn is_wsl_launcher(path: &Path, system: &Path) -> bool {
+    let Some(parent) = path.parent() else { return false };
+    if crate::paths::contains(system, parent) {
+        return true;
+    }
+    // An app execution alias lives in `...\Microsoft\WindowsApps`, whoever the user is
+    let mut last_two = parent
+        .components()
+        .rev()
+        .take(2)
+        .map(|part| part.as_os_str().to_string_lossy().to_ascii_lowercase());
+    last_two.next().as_deref() == Some("windowsapps")
+        && last_two.next().as_deref() == Some("microsoft")
 }
 
 /// Whether `program` can be run at all — `PATH` or a well-known install directory.

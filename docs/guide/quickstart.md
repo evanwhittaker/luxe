@@ -71,7 +71,7 @@ a notification's category is a free-form string, so a typo compiles; make it an 
 ```
 
 The agent reads, edits and runs commands, and each step appears as a card. Click a card to see its
-full output, or press `ctrl+o` for every card's; `ctrl+esc` stops the turn. You can keep typing while it works:
+full output, or press `ctrl+o` for every card's; `esc` stops the turn. You can keep typing while it works:
 a message sent mid-turn reaches the agent between steps, without stopping it.
 
 ![A turn in progress](images/quickstart-turn.svg)
@@ -100,15 +100,15 @@ Comments go to the agent as work to do when you finish with **Request fixes**.
 ## 5. Open a pull request
 
 This needs the GitHub CLI, `gh`, signed in (`gh auth login`): **Open pull request** is offered once
-`gh` says the branch has none. Finish the review (`alt+enter`) and choose it. luxe drafts the title
-and description from the review. The heading says what happens before it opens, such as
-"commits and pushes first". The pull request pictured came from a session that took up an issue
-([`luxe --issue 123`](github.md#start-from-an-issue)), so its branch is named for the issue and its
-description closes it.
+`gh` says the branch has none. Finish the review (`alt+enter`) and choose it. The title and
+description start blank, and `d` has the agent draft both. The heading says what happens before it
+opens, such as "commits and pushes first". The pull request pictured came from a session that took
+up an issue ([`luxe --issue 123`](github.md#start-from-an-issue)), so its branch is named for the
+issue and its description closes it.
 
 ![Opening a pull request](images/quickstart-pull-request.svg)
 
-Press `t` or `e` to edit the title or description, `d` to open it as a draft, and `enter` to open
+Press `t` or `e` to edit the title or description, `D` to open it as a draft, and `enter` to open
 it.
 
 ## 6. Come back later

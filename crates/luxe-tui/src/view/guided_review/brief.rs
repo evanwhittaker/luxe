@@ -26,12 +26,8 @@ pub(super) use files::file_line;
 pub(crate) use files::FileOwners;
 use luxe_core::guided_review::GuidedReview;
 pub(super) use notices::notice_lines;
-#[cfg(test)]
-use pull_request::is_closing_reference;
 pub(super) use pull_request::pull_request_facts;
-#[cfg(test)]
-use pull_request::{description_opening, DESCRIPTION_OPENING_CHARS};
-use pull_request::{earlier_conversation_lines, pull_request_account};
+use pull_request::{closing_issue_lines, earlier_conversation_lines};
 
 /// Judgement items past which a review is honestly more than one sitting.
 ///
@@ -80,10 +76,9 @@ pub(super) fn intent_lines(app: &App, review: &GuidedReview, width: usize) -> Ve
         }
     }
 
-    // The author's own account: a claim to weigh against the chapters, which is why it follows the
-    // narrator's reading rather than leading it
+    // What the author says it closes follows the narrator's reading rather than leading it
     if let Some(pr) = pull_request {
-        lines.extend(pull_request_account(app, pr, width));
+        lines.extend(closing_issue_lines(app, pr, width));
     }
     if let Some(conversation) = review.conversation.as_ref() {
         lines.extend(earlier_conversation_lines(app, conversation, width));
@@ -153,62 +148,4 @@ fn bullet_lines(text: &str, app: &App, width: usize) -> Vec<Line<'static>> {
     let mut lines = vec![Line::from(spans)];
     lines.extend(rendered);
     lines
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A long description opens with its first paragraphs and says there is more; a template
-    /// heading and a bare `Fixes #n` are left for the sections that show them better.
-    #[test]
-    fn a_description_opens_with_its_first_paragraphs() {
-        let body = format!(
-            "Fixes #14404\n\n### Description\n\nThe owner casing differed.\n\n{}\n\n{}",
-            "a".repeat(200),
-            "b".repeat(200)
-        );
-        let (opening, more) = description_opening(&body);
-        assert!(opening.starts_with("The owner casing differed."), "{opening}");
-        assert!(opening.contains(&"a".repeat(200)));
-        assert!(!opening.contains('b'), "past the budget");
-        assert!(!opening.contains("Fixes") && !opening.contains("###"), "{opening}");
-        assert!(more);
-
-        assert_eq!(
-            description_opening("Short and complete."),
-            ("Short and complete.".into(), false)
-        );
-        assert_eq!(description_opening("Fixes #3"), (String::new(), false));
-    }
-
-    /// One long paragraph, the way an agent writes a description, is cut too: at its last
-    /// sentence that fits, and failing one, at a word. Either way it says there is more.
-    #[test]
-    fn a_long_first_paragraph_is_cut_at_a_sentence() {
-        let sentence = "This change moves the parser into its own module for reuse. ";
-        let long = sentence.repeat(10);
-        let (opening, more) = description_opening(&long);
-        assert!(more);
-        assert!(opening.ends_with("for reuse."), "cut after a whole sentence: {opening}");
-        assert!(opening.chars().count() <= DESCRIPTION_OPENING_CHARS, "{}", opening.len());
-
-        let words = "word ".repeat(100);
-        let (opening, more) = description_opening(&words);
-        assert!(more && opening.ends_with("word\u{2026}"), "{opening}");
-
-        // A paragraph that fits is whole, and nothing is said to follow it
-        let short = sentence.repeat(2);
-        assert_eq!(description_opening(&short), (short.trim().to_owned(), false));
-    }
-
-    #[test]
-    fn a_closing_reference_is_one_verb_and_one_issue() {
-        for line in ["Fixes #12", "closes acme/app#3", "Resolves #9"] {
-            assert!(is_closing_reference(line), "{line}");
-        }
-        for line in ["Fixes the parser", "Fixes #12 and #13", "#12", "See #12"] {
-            assert!(!is_closing_reference(line), "{line}");
-        }
-    }
 }

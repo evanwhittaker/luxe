@@ -315,13 +315,15 @@ async fn reviewed_work_not_committed_is_committed_then_opened() {
     };
     assert_eq!(uncommitted, 1);
     assert_eq!(commits.len(), review.chapters.len(), "one per chapter: {commits:?}");
+    // The working tree's review is titled for a prompt, not the change, so the reader writes it
+    assert_eq!((draft.title.as_str(), draft.body.as_str()), ("", ""), "{draft:?}");
 
     // The preview said the work is committed first, so the confirm commits it: nothing to pass
     h.actions
         .send(Action::OpenPullRequest {
             request_id: prepared.clone(),
-            title: draft.title.clone(),
-            body: draft.body.clone(),
+            title: "Keep the last token".into(),
+            body: String::new(),
             draft: false,
         })
         .await

@@ -71,6 +71,8 @@ pub(crate) async fn run_rpc(
         },
         crate::workspace_runtime::pull_request_watch(&settings.work_root),
     );
+    let events =
+        crate::workspace_runtime::custom_dock_feed(events, &settings, &handle.session_id.0);
     // Shared like a terminal's, which is how a phone reaches a session the bridge started
     let (events, _sharing) =
         super::share::share(events, handle.actions.clone(), &settings, &handle.session_id.0);

@@ -448,7 +448,9 @@ fn the_keys_move_between_the_list_and_the_detail() {
 fn drawn(panel: &GithubPanel, width: u16, height: u16) -> Vec<String> {
     let backend = ratatui::backend::TestBackend::new(width, height);
     let mut terminal = ratatui::Terminal::new(backend).unwrap();
-    terminal.draw(|f| render(f, Rect::new(0, 0, width, height), panel, &styles(), 0)).unwrap();
+    let hit = std::cell::RefCell::default();
+    let area = Rect::new(0, 0, width, height);
+    terminal.draw(|f| render(f, area, panel, &styles(), 0, &hit)).unwrap();
     let buffer = terminal.backend().buffer().clone();
     (0..height).map(|y| (0..width).map(|x| buffer[(x, y)].symbol().to_string()).collect()).collect()
 }

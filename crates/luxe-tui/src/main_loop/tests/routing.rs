@@ -326,11 +326,11 @@ fn wheel_scrolls_the_current_surface() {
         seeded_app("nord", FixtureScenario::GuidedReviewReady).expect("review fixture");
     assert!(matches!(
         route_mouse(&mut review, &wheel(MouseEventKind::ScrollUp)),
-        RouteAction::Msg(message) if matches!(*message, Msg::GuidedReviewLinePrevious)
+        RouteAction::Msg(message) if matches!(*message, Msg::GuidedReviewWheel { forward: false })
     ));
     assert!(matches!(
         route_mouse(&mut review, &wheel(MouseEventKind::ScrollDown)),
-        RouteAction::Msg(message) if matches!(*message, Msg::GuidedReviewLineNext)
+        RouteAction::Msg(message) if matches!(*message, Msg::GuidedReviewWheel { forward: true })
     ));
 }
 

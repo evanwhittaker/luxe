@@ -134,8 +134,42 @@ badge sits on the right whatever the list says.
 | `style` | `slab` (each module on its own block) or `flat` (plain text). The dock's headings follow it. |
 | `thinking_colors` | `true` colors the thinking level from muted (off) to magenta (ultra) |
 
-When the bar runs out of room, it drops modules in this order: `cwd`, `tokens`, `activity`, `cost`,
-`todo`, `changes`, `pr`, `branch`, `project`, then `context` and `thinking`. The model goes last.
+When the bar runs out of room, it drops modules in this order: `cwd`, `tokens`, `activity`,
+`cost`, `todo`, `changes`, `pr`, your own modules, `branch`, `project`, then `context` and
+`thinking`. The model goes last.
+
+### Your own modules
+
+A module can show what a program of yours prints, the way a
+[dock section can](interface.md#your-own-sections). Define it under `statusline.custom` and add its
+name to `left` or `right`, on either side:
+
+```json title="~/.config/luxe/config.json"
+{
+  "statusline": {
+    "right": ["context", "quota", "thinking", "model"],
+    "custom": {
+      "quota": { "command": ["~/bin/luxe-quota"] }
+    }
+  }
+}
+```
+
+It only shows where you list it. The bar has two sides and little room, so luxe doesn't pick a
+place for you. One with the name of a built-in module takes its place.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `command` | required | The program and its arguments, run directly in the project folder. A leading `~/` is your home folder. |
+| `timeout_ms` | `2000` | How long a run may take, up to 10 seconds |
+
+The program runs when a dock section's would, gets the same JSON on stdin with `"place":
+"statusline"`, and answers the same way. The bar draws the first row, label and all, cut to 32
+cells, so `COLUMNS` is `32` and `LUXE_LABEL_COLUMNS` is `0`. Printing nothing hides the module
+until the next run. A first run that fails shows why, such as `quota: exited 1`; after that, a
+failed run keeps the last row.
+
+A project's `statusline.custom` runs programs, so luxe ignores it without `--trust-project`.
 
 ## Icons and fonts
 
@@ -225,8 +259,9 @@ Screenshots and images the agent reads are drawn in the conversation where the t
 
 | `images` | Draws | Needs |
 | --- | --- | --- |
-| `auto` | `pixels` in kitty and Ghostty, `off` elsewhere and inside tmux or screen | |
+| `auto` | `pixels` in kitty and Ghostty, `sixel` in Windows Terminal, `off` elsewhere and inside tmux or screen | |
 | `pixels` | The picture | A terminal with the kitty graphics protocol |
+| `sixel` | The picture | A terminal that draws Sixel graphics: Windows Terminal 1.22 or later |
 | `blocks` | A rough preview in colored blocks | Any terminal with color |
 | `off` | A line naming the image, with `open ↗` to view it | |
 
@@ -235,8 +270,10 @@ Screenshots and images the agent reads are drawn in the conversation where the t
 ```
 
 Double-click an image, or select its message (`alt+k`) and press `alt+i`, to view it full-window.
-`/images` says which setting is in effect and why. A change to `images` applies the next time luxe
-starts.
+Windows Terminal is asked, as luxe starts, whether it draws Sixel and how big a cell is, so an older
+one gets the `off` line instead of an empty rectangle. That includes luxe running in WSL inside
+Windows Terminal. `/images` says which setting is in effect and why. A change to `images` applies the
+next time luxe starts.
 
 ## The start screen
 

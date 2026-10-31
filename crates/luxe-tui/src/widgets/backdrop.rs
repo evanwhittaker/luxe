@@ -6,8 +6,8 @@ use crate::theme::styles::ThemeStyles;
 
 /// Dims the surface behind a modal overlay without erasing its highlighted rows.
 ///
-/// A blanket `set_style(dim)` patches every cell's foreground, and nearly every bundled theme maps
-/// `selectedBg` to the same color as `dim` — so the selected file row and diff line turned into
+/// A blanket `set_style(backdrop)` patches every cell's foreground, and nearly every bundled theme
+/// maps `selectedBg` to the same color as `dim` — so the selected file row and diff line turned into
 /// unreadable blocks. Cells already carrying the selection background step up to `muted` instead,
 /// the same escape `ThemeStyles::secondary_on` makes for text on a highlighted row.
 ///
@@ -32,7 +32,7 @@ pub fn dim_backdrop(frame: &mut Frame, area: Rect, styles: &ThemeStyles) {
                 // its caps do.
                 cell.set_bg(styles.slab.canvas);
             }
-            cell.set_style(if highlighted { styles.muted } else { styles.dim });
+            cell.set_style(if highlighted { styles.muted } else { styles.backdrop });
         }
     }
 }

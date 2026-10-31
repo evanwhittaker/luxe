@@ -6,4 +6,5 @@ use std::collections::HashMap;
 
 mod batches;
 mod frames;
+mod github_wheel;
 mod routing;

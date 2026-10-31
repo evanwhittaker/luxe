@@ -145,7 +145,7 @@ fn the_pull_request_opens_as_the_reader_edited_it() {
     app.update(key(crossterm::event::KeyCode::Char('t')));
     app.update(key(crossterm::event::KeyCode::Char('!')));
     app.update(key(crossterm::event::KeyCode::Esc));
-    app.update(key(crossterm::event::KeyCode::Char('d')));
+    app.update(key(crossterm::event::KeyCode::Char('D')));
     app.update(key(crossterm::event::KeyCode::Enter));
 
     // What the reader could change goes back; the engine kept the rest, commits included
@@ -158,7 +158,7 @@ fn the_pull_request_opens_as_the_reader_edited_it() {
         body, "### Sum every element\n\nWhy.\n\nCloses #7\nTested by hand.",
         "the reader's words, as typed"
     );
-    assert!(draft, "d made it a draft");
+    assert!(draft, "D made it a draft");
 
     // In flight, the preview cannot be closed or edited
     app.update(key(crossterm::event::KeyCode::Esc));
@@ -329,7 +329,7 @@ fn sending_to_the_agent_on_their_pull_request_offers_a_worktree() {
     assert_eq!(exit, crate::main_loop::TuiExit::FixPullRequest(launch));
 }
 
-/// From the post preview, `w` makes the same offer; a refusal says why and Enter does nothing.
+/// A refusal says why and Enter does nothing.
 #[test]
 fn a_refused_fix_says_why_and_goes_nowhere() {
     let (mut app, mut engine_rx) = their_pull_request();
@@ -339,10 +339,7 @@ fn a_refused_fix_says_why_and_goes_nowhere() {
             number: 42,
             repository: Some("upstream/notify".into()),
         };
-    app.update(crate::app::Msg::GuidedReviewOpenGithubPost);
-    let _ = engine_rx.try_recv();
-    app.update(key(crossterm::event::KeyCode::Char('w')));
-    assert!(app.guided_review_workspace.github_post.is_none(), "the post preview gives way");
+    app.update(crate::app::Msg::GuidedReviewOpenSendPreview);
     let Ok(Action::CheckPullRequestFix { number: 42, repository }) = engine_rx.try_recv() else {
         panic!("expected a check");
     };
@@ -354,18 +351,28 @@ fn a_refused_fix_says_why_and_goes_nowhere() {
     assert!(app.guided_review_workspace.pull_request_fix.is_none());
 }
 
-/// With no engine to ask, `w` leaves the post preview where it was and says it could not ask,
-/// rather than closing it on nothing.
+/// With no engine to ask, the offer says it could not ask rather than opening on nothing.
 #[test]
-fn a_fix_that_cannot_be_asked_about_leaves_the_post_preview() {
+fn a_fix_that_cannot_be_asked_about_opens_nothing() {
+    let (mut app, engine_rx) = their_pull_request();
+    drop(engine_rx);
+    app.update(crate::app::Msg::GuidedReviewOpenSendPreview);
+    assert!(app.guided_review_workspace.pull_request_fix.is_none());
+    assert_eq!(app.status.toast(), Some("Could not ask whether #42 can be fixed here"));
+}
+
+/// The post preview is about posting: fixing the pull request instead is `alt+u`'s offer.
+///
+/// The break this catches: `w` in the post preview leaving it for the worktree offer again.
+#[test]
+fn w_in_the_post_preview_offers_no_worktree() {
     let (mut app, mut engine_rx) = their_pull_request();
     app.update(crate::app::Msg::GuidedReviewOpenGithubPost);
     let _ = engine_rx.try_recv();
-    drop(engine_rx);
     app.update(key(crossterm::event::KeyCode::Char('w')));
     assert!(app.guided_review_workspace.github_post.is_some(), "the post preview stays");
     assert!(app.guided_review_workspace.pull_request_fix.is_none());
-    assert_eq!(app.status.toast(), Some("Could not ask whether #42 can be fixed here"));
+    assert!(engine_rx.try_recv().is_err(), "nothing asks GitHub about a fix");
 }
 
 /// A new session on the checked-out pull request opens its review, and the comments carried to
@@ -576,13 +583,13 @@ fn a_review_with_two_chapters_opens_as_a_stack_as_shown() {
         layers: Some(layers.clone()),
         refusal: None,
     }));
-    app.update(key(crossterm::event::KeyCode::Char('d')));
+    app.update(key(crossterm::event::KeyCode::Char('D')));
     app.update(key(crossterm::event::KeyCode::Enter));
     // The engine kept the layers; whether they are drafts is the reader's one choice
     let Ok(Action::OpenStack { request_id, draft }) = engine_rx.try_recv() else {
         panic!("expected an open");
     };
-    assert!(draft, "d made them drafts");
+    assert!(draft, "D made them drafts");
     app.update(key(crossterm::event::KeyCode::Esc));
     assert!(app.guided_review_workspace.stack_opening.is_some(), "not closed mid-open");
 

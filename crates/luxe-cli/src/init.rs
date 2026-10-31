@@ -59,6 +59,7 @@ async fn run_setup(settings: crate::engine_setup::AgentSettings) -> Result<()> {
         project: None,
         cwd: None,
         auto_approve: false,
+        trust_project: false,
     };
     let exit = main_loop::run(
         event_rx,

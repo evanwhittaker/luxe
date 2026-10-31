@@ -56,6 +56,12 @@ pub(super) fn reply_drafted(
         body.clone(),
         error.clone(),
         note.clone(),
+    ) || crate::app::messages::pull_request_opening::drafted(
+        app,
+        &request_id,
+        body.clone(),
+        error.clone(),
+        note.clone(),
     );
     if let Some(card) = app.overlays.pull_request_card.as_mut().filter(|_| !landed) {
         if let crate::github_detail::CardState::Ready(detail) = &mut card.state {
