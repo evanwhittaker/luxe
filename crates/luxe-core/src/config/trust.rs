@@ -20,5 +20,20 @@ pub(super) fn project_config(repo_root: &Path, trust_project: bool) -> Option<Co
         );
         project.gate.commands.clear();
     }
+    if !trust_project {
+        drop_custom_programs(&mut project, repo_root);
+    }
     Some(project)
+}
+
+/// Drops an untrusted project's custom dock sections and statusline modules. Each runs its command
+/// on every turn, so a cloned repo's would be code run just by opening it.
+fn drop_custom_programs(project: &mut Config, repo_root: &Path) {
+    let path = repo_root.join(".luxe/config.json");
+    if project.dock.custom.take().is_some() {
+        tracing::warn!(path = %path.display(), "ignoring project dock.custom; use --trust-project to allow it");
+    }
+    if project.statusline.custom.take().is_some() {
+        tracing::warn!(path = %path.display(), "ignoring project statusline.custom; use --trust-project to allow it");
+    }
 }

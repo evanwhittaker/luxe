@@ -51,6 +51,10 @@ pub(crate) struct PullRequestOpening {
     pub(crate) opening: bool,
     /// The last failure, as a sentence
     pub(crate) error: Option<String>,
+    /// The agent's drafting turn this preview waits on, by request id, and when it was asked
+    pub(crate) drafting: Option<(String, std::time::Instant)>,
+    /// What the agent said beside its draft, read under the description
+    pub(crate) draft_note: Option<String>,
 }
 
 /// What opening a pull request involves, as the preview shows it.
@@ -112,7 +116,7 @@ pub(crate) struct AnswerRow {
 
 impl ThreadAnswers {
     /// Opens on every thread not yet resolved on GitHub, resolving by default the ones the reader
-    /// verified and may resolve.
+    /// resolved here and may resolve there.
     pub(crate) fn new(
         request_id: luxe_core::guided_review::ThreadAnswersId,
         findings: &[luxe_core::guided_review::ReviewFinding],

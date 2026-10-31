@@ -21,6 +21,7 @@ mod stages;
 
 pub use classify::is_important;
 pub use reducers::{is_test_command, parse_test_output, TestFailure, TestReducer, TestSummary};
+pub(crate) use stages::strip_ansi;
 
 /// A command whose output is being compressed.
 #[derive(Debug, Clone)]

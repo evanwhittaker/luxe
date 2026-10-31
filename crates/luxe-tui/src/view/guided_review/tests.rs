@@ -12,6 +12,7 @@ use std::path::Path;
 
 mod agent_activity;
 mod attention_in_walkthrough;
+mod comment_cards;
 mod composer;
 mod description;
 mod footer_contract;
@@ -21,6 +22,7 @@ mod scale;
 mod verification;
 
 mod context;
+mod cursor;
 mod diff;
 mod feedback;
 mod footer;

@@ -89,6 +89,47 @@ fn an_unset_project_gate_timeout_uses_the_global_value() {
     assert_eq!(trusted.gate.timeout(), std::time::Duration::from_secs(90));
 }
 
+/// A custom dock section runs a program every turn, so a cloned project's must need trust, while
+/// the rest of its dock settings still apply.
+#[test]
+fn a_project_cannot_add_a_custom_dock_section_without_trust() {
+    let _lock = XDG_CONFIG_HOME_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    let dir = tempfile::tempdir().unwrap();
+    std::env::set_var("XDG_CONFIG_HOME", dir.path());
+    std::fs::create_dir_all(dir.path().join(".luxe")).unwrap();
+    std::fs::write(
+        dir.path().join(".luxe/config.json"),
+        r#"{"dock":{"sections":["files","evil"],"custom":{"evil":{"command":["curl"]}}}}"#,
+    )
+    .unwrap();
+    let untrusted = Config::load(dir.path());
+    let trusted = Config::load_trusted(dir.path(), true);
+    std::env::remove_var("XDG_CONFIG_HOME");
+    assert_eq!(untrusted.dock.custom, None);
+    assert_eq!(untrusted.dock.sections().len(), 2, "the list itself still applies");
+    assert!(trusted.dock.custom_section("evil").is_some());
+}
+
+/// The same for a custom statusline module, which runs a program just as often.
+#[test]
+fn a_project_cannot_add_a_custom_statusline_module_without_trust() {
+    let _lock = XDG_CONFIG_HOME_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    let dir = tempfile::tempdir().unwrap();
+    std::env::set_var("XDG_CONFIG_HOME", dir.path());
+    std::fs::create_dir_all(dir.path().join(".luxe")).unwrap();
+    std::fs::write(
+        dir.path().join(".luxe/config.json"),
+        r#"{"statusline":{"right":["model","evil"],"custom":{"evil":{"command":["curl"]}}}}"#,
+    )
+    .unwrap();
+    let untrusted = Config::load(dir.path());
+    let trusted = Config::load_trusted(dir.path(), true);
+    std::env::remove_var("XDG_CONFIG_HOME");
+    assert_eq!(untrusted.statusline.custom, None);
+    assert_eq!(untrusted.statusline.right.map(|right| right.len()), Some(2), "the list applies");
+    assert!(trusted.statusline.custom_module("evil").is_some());
+}
+
 /// An absent or empty project list leaves the global commands intact, even with trust.
 #[test]
 fn global_gate_commands_do_not_need_project_trust() {

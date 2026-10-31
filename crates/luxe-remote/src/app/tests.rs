@@ -113,10 +113,14 @@ fn the_page_says_where_the_dock_starts() {
     let page = String::from_utf8_lossy(&page.data);
     let plain = themed_page(&page, &PageLook::default());
     assert!(plain.contains(r#"data-dock-mode="auto" data-dock-side="left""#), "{plain}");
-    let dock = DockConfig { mode: Some(DockMode::Hidden), position: Some(DockPosition::Right) };
+    let dock = DockConfig {
+        mode: Some(DockMode::Hidden),
+        position: Some(DockPosition::Right),
+        ..DockConfig::default()
+    };
     let configured = themed_page(&page, &PageLook { dock, ..PageLook::default() });
     assert!(configured.contains(r#"data-dock-mode="hidden" data-dock-side="right""#));
-    let dock = DockConfig { mode: Some(DockMode::Shown), position: None };
+    let dock = DockConfig { mode: Some(DockMode::Shown), ..DockConfig::default() };
     let shown = themed_page(&page, &PageLook { dock, ..PageLook::default() });
     assert!(shown.contains(r#"data-dock-mode="shown""#));
 }

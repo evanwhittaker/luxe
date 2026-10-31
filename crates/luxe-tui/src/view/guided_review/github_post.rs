@@ -16,6 +16,7 @@ use crate::theme::styles::ThemeStyles;
 use items::{items, list_lines, Item};
 use luxe_core::github::ReviewEvent;
 use luxe_core::guided_review::PostPlanError;
+pub(super) use preview::drafting_line;
 use preview::pane_lines;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -121,7 +122,8 @@ fn post_preview_notes(
     let styles = &app.theme_styles;
     let mut notes = Vec::new();
     if prepared.own_pull_request {
-        notes.push(Line::from(Span::styled("Your pull request · comment only", styles.muted)));
+        let note = "Your own pull request \u{b7} GitHub takes only comments from its author";
+        notes.push(Line::from(Span::styled(note, styles.muted)));
     }
     if prepared.head_moved {
         notes.push(Line::from(Span::styled(
@@ -319,7 +321,7 @@ fn scrolled(lines: Vec<Line<'static>>, scroll: u16, height: u16) -> Vec<Line<'st
 /// The keys, naming only what this state of the dialog will do, in the `room` the frame has.
 ///
 /// Posting and leaving always fit; the rest drop out least-needed first, so a narrow terminal
-/// loses the worktree key before it loses the one that moves between comments.
+/// loses the summary key before it loses the one that moves between comments.
 fn hint(
     post: &crate::guided_review::GithubPost,
     items: usize,
@@ -343,7 +345,6 @@ fn hint(
         ("drafting the summary…", if drafting { 1 } else { u8::MAX }),
         ("d draft summary", if drafting { u8::MAX } else { 2 }),
         (if summary { "e edit summary" } else { "c summary" }, 3),
-        ("w fix in a worktree", 4),
         ("esc cancel", 0),
     ];
     let render = |limit: u8| {
@@ -351,7 +352,7 @@ fn hint(
             keys.iter().filter(|(_, rank)| *rank <= limit).map(|(key, _)| *key).collect();
         format!(" {} ", shown.join(" · "))
     };
-    (0..=4).rev().map(render).find(|text| text.width() <= room).unwrap_or_else(|| render(0))
+    (0..=3).rev().map(render).find(|text| text.width() <= room).unwrap_or_else(|| render(0))
 }
 
 fn pinned_head(app: &App) -> String {

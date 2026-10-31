@@ -22,7 +22,7 @@ fn append_split_pair(
     app: &App,
     layout: &crate::view::diff_lines::SplitLayout<'_>,
     (old, new): (SplitDiffCell<'_>, SplitDiffCell<'_>),
-    (bar_span, word_wrap): (&Span<'static>, bool),
+    (bar_span, word_wrap, on_cursor): (&Span<'static>, bool, bool),
 ) {
     let changed = match (old, new) {
         // over the drawn text, like every other intra-line pass: the ranges are byte offsets
@@ -35,7 +35,8 @@ fn append_split_pair(
         }
         _ => luxe_core::intraline::IntralineChange::default(),
     };
-    let (old_style, new_style) = (split_cell_style(app, old), split_cell_style(app, new));
+    let (old_style, new_style) =
+        (split_cell_style(app, old, on_cursor), split_cell_style(app, new, on_cursor));
     if word_wrap {
         let wrapped = layout
             .wrapped_pair((old, &changed.removed, &old_style), (new, &changed.added, &new_style));
@@ -63,7 +64,7 @@ fn pair_annotations(
     app: &App,
     file: &luxe_core::guided_review::ReviewFile,
     (old, new): (SplitDiffCell<'_>, SplitDiffCell<'_>),
-    width: usize,
+    (width, open): (usize, bool),
 ) -> Vec<Line<'static>> {
     let mut findings: Vec<luxe_core::guided_review::ReviewFinding> = Vec::new();
     let mut threads: Vec<&luxe_core::guided_review::EarlierThread> = Vec::new();
@@ -81,7 +82,7 @@ fn pair_annotations(
             }
         }
     }
-    let mut lines = comment_lines(app, &findings, width);
+    let mut lines = comment_lines(app, &findings, width, open);
     lines.extend(thread_lines(app, &threads, width));
     lines
 }
@@ -113,33 +114,71 @@ pub(super) fn render_split_file_diff(
     // it turns on; passing it regardless keeps the two paths reading from one source of truth.
     layout.column = app.guided_review_workspace.diff_column_offset;
     let groups = visible_groups(file, &app.guided_review_workspace.fold);
-    let rows = visible_split_rows(
-        &groups,
-        app.guided_review_workspace.position.line_offset,
-        usize::from(area.height),
-    );
-
-    let active_rows = app
-        .guided_review_workspace
-        .position
-        .hunk_id
-        .as_ref()
-        .and_then(|hunk_id| crate::guided_review::hunk_row_span(&groups, hunk_id));
     let word_wrap = app.guided_review_workspace.word_wrap;
-    let mut lines: Vec<Line> = Vec::with_capacity(rows.len());
-    let mut row_indices: Vec<usize> = Vec::with_capacity(rows.len());
-    // Visual height per logical row: what it drew, wrapped lines and comment cards included.
-    let mut heights: Vec<u16> = Vec::with_capacity(rows.len());
-    let drawn = SplitRowContext { app, file, layout: &layout, word_wrap, width: area.width };
-    for row in &rows {
-        row_indices.push(row.unified_index());
-        let on_active_hunk =
-            active_rows.as_ref().is_some_and(|span| span.contains(&row.unified_index()));
-        heights.push(append_split_row(&mut lines, &drawn, row, on_active_hunk));
-    }
-    publish_split_rows(app, area, &row_indices, &heights, &rows, file);
-    append_end_of_reading(&mut lines, app, review, (&groups, rows.len()), area.height);
+    let context = SplitRowContext { app, file, layout: &layout, word_wrap, width: area.width };
+    let cursor = app.guided_review_workspace.position.line_offset;
+    let total_rows = groups.iter().map(crate::guided_review::VisibleGroup::rows).sum();
+    let drawn = super::fit_window(app, (area.height, total_rows), |top| {
+        let drawn = draw_split(&context, &groups, top, area.height);
+        let cursor_row = drawn.cursor_row(cursor);
+        (drawn, cursor_row)
+    });
+    publish_split_rows(app, area, &drawn.row_indices, &drawn.heights, &drawn.rows, file);
+    let drawn_end = drawn.rows.last().map_or(0, |row| row.last_index() + 1);
+    let mut lines = drawn.lines;
+    append_end_of_reading(&mut lines, app, review, (&groups, drawn_end), area.height);
     frame.render_widget(Paragraph::new(lines), area);
+}
+
+/// A split window laid out from one top row, before anything is published or drawn.
+struct SplitDrawn<'a> {
+    lines: Vec<Line<'static>>,
+    row_indices: Vec<usize>,
+    /// Visual height per logical row: what it drew, wrapped lines and comment cards included
+    heights: Vec<u16>,
+    rows: Vec<SplitRow<'a>>,
+}
+
+impl SplitDrawn<'_> {
+    /// Where the row holding unified row `cursor` starts and how many lines it takes, when the
+    /// window drew it.
+    fn cursor_row(&self, cursor: usize) -> Option<(u16, u16)> {
+        let at = self.rows.iter().position(|row| row.holds(cursor))?;
+        Some((self.heights[..at].iter().sum(), self.heights[at]))
+    }
+}
+
+/// Lays out the rows that fit `height` from unified row `top`, the cursor's row banded.
+fn draw_split<'a>(
+    ctx: &SplitRowContext<'_>,
+    groups: &[crate::guided_review::VisibleGroup<'a>],
+    top: usize,
+    height: u16,
+) -> SplitDrawn<'a> {
+    let position = &ctx.app.guided_review_workspace.position;
+    let rows = visible_split_rows(groups, top, usize::from(height));
+    let active_rows = (position.hunk_id.as_ref())
+        .and_then(|hunk_id| crate::guided_review::hunk_row_span(groups, hunk_id));
+    let mut lines = Vec::with_capacity(rows.len());
+    let heights = (rows.iter())
+        .map(|row| {
+            let on_active_hunk =
+                active_rows.as_ref().is_some_and(|span| span.contains(&row.unified_index()));
+            let marks = RowMarks { on_active_hunk, on_cursor: row.holds(position.line_offset) };
+            append_split_row(&mut lines, ctx, row, marks)
+        })
+        .collect();
+    let row_indices = rows.iter().map(SplitRow::unified_index).collect();
+    SplitDrawn { lines, row_indices, heights, rows }
+}
+
+/// What a split row shows about where the reader is.
+#[derive(Clone, Copy)]
+struct RowMarks {
+    /// Inside the hunk the cursor is in, so the bar runs down it
+    on_active_hunk: bool,
+    /// The cursor's own row, so it wears the cursor's band
+    on_cursor: bool,
 }
 
 /// What every split row is drawn against.
@@ -157,33 +196,30 @@ fn append_split_row(
     lines: &mut Vec<Line<'static>>,
     ctx: &SplitRowContext<'_>,
     row: &SplitRow<'_>,
-    on_active_hunk: bool,
+    RowMarks { on_active_hunk, on_cursor }: RowMarks,
 ) -> u16 {
     let (app, file) = (ctx.app, ctx.file);
     let bar_span = active_bar_span(app, on_active_hunk);
     match row {
-        SplitRow::Folded { run, unified_index } => {
-            let selected = app.guided_review_workspace.position.line_offset == *unified_index
-                && app.guided_review_workspace.position.hunk_id.is_none();
-            lines.push(folded_run_line(app, *run, selected, true));
+        SplitRow::Folded { run, .. } => {
+            lines.push(folded_run_line(app, *run, super::unified::on_folded(app, on_cursor), true));
             1
         }
         SplitRow::Header { hunk_id, old_range, new_range, heading, .. } => {
             let before = lines.len();
-            lines.push(split_header_line(
-                app,
-                hunk_id,
-                *old_range,
-                *new_range,
-                *heading,
-                on_active_hunk,
-            ));
+            let header =
+                split_header_line(app, hunk_id, *old_range, *new_range, *heading, on_active_hunk);
+            lines.push(match on_cursor {
+                true => banded(header, app.theme_styles.cursor_line_bg(), ctx.width),
+                false => header,
+            });
             lines.extend(comment_lines(
                 app,
                 &findings_at(app, |anchor| {
-                    matches!(anchor, luxe_core::guided_review::FindingAnchor::Hunk { hunk_id: at, .. } if at == *hunk_id)
+                    crate::guided_review::hunk_anchor_matches(anchor, hunk_id)
                 }),
                 usize::from(ctx.width),
+                on_cursor,
             ));
             // a header carrying comment cards is that many rows tall, or every click below
             // it lands a row short
@@ -191,8 +227,10 @@ fn append_split_row(
         }
         SplitRow::Pair { old, new, .. } => {
             let before = lines.len();
-            append_split_pair(lines, app, ctx.layout, (*old, *new), (&bar_span, ctx.word_wrap));
-            lines.extend(pair_annotations(app, file, (*old, *new), usize::from(ctx.width)));
+            let cells = (*old, *new);
+            append_split_pair(lines, app, ctx.layout, cells, (&bar_span, ctx.word_wrap, on_cursor));
+            let width = usize::from(ctx.width);
+            lines.extend(pair_annotations(app, file, (*old, *new), (width, on_cursor)));
             (lines.len() - before).max(1) as u16
         }
     }
@@ -227,8 +265,12 @@ fn publish_split_rows(
 }
 
 /// What the review knows about one side of a split row that the shared layout does not: whether a
-/// search hit is claiming the row's background.
-fn split_cell_style(app: &App, cell: SplitDiffCell<'_>) -> crate::view::diff_lines::SplitCellStyle {
+/// search hit is claiming the row's background, and whether the cursor's band lies over it.
+fn split_cell_style(
+    app: &App,
+    cell: SplitDiffCell<'_>,
+    on_cursor: bool,
+) -> crate::view::diff_lines::SplitCellStyle {
     let SplitDiffCell::Source(line) = cell else {
         return crate::view::diff_lines::SplitCellStyle::default();
     };
@@ -236,9 +278,31 @@ fn split_cell_style(app: &App, cell: SplitDiffCell<'_>) -> crate::view::diff_lin
         app.guided_review_workspace.line_matches_search(&crate::tabstop::display_text(&line.text));
     crate::view::diff_lines::SplitCellStyle {
         marker: String::new(),
-        background: searched.then_some(app.theme_styles.selected_bg),
+        background: cell_background(app, line.kind, searched, on_cursor),
         plain_wash: searched,
     }
+}
+
+/// A search hit claims a cell's background; the cursor's band lifts whatever is under it.
+fn cell_background(
+    app: &App,
+    kind: luxe_core::guided_review::ReviewLineKind,
+    searched: bool,
+    on_cursor: bool,
+) -> Option<ratatui::style::Style> {
+    if !on_cursor {
+        return searched.then_some(app.theme_styles.selected_bg);
+    }
+    let band = match searched {
+        true => Some(app.theme_styles.selected_bg),
+        false => super::source::diff_line_background(kind, app),
+    };
+    Some(app.theme_styles.cursor_line_over(band))
+}
+
+/// `line` in `band`, padded across the pane's `width`.
+fn banded(line: Line<'static>, band: ratatui::style::Style, width: u16) -> Line<'static> {
+    Line::from(crate::view::diff_lines::tint_row(line.spans, band, width))
 }
 
 /// A hunk header spanning both columns, carrying the same selection and finding markers as unified.

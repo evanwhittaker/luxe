@@ -5,6 +5,8 @@ use super::*;
 impl ReviewSession {
     /// Reconciles finding anchors against a newly pinned source without inferring resolution.
     ///
+    /// A comment whose line moved follows it; one whose line is gone is outdated (`Stale`), as
+    /// GitHub marks a thread whose line changed, unless the reviewer already resolved it.
     /// Submitted snapshots remain bound to the revision that captured them.
     pub fn reconcile_refreshed_source(
         &mut self,
@@ -15,12 +17,7 @@ impl ReviewSession {
         for finding in &mut self.findings {
             match remap(&finding.anchor) {
                 FindingAnchorRefresh::Exact => {}
-                FindingAnchorRefresh::NeedsVerification(anchor) => {
-                    if finding.state != FindingState::Resolved {
-                        finding.anchor = anchor;
-                        finding.state = FindingState::NeedsVerification;
-                    }
-                }
+                FindingAnchorRefresh::Moved(anchor) => finding.anchor = anchor,
                 FindingAnchorRefresh::Stale if finding.state != FindingState::Resolved => {
                     finding.state = FindingState::Stale;
                 }
@@ -210,7 +207,7 @@ pub fn remap_finding_anchor(
                 })
                 .collect::<Vec<_>>();
             match candidates.as_slice() {
-                [candidate] => FindingAnchorRefresh::NeedsVerification(candidate.clone()),
+                [candidate] => FindingAnchorRefresh::Moved(candidate.clone()),
                 _ => FindingAnchorRefresh::Stale,
             }
         }
@@ -246,8 +243,11 @@ pub enum DiffSide {
 pub enum FindingAnchorRefresh {
     /// The exact immutable anchor still exists, so its state remains unchanged.
     Exact,
-    /// A unique local context match needs reviewer confirmation at its new anchor.
-    NeedsVerification(FindingAnchor),
+    /// The line moved, and its unique context match is the new anchor. The comment follows it
+    /// and keeps its state, since the code it talks about is unchanged.
+    ///
+    /// Args: the anchor at the line's new place.
+    Moved(FindingAnchor),
     /// No trustworthy current-source anchor exists; original evidence remains intact.
     Stale,
 }

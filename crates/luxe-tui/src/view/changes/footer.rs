@@ -32,13 +32,15 @@ const SHORTCUT_GAP: usize = 3;
 ///
 /// Least actionable first, and `close` is never in the list: a surface that has taken the column
 /// must always say how to give it back. Dropping whole shortcuts rather than letting the row
-/// truncate is the point — `Alt+W no wr` is worse than no mention of wrapping at all.
+/// truncate is the point — `Alt+W no wr` is worse than no mention of wrapping at all. The editor
+/// goes before the layout keys: it has `/editor` and the focused pane's `o`, while wrapping and the
+/// side-by-side switch are chords nothing else on screen names.
 const SHORTCUT_SACRIFICE: [ChangesFooterAction; 7] = [
     ChangesFooterAction::FilePrev,
     ChangesFooterAction::Focus,
+    ChangesFooterAction::OpenInEditor,
     ChangesFooterAction::ToggleView,
     ChangesFooterAction::ToggleWordWrap,
-    ChangesFooterAction::OpenInEditor,
     ChangesFooterAction::ToggleSplit,
     ChangesFooterAction::FileNext,
 ];
@@ -68,14 +70,9 @@ fn fit_shortcuts(shortcuts: &mut Vec<Shortcut>, width: usize) {
 /// step: a control that cannot act is worse than an absent one.
 fn shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<Shortcut> {
     use luxe_core::keymap::UiAction;
-    let chord = |action: UiAction, fallback: &str| {
-        app.keymap
-            .chords_for(action)
-            .and_then(|chords| chords.first())
-            .map_or_else(|| fallback.to_string(), ToString::to_string)
-    };
+    let chord = |action: UiAction, fallback: &str| chord(app, action, fallback);
     if view.focused {
-        return focused_shortcuts(view);
+        return focused_shortcuts(app, view, side_by_side);
     }
     let mut shortcuts = Vec::new();
     if view.changed() {
@@ -100,27 +97,8 @@ fn shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<Shortcut>
             action: ChangesFooterAction::FilePrev,
         });
     }
-    // Only where the pane could actually draw two columns: a control that cannot act is worse than
-    // an absent one, because pressing it teaches the reader that the footer is not to be trusted.
-    // Mid-switch `side_by_side` carries the last resolved layout, which is what keeps this from
-    // blinking out for the frame the next diff spends loading.
-    let diffing = view.view == PeekView::Diff;
-    if diffing
-        && (view.two_sided.get() || view.file().is_some_and(crate::guided_review::has_two_sides))
-    {
-        shortcuts.push(Shortcut {
-            chord: chord(UiAction::ReviewToggleSplit, "/diff"),
-            // Name the layout it switches *to*, and say what the layout is *of*: "side by side"
-            // alone reads as a property of the pane rather than of the diff in it.
-            label: if side_by_side { "unified diff" } else { "side-by-side diff" },
-            action: ChangesFooterAction::ToggleSplit,
-        });
-    }
-    shortcuts.push(Shortcut {
-        chord: chord(UiAction::ChangesToggleWordWrap, "alt+w"),
-        label: if view.word_wrap { "stop wrapping" } else { "wrap lines" },
-        action: ChangesFooterAction::ToggleWordWrap,
-    });
+    shortcuts.extend(split_shortcut(app, view, side_by_side));
+    shortcuts.push(wrap_shortcut(app, view));
     // Only for a file the review could actually contain. A review is captured from the project's
     // own worktree, so offering it over a file that lives somewhere else advertises a destination
     // that does not exist.
@@ -149,9 +127,62 @@ fn shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<Shortcut>
     shortcuts
 }
 
+/// The first key bound to `action`, or `fallback` when nothing is.
+fn chord(app: &App, action: luxe_core::keymap::UiAction, fallback: &str) -> String {
+    app.keymap
+        .chords_for(action)
+        .and_then(|chords| chords.first())
+        .map_or_else(|| fallback.to_string(), ToString::to_string)
+}
+
+/// The side-by-side switch, only where the pane could actually draw two columns: a control that
+/// cannot act is worse than an absent one, because pressing it teaches the reader that the footer
+/// is not to be trusted. Mid-switch `side_by_side` carries the last resolved layout, which is what
+/// keeps this from blinking out for the frame the next diff spends loading.
+fn split_shortcut(app: &App, view: &ChangesView, side_by_side: bool) -> Option<Shortcut> {
+    let two_sided =
+        view.two_sided.get() || view.file().is_some_and(crate::guided_review::has_two_sides);
+    if view.view != PeekView::Diff || !two_sided {
+        return None;
+    }
+    Some(Shortcut {
+        chord: chord(app, luxe_core::keymap::UiAction::ReviewToggleSplit, "/diff"),
+        // Name the layout it switches *to*, and say what the layout is *of*: "side by side"
+        // alone reads as a property of the pane rather than of the diff in it.
+        label: if side_by_side { "unified diff" } else { "side-by-side diff" },
+        action: ChangesFooterAction::ToggleSplit,
+    })
+}
+
+/// The wrap switch, named for what it does next.
+fn wrap_shortcut(app: &App, view: &ChangesView) -> Shortcut {
+    Shortcut {
+        chord: chord(app, luxe_core::keymap::UiAction::ChangesToggleWordWrap, "alt+w"),
+        label: if view.word_wrap { "stop wrapping" } else { "wrap lines" },
+        action: ChangesFooterAction::ToggleWordWrap,
+    }
+}
+
 /// The keys the pane answers to while the keyboard is in it, which are not the ones it shows
 /// otherwise: a reader who just walked in needs the way around, and the way out.
-fn focused_shortcuts(view: &ChangesView) -> Vec<Shortcut> {
+///
+/// The layout chords still work here (the pane passes every chord on), so they follow the
+/// movement keys where the row has room, and are the first to go where it doesn't.
+fn focused_shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<Shortcut> {
+    let mut shortcuts = focused_keys(view);
+    if view.visual {
+        return shortcuts;
+    }
+    let layout =
+        split_shortcut(app, view, side_by_side).into_iter().chain([wrap_shortcut(app, view)]);
+    // Ahead of `tab files` and `esc back`, which stay last
+    let at = shortcuts.len().saturating_sub(2);
+    shortcuts.splice(at..at, layout);
+    shortcuts
+}
+
+/// The focused pane's own keys, for the view it shows.
+fn focused_keys(view: &ChangesView) -> Vec<Shortcut> {
     let keys: &[(&str, &'static str)] = match view.view {
         PeekView::File if view.visual => &[
             ("VISUAL", "j k grow"),
@@ -170,7 +201,7 @@ fn focused_shortcuts(view: &ChangesView) -> Vec<Shortcut> {
             ("esc", "back"),
         ],
         PeekView::Diff => &[
-            ("j k", "scroll"),
+            ("j k", "line"),
             ("space", "page"),
             ("g G", "ends"),
             ("o", "editor"),

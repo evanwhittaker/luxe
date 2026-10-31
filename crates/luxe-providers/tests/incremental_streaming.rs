@@ -16,22 +16,30 @@ use luxe_providers::openai_compat::OpenaiCompatProvider;
 use std::io::Write;
 use std::time::Duration;
 
-/// How long the server holds the body open after the first records.
-const HOLD: Duration = Duration::from_millis(1_500);
-/// Budget for opening the call *and* seeing its first event. Comfortably under `HOLD`, so passing
-/// means "did not wait for the body to finish" rather than "was quick".
+/// How long the test waits for what must arrive while the body is still open.
 ///
-/// The budget has to cover `Provider::stream` too: whole-body parsing blocks *there*, before the
-/// stream is even returned, so timing only the first `next()` would pass either way.
-const FIRST_EVENT_BUDGET: Duration = Duration::from_millis(600);
+/// The server holds the second half until the test releases it, so an adapter that waits for the
+/// whole body never sees an event in time, however fast the machine. This is a deadline for that
+/// hang, not a measure of speed: a wall-clock budget of a few hundred milliseconds failed on a
+/// machine busy with the rest of the workspace's tests, where building the HTTP client alone can
+/// take that long. It covers `Provider::stream` as well as the first `next()`, since whole-body
+/// parsing blocks *there*, before the stream is even returned.
+const OPEN_BODY_WAIT: Duration = Duration::from_secs(10);
 
-/// Serves one HTTP response whose SSE body arrives in two halves, `HOLD` apart.
+/// How long the server holds the body open when nothing releases it: well past `OPEN_BODY_WAIT`,
+/// so an adapter that buffered is still waiting when the test gives up on it.
+const HOLD_LIMIT: Duration = Duration::from_secs(30);
+
+/// Serves one HTTP response whose SSE body arrives in two halves: the first at once, the second
+/// when the test sends on the returned channel. Keep the sender until then: dropping it releases
+/// the second half too.
 ///
 /// No `Content-Length`: HTTP/1.1 then frames the body by connection close, which is exactly how
 /// the real providers stream, and lets us write the halves whenever we like.
-fn serve_split_sse(first: String, second: String) -> u16 {
+fn serve_split_sse(first: String, second: String) -> (u16, std::sync::mpsc::Sender<()>) {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
     let port = listener.local_addr().expect("addr").port();
+    let (release, released) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let (mut socket, _) = listener.accept().expect("accept");
         read_request_head(&mut socket);
@@ -40,11 +48,12 @@ fn serve_split_sse(first: String, second: String) -> u16 {
         socket.write_all(head.as_bytes()).expect("head");
         socket.write_all(first.as_bytes()).expect("first half");
         socket.flush().expect("flush");
-        std::thread::sleep(HOLD);
-        socket.write_all(second.as_bytes()).expect("second half");
+        let _ = released.recv_timeout(HOLD_LIMIT);
+        // The client may have hung up already, after a cancel
+        let _ = socket.write_all(second.as_bytes());
         let _ = socket.flush();
     });
-    port
+    (port, release)
 }
 
 /// Reads request headers (and any body) off `socket` far enough to reply.
@@ -108,7 +117,7 @@ async fn anthropic_thinking_deltas_arrive_while_the_body_is_still_open() {
          event: message_stop\n\
          data: {\"type\":\"message_stop\"}\n\n"
         .to_string();
-    let port = serve_split_sse(first, second);
+    let (port, release) = serve_split_sse(first, second);
 
     let model = model("anthropic");
     let provider = AnthropicProvider::new(
@@ -118,7 +127,7 @@ async fn anthropic_thinking_deltas_arrive_while_the_body_is_still_open() {
         AnthropicCompat::default(),
     );
     let (_keep, cancel) = tokio::sync::watch::channel(false);
-    let (stream, event) = tokio::time::timeout(FIRST_EVENT_BUDGET, async {
+    let (stream, event) = tokio::time::timeout(OPEN_BODY_WAIT, async {
         let mut stream = provider.stream(request(model), cancel).await.expect("stream opens");
         let event = stream.next().await;
         (stream, event)
@@ -131,6 +140,7 @@ async fn anthropic_thinking_deltas_arrive_while_the_body_is_still_open() {
     );
 
     // The rest still arrives once the server sends it, terminator included.
+    release.send(()).expect("the server is holding the body open");
     let rest: Vec<ProviderEvent> = stream.collect().await;
     assert!(
         rest.iter().any(
@@ -157,7 +167,7 @@ async fn openai_compat_deltas_arrive_while_the_body_is_still_open() {
         "data: [DONE]\n\n"
     )
     .to_string();
-    let port = serve_split_sse(first, second);
+    let (port, release) = serve_split_sse(first, second);
 
     let provider = OpenaiCompatProvider::new(
         ProviderConfig {
@@ -168,7 +178,7 @@ async fn openai_compat_deltas_arrive_while_the_body_is_still_open() {
         CompatFlags::default(),
     );
     let (_keep, cancel) = tokio::sync::watch::channel(false);
-    let (stream, event) = tokio::time::timeout(FIRST_EVENT_BUDGET, async {
+    let (stream, event) = tokio::time::timeout(OPEN_BODY_WAIT, async {
         let mut stream =
             provider.stream(request(model("openai_compat")), cancel).await.expect("stream opens");
         let event = stream.next().await;
@@ -181,6 +191,7 @@ async fn openai_compat_deltas_arrive_while_the_body_is_still_open() {
         "expected a streamed reasoning delta, got {event:?}"
     );
 
+    release.send(()).expect("the server is holding the body open");
     let rest: Vec<ProviderEvent> = stream.collect().await;
     let usage_before_done = rest
         .iter()
@@ -196,7 +207,7 @@ async fn cancelling_ends_the_stream_without_waiting_for_the_body() {
     let first = "event: content_block_delta\n\
          data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"partial\"}}\n\n"
         .to_string();
-    let port = serve_split_sse(first, String::new());
+    let (port, release) = serve_split_sse(first, String::new());
 
     let model = model("anthropic");
     let provider = AnthropicProvider::new(
@@ -206,7 +217,7 @@ async fn cancelling_ends_the_stream_without_waiting_for_the_body() {
         AnthropicCompat::default(),
     );
     let (cancel_tx, cancel) = tokio::sync::watch::channel(false);
-    let (mut stream, first_event) = tokio::time::timeout(FIRST_EVENT_BUDGET, async {
+    let (mut stream, first_event) = tokio::time::timeout(OPEN_BODY_WAIT, async {
         let mut stream = provider.stream(request(model), cancel).await.expect("stream opens");
         let event = stream.next().await;
         (stream, event)
@@ -217,7 +228,9 @@ async fn cancelling_ends_the_stream_without_waiting_for_the_body() {
 
     cancel_tx.send(true).expect("cancel");
     let ended =
-        tokio::time::timeout(FIRST_EVENT_BUDGET, async { while stream.next().await.is_some() {} })
+        tokio::time::timeout(OPEN_BODY_WAIT, async { while stream.next().await.is_some() {} })
             .await;
     assert!(ended.is_ok(), "a cancelled stream must end without waiting out the body");
+    // Held to here: released any earlier, the body would end by itself and pass without the cancel
+    drop(release);
 }

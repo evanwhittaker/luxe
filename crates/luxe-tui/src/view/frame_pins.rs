@@ -159,6 +159,9 @@ fn pins() -> Vec<Pin> {
     mouse(&mut app, MouseEventKind::Drag(MouseButton::Left), 40, 11);
     pins.push(pin("ChatWideProse selecting".into(), &mut app, size));
     mouse(&mut app, MouseEventKind::Up(MouseButton::Left), 40, 11);
+    let copy = KeyModifiers::CONTROL | KeyModifiers::SHIFT;
+    let key = crossterm::event::KeyEvent::new(crossterm::event::KeyCode::Char('c'), copy);
+    overlay_matrix::send(&mut app, Event::Key(key));
     pins.push(pin("ChatWideProse copied".into(), &mut app, size));
 
     let mut app = seeded(FixtureScenario::ChangesWide, (180, 44));

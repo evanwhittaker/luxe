@@ -139,6 +139,9 @@ impl ReviewSession {
     }
 
     /// Appends validated agent evidence without treating an agent claim as reviewer resolution.
+    ///
+    /// The report is a message on each comment's thread and moves no state: "fixed" reads there
+    /// already, and the reviewer resolves the comment once they agree.
     pub fn record_remediation_report(
         &mut self,
         report: &RemediationReport,
@@ -179,10 +182,6 @@ impl ReviewSession {
                 body,
                 created_at_ms,
             });
-            if result.status == RemediationStatus::Fixed && finding.state != FindingState::Resolved
-            {
-                finding.state = FindingState::NeedsVerification;
-            }
         }
         Ok(())
     }

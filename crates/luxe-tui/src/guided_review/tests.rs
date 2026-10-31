@@ -1,3 +1,4 @@
+mod cursor_row;
 mod findings;
 mod layout;
 mod navigation;

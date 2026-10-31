@@ -252,6 +252,7 @@ async fn hand_over(
         Err(error) => Err(error),
     };
     *term = terminal::init()?;
+    app.images.invalidate_overlay();
     let _ = terminal::set_mouse_capture(app.mouse_enabled);
     *terminal_events = Some(EventStream::new());
     Ok(outcome)

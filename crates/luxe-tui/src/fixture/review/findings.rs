@@ -24,9 +24,7 @@ pub(super) fn seed_working_tree_review(
     }
     if matches!(
         scenario,
-        FixtureScenario::GuidedReviewFindingsEmpty
-            | FixtureScenario::GuidedReviewFindings
-            | FixtureScenario::GuidedReviewNeedsVerification
+        FixtureScenario::GuidedReviewFindingsEmpty | FixtureScenario::GuidedReviewFindings
     ) {
         app.guided_review_workspace.findings_visible = true;
     }
@@ -40,13 +38,12 @@ pub(super) fn seed_working_tree_review(
     Ok(())
 }
 
-/// Comments in each state for the triage scenarios, the one in need of verification selected
-/// where that is the point, and a line comment under the wide review's code.
+/// Comments in each state for the triage scenarios, one with the agent's report that it fixed
+/// it, and a line comment under the wide review's code.
 fn seed_review_findings(app: &mut App, scenario: FixtureScenario) -> Result<(), String> {
     if matches!(
         scenario,
         FixtureScenario::GuidedReviewFindings
-            | FixtureScenario::GuidedReviewNeedsVerification
             | FixtureScenario::GuidedReviewSend
             | FixtureScenario::GuidedReviewCommit
             | FixtureScenario::GuidedReviewThread
@@ -55,11 +52,7 @@ fn seed_review_findings(app: &mut App, scenario: FixtureScenario) -> Result<(), 
         let session = app.review.session_mut().ok_or("missing fixture review session")?;
         for (title, state, severity) in [
             ("Retry path omits a bounded error", FindingState::Open, FindingSeverity::Blocking),
-            (
-                "Confirm the migration handles old data",
-                FindingState::NeedsVerification,
-                FindingSeverity::Issue,
-            ),
+            ("Confirm the migration handles old data", FindingState::Open, FindingSeverity::Issue),
             ("Clarify the cancellation behavior", FindingState::Draft, FindingSeverity::Suggestion),
             ("Legacy formatter note", FindingState::Resolved, FindingSeverity::Note),
             ("Original context no longer maps", FindingState::Stale, FindingSeverity::Note),
@@ -76,21 +69,13 @@ fn seed_review_findings(app: &mut App, scenario: FixtureScenario) -> Result<(), 
                     body: "Fixture feedback retained for visual triage.".into(),
                     proposed_fix: None,
                     state,
-                    thread: Vec::new(),
+                    thread: fixed_report(title),
                 })
                 .map_err(|error| error.to_string())?;
         }
         let findings =
             app.review.session().ok_or("missing fixture review session")?.findings.clone();
         app.guided_review_workspace.move_finding_selection(&findings, true);
-        if scenario == FixtureScenario::GuidedReviewNeedsVerification {
-            let finding_id = findings
-                .iter()
-                .find(|finding| finding.state == FindingState::NeedsVerification)
-                .map(|finding| finding.id.clone())
-                .ok_or("missing verification fixture finding")?;
-            app.guided_review_workspace.selected_finding_id = Some(finding_id);
-        }
     }
     if scenario == FixtureScenario::GuidedReviewWide {
         // Anchored to a line that is on screen, because that is where a comment renders
@@ -120,6 +105,21 @@ fn seed_review_findings(app: &mut App, scenario: FixtureScenario) -> Result<(), 
     Ok(())
 }
 
+/// The comment the triage fixtures have the agent report fixed.
+const FIXED_TITLE: &str = "Confirm the migration handles old data";
+
+/// The agent's report on the comment it fixed; every other comment has no thread yet.
+fn fixed_report(title: &str) -> Vec<luxe_core::guided_review::FindingMessage> {
+    if title != FIXED_TITLE {
+        return Vec::new();
+    }
+    vec![luxe_core::guided_review::FindingMessage {
+        author: luxe_core::guided_review::FindingMessageAuthor::Agent,
+        body: "Agent reported: fixed. Bounded the retry loop and returned a typed timeout.".into(),
+        created_at_ms: 1,
+    }]
+}
+
 /// A comment the agent claims to have fixed, and the reviewer's answer to it, open in its
 /// details.
 fn seed_review_thread(app: &mut App) -> Result<(), String> {
@@ -127,16 +127,9 @@ fn seed_review_thread(app: &mut App) -> Result<(), String> {
     let finding_id = session
         .findings
         .iter()
-        .find(|finding| finding.state == FindingState::NeedsVerification)
+        .find(|finding| finding.title == FIXED_TITLE)
         .map(|finding| finding.id.clone())
-        .ok_or("missing verification fixture finding")?;
-    if let Some(finding) = session.findings.iter_mut().find(|finding| finding.id == finding_id) {
-        finding.thread.push(luxe_core::guided_review::FindingMessage {
-            author: luxe_core::guided_review::FindingMessageAuthor::Agent,
-            body: "Fixed by bounding the retry loop and returning a typed timeout.".into(),
-            created_at_ms: 1,
-        });
-    }
+        .ok_or("missing fixed fixture finding")?;
     session
         .append_reviewer_message(
             &finding_id,

@@ -1,10 +1,13 @@
 //! graphics — how an image becomes terminal cells.
 //!
-//! Three fidelities, chosen the way [`crate::glyphs`] chooses icon tiers and for the same reason: a
+//! Four fidelities, chosen the way [`crate::glyphs`] chooses icon tiers and for the same reason: a
 //! terminal that cannot do the beautiful thing should lose shine, not information.
 //!
 //! - [`ImageTier::Pixels`] — the real picture, via the kitty graphics protocol's Unicode
 //!   placeholders (`kitty`).
+//! - [`ImageTier::Sixel`] — the real picture, via Sixel, for terminals without the kitty protocol
+//!   (`sixel`). A Sixel image has no placeholder characters, so the cells it covers are painted
+//!   blank and the picture is drawn over them once the frame is out.
 //! - [`ImageTier::Blocks`] — half-block cells (`blocks`). Coarse, but it is ordinary colored
 //!   text, so it works in every terminal, inside tmux, and over ssh.
 //! - [`ImageTier::Text`] — a line naming the image and its size.
@@ -23,10 +26,13 @@
 mod blocks;
 mod detect;
 mod kitty;
+mod probe;
 mod raster;
+mod sixel;
 mod store;
 
 pub use detect::{Detection, ImageTier};
+pub(crate) use probe::run as probe_terminal;
 #[cfg(test)]
 use raster::fit_within;
 use std::sync::Arc;
@@ -57,11 +63,14 @@ impl CellSize {
     ///
     /// `TIOCGWINSZ` answers this on every terminal measured, so no escape-sequence round trip is
     /// needed; a terminal that reports zeros gets the assumption rather than a division by zero.
+    /// Windows has no such call, so what the terminal said when it was asked at startup stands in.
     pub fn detect() -> Self {
-        let Ok(size) = crossterm::terminal::window_size() else {
-            return Self::ASSUMED;
-        };
-        Self::from_window(size.width, size.height, size.columns, size.rows)
+        let measured = crossterm::terminal::window_size()
+            .map(|size| Self::from_window(size.width, size.height, size.columns, size.rows));
+        match measured {
+            Ok(cell) if cell != Self::ASSUMED => cell,
+            _ => probe::recorded().and_then(|report| report.cell).unwrap_or(Self::ASSUMED),
+        }
     }
 
     /// Cell size from a window's pixel and cell dimensions.

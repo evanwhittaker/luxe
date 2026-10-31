@@ -249,7 +249,7 @@ fn statusline_left_modules_parse_and_merge() {
         .expect("unknown left modules stay forward-compatible");
     assert_eq!(
         unknown.statusline.left,
-        Some(vec![StatuslineModule::Unknown, StatuslineModule::Branch])
+        Some(vec![StatuslineModule::Other("future".into()), StatuslineModule::Branch])
     );
 
     // `mode` was retired, so a config still naming it loads and ignores it rather than
@@ -258,7 +258,7 @@ fn statusline_left_modules_parse_and_merge() {
         .expect("a retired module name still parses");
     assert_eq!(
         retired.statusline.left,
-        Some(vec![StatuslineModule::Unknown, StatuslineModule::Branch])
+        Some(vec![StatuslineModule::Other("mode".into()), StatuslineModule::Branch])
     );
 
     // `changes` was retired once and is back, so a config that named it then gets the module
@@ -294,7 +294,7 @@ fn unknown_statusline_modules_are_forward_compatible() {
     };
     assert_eq!(
         config.statusline.right,
-        Some(vec![StatuslineModule::Unknown, StatuslineModule::Model])
+        Some(vec![StatuslineModule::Other("future_module".into()), StatuslineModule::Model])
     );
 }
 

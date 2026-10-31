@@ -144,13 +144,16 @@ pub enum Event {
     /// The authoritative figure: totals plus the per-source breakdown behind them. UIs render it
     /// and perform no accounting of their own.
     SessionUsage(crate::usage::SessionUsage),
-    /// How much of a subscription's allowance is left, as the provider reported it on the last
-    /// call. Absent for API-key providers, which meter money rather than a plan.
+    /// How much of a plan's allowance is left, as the provider last reported it. None on an API key.
     PlanUsage(crate::provider::PlanUsage),
-    /// What the next request would carry, broken into parts — the answer to `/context`.
-    ///
-    /// Boxed: it dwarfs every other variant, and this enum is moved through a channel on every
-    /// streamed token.
+    /// A custom dock section's rows, or why its program gave none.
+    DockSection(crate::custom_dock::DockAnswer),
+    /// A custom statusline module's rows, or why its program gave none.
+    StatuslineModule(crate::custom_dock::DockAnswer),
+    /// How wide the front-end draws custom rows, as it reported. Custom programs get it as `COLUMNS`.
+    CustomRowWidths(crate::custom_dock::RowWidths),
+    /// What the next request would carry, broken into parts (the answer to `/context`). Boxed: it
+    /// dwarfs every other variant, and this enum is moved through a channel on every streamed token.
     ContextComposition(Box<crate::context_report::ContextComposition>),
     /// An image was attached to the current message (clipboard paste or file drop).
     ImageAttached { mime: String, width: u32, height: u32 },
@@ -160,9 +163,8 @@ pub enum Event {
     Notice(String),
     /// Who's joined this session now, by name, for the terminal to show; sent as one comes or goes.
     GuestsChanged(Vec<String>),
-    /// Plan mode wrote one of its plan files. Args: `path`, project-relative.
-    ///
-    /// What a front-end offers the plan's next step on, once the turn that wrote it ends.
+    /// Plan mode wrote one of its plan files, which a front-end offers the plan's next step on once
+    /// the turn that wrote it ends. Args: `path`, project-relative.
     PlanWritten { path: String },
     /// A requested review started, on `model`, so a front-end can say one is running.
     ReviewStarted { model: String },
@@ -537,10 +539,8 @@ pub enum Event {
     SessionsRefreshed(Vec<String>),
     /// Project-local workspace refresh was explicitly requested.
     WorkspaceRefreshRequested,
-    /// The terminal gained or lost focus.
-    ///
-    /// The workspace runtime paces its background GitHub refreshes on it: a terminal nobody has
-    /// looked at for a while is checked less often, and one coming back is checked at once.
+    /// The terminal gained or lost focus. GitHub refreshes pace on it: one nobody has looked at in a
+    /// while is checked less often, and one coming back is checked at once.
     TerminalFocusChanged { focused: bool },
     /// Project-local workspace summary changed.
     WorkspaceUpdated(Box<WorkspaceSnapshot>),

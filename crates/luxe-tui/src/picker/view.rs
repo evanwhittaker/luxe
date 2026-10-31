@@ -1,6 +1,6 @@
 //! Picker view — what a picker draws, flown out from the composer or centered over the screen.
 
-use super::layout::{render_pane, tab_line, wrapped_rows, Slot, Split, Window};
+use super::layout::{publish_tabs, render_pane, tab_line, wrapped_rows, Slot, Split, Window};
 use super::rows::picker_row;
 use super::{MAX_VISIBLE_ROWS, TAB_ROWS};
 use crate::mouse::{HitRegions, MouseTarget};
@@ -138,7 +138,7 @@ pub fn render_picker<Row, Hit>(
         (flyout_area, rows_width, pane_width, tab_rows),
         theme,
     );
-    let body = render_picker_header(f, flyout_area, &view, theme);
+    let body = render_picker_header(f, flyout_area, &view, theme, hit);
     let list_area = Rect { width: list_width.min(body.width), ..body };
     match (view.item_count, view.rows) {
         (0, Some(_)) => render_centered(f, list_area, view.empty_message, theme),
@@ -257,6 +257,7 @@ fn render_picker_header<Row, Hit>(
     flyout_area: Rect,
     view: &PickerView<'_, Row, Hit>,
     theme: &ThemeStyles,
+    hit: &RefCell<HitRegions>,
 ) -> Rect
 where
     Row: Fn(usize) -> PickerRow,
@@ -273,6 +274,8 @@ where
     };
     match view.tabs {
         Some((tabs, open)) => {
+            let strip = crate::mouse::TabStrip::Picker(view.list);
+            publish_tabs(&mut hit.borrow_mut(), inner, tabs, 0, strip);
             f.render_widget(
                 ratatui::widgets::Paragraph::new(tab_line(tabs, open, theme)).block(
                     ratatui::widgets::Block::default()

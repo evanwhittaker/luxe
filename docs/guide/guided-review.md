@@ -37,13 +37,17 @@ The guide on the left opens with why the change exists and what it does, then a 
 with its files. The right pane shows the hunk you are on, with the guide's sentence about it. Drag
 the line between them to give the guide more or less room; double-click it to go back.
 
+A cursor marks the line you are on with a `›` and a lighter band, and a comment or a question goes
+on that line. The arrows move it down the screen, and the diff scrolls when it reaches an
+edge. Click a line to put it there. The wheel scrolls the code, and the cursor stays on its row.
+
 | To | Key |
 | --- | --- |
 | Next step. Past the last one, finish. | `space` or `n` |
 | Previous step | `shift+n` |
 | Next or previous chapter | `]` / `[` |
 | Next or previous file | `ctrl+↓` / `ctrl+↑` |
-| Scroll | `↑` / `↓`, `pageup` / `pagedown`, or half a page with `ctrl+d` / `ctrl+u` |
+| Move the cursor | `↑` / `↓`, `pageup` / `pagedown`, or half a page with `ctrl+d` / `ctrl+u` |
 | Hide the guide, or the hunk's sentence | `g` / `z` |
 | Side by side, or one column | `ctrl+b` |
 | Wrap long lines | `w` |
@@ -88,20 +92,30 @@ so a review that shows less than the change never passes for all of it.
 | `c` | **Comment** on the line under the cursor. It waits for you to send it: to the agent, or to GitHub with your review of a pull request. |
 | `a` | **Ask the agent** about the line. It answers right away and changes nothing. |
 | `alt+c` | **Feedback**: every comment, with the one under the cursor in full |
-| `alt+u` | **Send** the unsent comments to the agent, from a preview where `space` leaves one out |
+| `alt+u` | **Send** your new comments and replies to the agent, from a preview where `space` leaves one out |
 
 In **Feedback**, `enter` goes to a comment, `c` replies, `e` edits, `x` deletes one not yet sent,
-`r` marks it verified, resolved or reopened, `d` shows its details, `alt+r` moves a stale one to
-where its line went, `v` shows what changed at its line, and `u` sends. On an answered question, `c` turns it
-into a comment, so the question, the answer and your direction reach the agent together.
+`r` resolves or reopens it, `d` shows its details, `v` shows what changed at its line, and `alt+u`
+sends to the agent, as it does anywhere in the review. On someone else's pull request the hint says
+`alt+enter` instead, since those comments go to GitHub. On an answered question, `c` turns it into
+a comment, so the question, the answer and your direction reach the agent together.
+
+Comments work like GitHub review threads: open until you resolve them. A row only adds a word for
+**not sent** (GitHub's pending) or **outdated** (the line it was on has changed since). The comment
+shown in full says where it stands in a sentence. A comment goes to the agent once; a reply sends
+it again.
+
+In the diff, `e`, `x` and `r` act on the comment under the cursor's line, and that comment's card
+opens to show the agent's whole answer and its keys. Right-click a line for the same actions, or to
+comment or ask about it.
 
 You can keep commenting while the agent works on what you sent. When the agent's fix is in, the
 review says `The fix is in · ctrl+r refresh`. `ctrl+r`, or `/diff refresh`, reads the code again
 so you can verify it, at any time.
 
 The agent ends a fix by reporting on each comment: fixed, not fixed, or needs clarification, with a
-note. The note shows under the comment, and a comment it calls fixed waits for you to verify it,
-since a claim is not proof. If the agent leaves its report out, luxe asks for it once. A comment
+note. The note shows on the comment's thread, and the comment stays open until you resolve it,
+since a claim is not proof: `v` shows what changed at its line. If the agent leaves its report out, luxe asks for it once. A comment
 the agent still says nothing about reads `no word from the agent`, with the reason in Feedback,
 and stays where you left it.
 
@@ -136,8 +150,8 @@ agent opened. It needs the GitHub CLI, `gh`, signed in.
 - It is pinned to the commit GitHub reported and compared from where it branched, as GitHub's
   **Files changed** does. Nothing in your checkout moves.
 - The head says who opened it and where it stands: `by dependabot (bot) · 1 failing · changes requested`.
-- The opening of the author's description follows the guide, under its own heading. `p` reads
-  the whole of it.
+  Under that are its branches and `p description`, which reads the author's description over the
+  review.
 - Review threads appear under the lines they are about. Anything without a line is under
   **Discussion on GitHub**.
 - `a` asks the agent about a line, at the pull request's commit.
@@ -156,8 +170,9 @@ agent opened. It needs the GitHub CLI, `gh`, signed in.
 | `enter` | Post it |
 
 Line comments are listed under their files with the diff they sit on, the way GitHub shows them.
-Questions you asked the agent stay in luxe and are never posted. On your own pull request, GitHub
-only takes a comment, so that is all luxe offers.
+Questions you asked the agent stay in luxe and are never posted. GitHub doesn't let a pull
+request's author approve it or request changes, so on your own pull request luxe offers only
+**Comment**.
 
 A drafted summary opens in the preview for you to read and edit. Anything the agent says beside it,
 such as a part of the change it did not read, appears under it as a note. Once the review is
@@ -165,7 +180,6 @@ posted, the guide's foot says **Posted to GitHub** with the verdict, and `o` ope
 
 ### Fix it yourself
 
-To change someone else's pull request rather than comment on it, press `alt+u` (or `w` in the post
-preview). luxe asks GitHub whether you can push to it, then checks it out in a worktree of its own
-and starts a session there, with your comments as the agent's first task. A plain `git push` then
-updates the pull request.
+To change someone else's pull request rather than comment on it, press `alt+u`. luxe asks GitHub
+whether you can push to it, then checks it out in a worktree of its own and starts a session there,
+with your comments as the agent's first task. A plain `git push` then updates the pull request.

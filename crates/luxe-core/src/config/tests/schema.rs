@@ -12,11 +12,11 @@ fn schema_is_valid_json() {
     assert_eq!(schema["properties"]["bell"]["default"], serde_json::json!(false));
     assert_eq!(schema["properties"]["dock"]["properties"]["mode"]["default"], "auto");
     assert_eq!(
-        schema["properties"]["statusline"]["properties"]["right"]["items"]["enum"],
+        schema["properties"]["statusline"]["properties"]["right"]["items"]["anyOf"][0]["enum"],
         serde_json::json!(["context", "cost", "tokens", "thinking", "model"])
     );
     assert_eq!(
-        schema["properties"]["statusline"]["properties"]["left"]["items"]["enum"],
+        schema["properties"]["statusline"]["properties"]["left"]["items"]["anyOf"][0]["enum"],
         serde_json::json!(["project", "branch", "pr", "todo", "changes", "cwd", "activity"])
     );
     assert_eq!(
@@ -130,7 +130,13 @@ fn the_schema_offers_every_value_each_config_enum_reads() {
     );
     offers_exactly(
         "/properties/images",
-        &[ImageStyle::Auto, ImageStyle::Pixels, ImageStyle::Blocks, ImageStyle::Off],
+        &[
+            ImageStyle::Auto,
+            ImageStyle::Pixels,
+            ImageStyle::Sixel,
+            ImageStyle::Blocks,
+            ImageStyle::Off,
+        ],
         ImageStyle::Unknown,
     );
     offers_exactly(

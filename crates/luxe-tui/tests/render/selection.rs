@@ -97,7 +97,7 @@ fn thinking_output_renders_its_markdown_without_showing_the_syntax() {
 }
 
 /// Capturing the mouse takes the terminal's own click-drag selection away, so a drag over the
-/// transcript must select, highlight, and copy in-app.
+/// transcript must select and highlight in-app, and a copy key copies it.
 #[test]
 fn dragging_over_the_transcript_selects_highlights_and_copies() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
@@ -133,14 +133,19 @@ fn dragging_over_the_transcript_selects_highlights_and_copies() {
         "cells past the selection stay unstyled"
     );
 
-    // Releasing copies, exactly like a terminal's copy-on-select, and says so — the clipboard
-    // itself is invisible.
+    // Releasing keeps the selection on screen and leaves the clipboard alone
     let release = event(MouseEventKind::Up(MouseButton::Left), start_col + 5, row);
     let action = route_mouse(&mut app, &release);
     apply(&mut app, action);
     let buffer = render_app(&mut app, &backend);
-    assert_eq!(app.outbox.copy.as_deref(), Some("bravo"));
     assert!(app.pointer.selection_drag.is_none(), "the drag ends on release");
+    assert!(app.outbox.copy.is_none(), "a release copies nothing");
+    assert!(!buffer_to_string(&buffer).contains("Copied to clipboard"), "and says nothing");
+    assert_eq!(buffer[(start_col, row)].bg, selected_bg, "the selection stays highlighted");
+
+    // The copy key copies it, and says so — the clipboard itself is invisible.
+    let buffer = press_copy(&mut app, &backend);
+    assert_eq!(app.outbox.copy.as_deref(), Some("bravo"));
     assert!(
         buffer_to_string(&buffer).contains("Copied to clipboard"),
         "the row above the prompt should confirm the copy: {}",
@@ -150,6 +155,91 @@ fn dragging_over_the_transcript_selects_highlights_and_copies() {
     // Esc drops the selection instead of reaching the composer.
     app.update(Msg::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
     assert!(app.pointer.selection.is_none(), "Esc clears the selection");
+}
+
+/// Shift and an arrow grow a transcript selection after the drag that made it, the way they would
+/// in any editor, and the copy takes the grown text.
+#[test]
+fn shift_and_an_arrow_grow_a_transcript_selection() {
+    let (width, height) = (60, 12);
+    let backend = test_backend(width, height);
+    let mut app = create_app();
+    app.push_convo(ConvoBlock::Assistant("alpha bravo charlie".into()));
+    app.editor.insert_text("draft");
+    let buffer = render_app(&mut app, &backend);
+    let row = row_containing(&buffer, "alpha bravo charlie", width, height);
+    let start_col = column_of(&row_text(&buffer, row, width), "bravo");
+    drag_along(&mut app, row, start_col, start_col + 5);
+    let shift = |app: &mut App, code| {
+        app.update(Msg::Key(KeyEvent::new(code, KeyModifiers::SHIFT)));
+    };
+
+    shift(&mut app, KeyCode::Right);
+    shift(&mut app, KeyCode::Right);
+    press_copy(&mut app, &backend);
+    assert_eq!(app.outbox.copy.as_deref(), Some("bravo c"), "two characters on");
+    assert_eq!(app.editor.selection(), None, "the composer kept out of it");
+
+    shift(&mut app, KeyCode::End);
+    press_copy(&mut app, &backend);
+    assert_eq!(app.outbox.copy.as_deref(), Some("bravo charlie"), "to the end of the text");
+
+    shift(&mut app, KeyCode::Home);
+    press_copy(&mut app, &backend);
+    assert_eq!(app.outbox.copy.as_deref(), Some("alpha"), "back past the anchor, space trimmed");
+    assert_eq!(app.editor.current_input(), "draft", "and the draft is untouched");
+}
+
+/// Super+C (Cmd+C), from a terminal that passes it through, copies like the other copy keys and
+/// types nothing.
+#[test]
+fn super_c_copies_the_selection_instead_of_typing() {
+    let mut app = create_app();
+    app.editor.insert_text("draft");
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT)));
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::SUPER)));
+    assert_eq!(app.outbox.copy.as_deref(), Some("t"));
+    assert_eq!(app.editor.current_input(), "draft", "no `c` was typed over the selection");
+}
+
+/// Stepping a selection's end past the bottom of the window scrolls the transcript with it, so the
+/// end being moved stays where the reader can see it.
+#[test]
+fn shift_and_an_arrow_scroll_the_transcript_to_follow_the_selection() {
+    let (width, height) = (60, 14);
+    let backend = test_backend(width, height);
+    let mut app = create_app();
+    let body: Vec<String> = (0..40).map(|n| format!("row{n:02} text")).collect();
+    app.push_convo(ConvoBlock::Assistant(body.join("\n\n")));
+    render_app(&mut app, &backend);
+    app.scroll_state.up_by(1000);
+    let buffer = render_app(&mut app, &backend);
+    let last_shown = (0..40)
+        .rfind(|n| buffer_to_string(&buffer).contains(&format!("row{n:02}")))
+        .expect("some rows on screen");
+    // Paragraphs sit a blank line apart, so six steps down is three rows on
+    let landed = format!("row{:02}", last_shown + 3);
+    let last_shown = format!("row{last_shown:02}");
+    let row = row_containing(&buffer, &last_shown, width, height);
+    let col = column_of(&row_text(&buffer, row, width), &last_shown);
+    drag_along(&mut app, row, col, col + 3);
+    let offset = app.scroll_state.offset;
+    for _ in 0..6 {
+        app.update(Msg::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::SHIFT)));
+    }
+    let after = render_app(&mut app, &backend);
+    assert!(app.scroll_state.offset > offset, "the window moved down with the selection");
+    assert!(buffer_to_string(&after).contains(&landed), "the row the end landed on is on screen");
+}
+
+/// Without a transcript selection, Shift and an arrow are the composer's, as they always were.
+#[test]
+fn shift_and_an_arrow_select_in_the_composer_without_a_transcript_selection() {
+    let mut app = create_app();
+    app.editor.insert_text("draft");
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT)));
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT)));
+    assert_eq!(app.editor.selected_text().as_deref(), Some("ft"));
 }
 
 /// An overlay drawn over the transcript takes it out of reach: a press on the overlay's own padding
@@ -225,7 +315,7 @@ fn a_transcript_selection_survives_new_output_above_it() {
         "and covers the same columns"
     );
 
-    // Still the same cells on screen, and still what the release copies.
+    // Still the same cells on screen, and still what a copy takes.
     let moved_row = (0..height)
         .find(|&y| row_text(&buffer, y, width).contains("alpha bravo charlie"))
         .expect("the reply still renders");
@@ -235,12 +325,13 @@ fn a_transcript_selection_survives_new_output_above_it() {
     let action =
         route_mouse(&mut app, &event(MouseEventKind::Up(MouseButton::Left), start_col + 5));
     apply(&mut app, action);
-    render_app(&mut app, &backend);
+    press_copy(&mut app, &backend);
     assert_eq!(app.outbox.copy.as_deref(), Some("bravo"));
 }
 
 /// Double-click grabs the word under the pointer, triple-click the whole line — the two gestures
-/// mouse capture takes away from the terminal. Both copy on release, like any other selection.
+/// mouse capture takes away from the terminal. Both stay selected for a copy key, like any other
+/// selection.
 #[test]
 fn a_double_click_takes_the_word_and_a_triple_click_the_line() {
     let (width, height) = (60, 12);
@@ -256,9 +347,12 @@ fn a_double_click_takes_the_word_and_a_triple_click_the_line() {
 
     // Chained presses on one cell escalate: the first is a caret, the second the word.
     click_cell(&mut app, column, row, now);
-    assert!(app.outbox.copy.is_none(), "one click selects nothing to copy");
+    render_app(&mut app, &backend);
+    assert!(!app.text_selection_is_active(), "one click selects nothing to copy");
     click_cell(&mut app, column, row, now);
     render_app(&mut app, &backend);
+    assert!(app.outbox.copy.is_none(), "a double-click selects without copying");
+    press_copy(&mut app, &backend);
     assert_eq!(
         app.outbox.copy.as_deref(),
         Some("Parser::feed"),
@@ -268,14 +362,13 @@ fn a_double_click_takes_the_word_and_a_triple_click_the_line() {
     // A third press takes the line — padding trimmed, since nobody wants the band on the clipboard.
     app.outbox.copy = None;
     click_cell(&mut app, column, row, now);
-    render_app(&mut app, &backend);
+    press_copy(&mut app, &backend);
     assert_eq!(app.outbox.copy.as_deref(), Some("call Parser::feed on it"));
 
     // Far enough apart, the chain breaks and each press is its own caret again.
-    app.outbox.copy = None;
     click_cell(&mut app, column, row, now + std::time::Duration::from_secs(1));
     render_app(&mut app, &backend);
-    assert!(app.outbox.copy.is_none(), "a late click is a fresh single click");
+    assert!(!app.text_selection_is_active(), "a late click is a fresh single click");
 }
 
 /// The composer answers the same two gestures, over its own buffer.
@@ -295,12 +388,11 @@ fn a_double_click_in_the_composer_takes_the_word_under_it() {
     click_cell(&mut app, column, row, now);
     click_cell(&mut app, column, row, now);
     assert_eq!(
-        app.outbox.copy.as_deref(),
+        app.editor.selected_text().as_deref(),
         Some("crates/luxe-tui/src/view.rs"),
         "a double-click takes the whole path"
     );
 
-    app.outbox.copy = None;
     click_cell(&mut app, column, row, now);
     assert_eq!(app.editor.selected_text().as_deref(), Some("edit crates/luxe-tui/src/view.rs now"));
 }
@@ -437,7 +529,8 @@ fn clicking_a_collapsed_reasoning_block_expands_it() {
     );
 }
 
-/// The composer owns its own selection (buffer offsets), highlights it, and copies on release.
+/// The composer owns its own selection (buffer offsets), highlights it, and keeps it on release
+/// for a copy key.
 #[test]
 fn dragging_in_the_composer_selects_and_copies_the_draft_text() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
@@ -466,7 +559,10 @@ fn dragging_in_the_composer_selects_and_copies_the_draft_text() {
     let action =
         route_mouse(&mut app, &event(MouseEventKind::Up(MouseButton::Left), start_col + 9));
     apply(&mut app, action);
+    assert!(app.outbox.copy.is_none(), "a release copies nothing");
+    press_copy(&mut app, &backend);
     assert_eq!(app.outbox.copy.as_deref(), Some("this text"));
+    assert_eq!(app.editor.selected_text().as_deref(), Some("this text"), "and keeps it");
 
     // Typing replaces the selection, the way every other editor behaves.
     app.update(Msg::Key(KeyEvent::new(KeyCode::Char('X'), KeyModifiers::NONE)));

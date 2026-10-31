@@ -65,7 +65,7 @@ pub(super) fn render_stack_opening(frame: &mut Frame, area: Rect, app: &App, sta
     };
     let hint = match (stack.opening, stack.layers.is_some()) {
         (true, _) => " opening… ",
-        (false, true) => " enter open · d draft · esc cancel ",
+        (false, true) => " enter open · D open as drafts · esc cancel ",
         (false, false) => " esc close ",
     };
     let block = overlay_block(app, Icon::GitHub.glyph(), "Open as a stack");

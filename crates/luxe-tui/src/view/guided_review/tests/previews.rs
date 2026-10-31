@@ -115,12 +115,13 @@ fn the_post_preview_shows_what_each_comment_says_and_where() {
     assert!(rows[keys - 1].contains("──────────"), "{text}");
     // The question went to the agent and was answered; it is neither listed nor explained
     assert_eq!(crate::app::github_post_item_count(&app), 2, "the review and one line comment");
-    assert!(!has("not posted"), "{text}");
+    // Only the dock's tally says `not posted`; the preview explains nothing about the question
+    assert_eq!(rows.iter().filter(|row| row.contains("not posted")).count(), 1, "{text}");
     // The card says what posts it, and carries no agent label: GitHub has no `R2`
     assert!(has("alt+enter to post"), "{text}");
     assert!(!has("R2"), "{text}");
     assert!(
-        has("FEEDBACK") && has(" 3 · 2 unposted"),
+        has("FEEDBACK") && has(" 3 · 2 not posted"),
         "a question is not waiting to be posted: {text}"
     );
     assert!(has("○ notification.rs:13  Worth a doc comment here"), "the foot lists it: {text}");
@@ -154,12 +155,19 @@ fn the_post_preview_shows_what_each_comment_says_and_where() {
     let rows = frame_rows(&mut app, 160, 46);
     let text = rows.join("\n");
     let has = |phrase: &str| rows.iter().any(|row| row.contains(phrase));
-    assert!(has("Your pull request · comment only"), "{text}");
+    assert!(has("Your own pull request · GitHub takes only comments from its author"), "{text}");
     assert!(has("Pushed since you read it"), "{text}");
     assert!(
-        has("enter post · ↑/↓ comment · d draft summary · e edit summary · w fix in a worktree · esc cancel"),
+        has("enter post · ↑/↓ comment · d draft summary · e edit summary · esc cancel"),
         "a lone verdict offers no choice: {text}"
     );
+    // Tab there says why rather than doing nothing
+    app.update(crate::app::Msg::GuidedReviewMoveGithubVerdict(true));
+    let toast = app.status.toast.as_ref().map(|(text, _)| text.as_str());
+    let why = "GitHub doesn't let you approve or request changes on your own pull request";
+    assert_eq!(toast, Some(why));
+    let post = app.guided_review_workspace.github_post.as_ref().expect("post preview");
+    assert_eq!(post.verdict, luxe_core::github::ReviewEvent::Comment);
 
     // Once everything is posted, the preview says so rather than asking for a comment
     let posted = luxe_core::guided_review::PostedComment { review_id: 9, url: String::new() };
@@ -184,7 +192,7 @@ fn a_narrow_post_preview_keeps_its_keys_inside_the_frame() {
     let text = rows.join("\n");
     let hint = rows.iter().find(|row| row.contains("enter post")).expect("the keys");
     assert!(hint.contains("esc cancel"), "{text}");
-    assert!(!hint.contains("w fix in a worktree"), "the least-needed key goes: {text}");
+    assert!(!hint.contains("c summary"), "the least-needed key goes: {text}");
     assert!(hint.trim_end().ends_with('│'), "inside the frame, on a row of its own: {text}");
 }
 
@@ -226,7 +234,7 @@ fn the_answers_preview_says_what_each_thread_gets() {
     assert!(has("Answer these threads on acme/notify#42"), "{text}");
     assert!(has("Resolving closes the thread; leave it open for the reviewer"), "{text}");
     assert!(has("Your fix is not on GitHub yet: push this branch first."), "{text}");
-    assert!(has("✓ resolve") && has("verified"), "{text}");
+    assert!(has("✓ resolve") && has("resolved ·"), "{text}");
     assert!(has("reply: Only the webhook built it from a string"), "{text}");
     let replies = rows.iter().filter(|row| row.contains("reply: ")).count();
     assert_eq!(replies, 1, "a thread with nothing written shows no reply: {text}");
@@ -238,10 +246,10 @@ fn the_answers_preview_says_what_each_thread_gets() {
     assert!(!has("R1") && !has("R2"), "the agent's names for threads stay off GitHub's: {text}");
     assert!(has("enter post · space resolve · c reply"), "{text}");
 
-    // A fix the agent made and the reader has not looked at yet
+    // A thread the reader already resolved
     for finding in &mut app.review.session_mut().expect("session").findings {
         if finding.title.starts_with("jon-avery:") {
-            finding.state = luxe_core::guided_review::FindingState::NeedsVerification;
+            finding.state = luxe_core::guided_review::FindingState::Resolved;
         }
     }
     let answers = app.guided_review_workspace.thread_answers.as_mut().expect("preview");
@@ -255,7 +263,7 @@ fn the_answers_preview_says_what_each_thread_gets() {
     assert!(has("Reply to @mara-okafor · type below") && has("On it"), "{text}");
     assert!(has("reply: Only the webhook"), "another thread's reply stays listed: {text}");
     assert_eq!(rows.iter().filter(|row| row.contains("type below")).count(), 1);
-    assert!(has("to verify · jon-avery:"), "{text}");
+    assert!(has("resolved · jon-avery:"), "{text}");
     assert!(has("ctrl+enter save · esc cancel"), "{text}");
     assert!(has("3 in your feedback"), "{text}");
     assert!(has("○ conversation") && has("jon-avery: Could the changelog"), "{text}");
@@ -281,7 +289,8 @@ fn the_pull_request_preview_shows_the_draft_and_what_happens_first() {
     assert!(!has("### Shared"), "{text}");
     assert!(has("Closes #123"), "{text}");
     assert!(
-        has("enter open · t title · e description · E in your editor · d draft · esc cancel"),
+        has("enter open · d draft with agent · t title · e description · E in your editor · D \
+             open as draft · esc cancel"),
         "{text}"
     );
     // Centered: as far from the left edge as from the right
@@ -346,15 +355,28 @@ fn the_pull_request_preview_shows_the_draft_and_what_happens_first() {
     prepared.publication = luxe_core::github::Publication::Pushed;
     let rows = frame_rows(&mut app, 150, 44);
     let has = |phrase: &str| rows.iter().any(|row| row.contains(phrase));
-    assert!(has("(no description)") && !has("first"), "nothing to do first: {}", rows.join("\n"));
+    let empty = "No description · e write one · d draft with agent";
+    assert!(has(empty) && !has("first"), "nothing to do first: {}", rows.join("\n"));
     assert!(!has("left out"), "{}", rows.join("\n"));
     assert!(!has("scroll"), "{}", rows.join("\n"));
+
+    // A blank title says how to fill it, and the agent's wait is drawn with who is writing
+    let opening = app.guided_review_workspace.pull_request_opening.as_mut().expect("preview");
+    opening.prepared.as_mut().expect("prepared").pull_request.title = String::new();
+    opening.drafting = Some(("draft:pull-request:1".into(), std::time::Instant::now()));
+    let rows = frame_rows(&mut app, 150, 44);
+    let has = |phrase: &str| rows.iter().any(|row| row.contains(phrase));
+    assert!(has("No title · t write one · d draft with agent"), "{}", rows.join("\n"));
+    assert!(has("is drafting the title and description"), "{}", rows.join("\n"));
+    assert!(has("drafting… · esc cancel"), "{}", rows.join("\n"));
+    let opening = app.guided_review_workspace.pull_request_opening.as_mut().expect("preview");
+    opening.drafting = None;
 
     let opening = app.guided_review_workspace.pull_request_opening.as_mut().expect("preview");
     opening.prepared = None;
     let rows = frame_rows(&mut app, 150, 44);
     let has = |phrase: &str| rows.iter().any(|row| row.contains(phrase));
-    assert!(has("Drafting it from the review…") && has("esc cancel"), "{}", rows.join("\n"));
+    assert!(has("Checking the branch…") && has("esc cancel"), "{}", rows.join("\n"));
     assert!(!has("Enter try again"), "{}", rows.join("\n"));
 
     let opening = app.guided_review_workspace.pull_request_opening.as_mut().expect("preview");
@@ -428,7 +450,7 @@ fn the_stack_preview_lists_each_pull_request_and_what_happens_first() {
     assert!(!has("ready for review"), "{text}");
     assert!(has("1. 123-category-enum-part-1 — Shared notification model"), "{text}");
     assert!(has("3. 123-category-enum — Reject unknown categories"), "{text}");
-    assert!(has("enter open · d draft · esc cancel"), "{text}");
+    assert!(has("enter open · D open as drafts · esc cancel"), "{text}");
     let top = rows.iter().position(|row| row.contains("Open as a stack")).expect("top");
     let bottom = rows.iter().position(|row| row.contains("esc cancel ")).expect("bottom");
     assert!(rows[bottom - 2].contains("Reject unknown categories"), "tight: {text}");

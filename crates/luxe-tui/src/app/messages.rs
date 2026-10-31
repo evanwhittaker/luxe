@@ -61,7 +61,41 @@ fn resize(app: &mut App, width: u16, height: u16) {
     // image is scaled against, so ask the terminal again rather than trusting what it said at
     // startup.
     app.images.set_cell_size(crate::graphics::CellSize::detect());
+    // ratatui clears the screen to resize it, which takes any Sixel image with it
+    app.images.invalidate_overlay();
     app.with_review(|workspace, review| workspace.clamp_column_offset(&review.files));
+}
+
+/// Moves everything that runs on a clock: due reads, spinners, the banner.
+fn tick(app: &mut App) {
+    // `/github` reads the row the cursor has come to rest on
+    let now = app.frame_now();
+    let due = app.overlays.github.as_mut().and_then(|panel| panel.due_read(now));
+    if let Some(read) = due {
+        super::commands::read_overview(app, read.repository, read.number, read.pull_request);
+    }
+    relist_files_when_due(app);
+    super::events::expire_unconfirmed_interrupt(app);
+    let waiting = app.panel_waiting();
+    app.status.tick(waiting);
+    app.banner.advance();
+    // The review's own waits happen while the app is idle, so the status model's spinner is not
+    // moving for them.
+    if app.current_view == crate::app::ViewMode::GuidedReview {
+        app.guided_review_workspace.tick();
+    }
+}
+
+/// An open Files tab reads the disk again now and then, for a file made elsewhere.
+fn relist_files_when_due(app: &mut App) {
+    let on_files = app
+        .overlays
+        .mention
+        .as_ref()
+        .is_some_and(|mention| *mention.tab() == crate::mention_flyout::MentionTab::Files);
+    if on_files && app.file_listing.due(std::time::Instant::now()) {
+        app.file_listing.request();
+    }
 }
 
 fn reduce_inner(app: &mut App, msg: Msg) {
@@ -77,6 +111,7 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         | Msg::ToggleChangesWordWrap
         | Msg::ToggleChangesSplit
         | Msg::OpenProjectFile(_)
+        | Msg::PreviewProjectFile(_)
         | Msg::TogglePeekView
         | Msg::StartPeekPick(_)
         | Msg::ExtendPeekPick(_)
@@ -87,46 +122,9 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         | Msg::FocusFiles
         | Msg::FocusPeek
         | Msg::ChooseMenuItem(_) => files::reduce(app, msg),
-        Msg::Key(key) => {
-            app.handle_key(key);
-            // The start screen's flyouts edit the prompt through the app, so its list catches up
-            if app.current_view == super::ViewMode::Dashboard {
-                if let Some(dashboard) = app.dashboard.as_mut() {
-                    dashboard.sync(&app.editor);
-                }
-            }
-        }
+        Msg::Key(key) => app.handle_key(key),
         Msg::Engine(event) => events::reduce(app, event),
-        Msg::Tick => {
-            // `/github` reads the row the cursor has come to rest on
-            let now = app.frame_now();
-            let due = app.overlays.github.as_mut().and_then(|panel| panel.due_read(now));
-            if let Some(read) = due {
-                super::commands::read_overview(
-                    app,
-                    read.repository,
-                    read.number,
-                    read.pull_request,
-                );
-            }
-            // An open Files tab reads the disk again now and then, for a file made elsewhere
-            let on_files =
-                app.overlays.mention.as_ref().is_some_and(|mention| {
-                    *mention.tab() == crate::mention_flyout::MentionTab::Files
-                });
-            if on_files && app.file_listing.due(std::time::Instant::now()) {
-                app.file_listing.request();
-            }
-            super::events::expire_unconfirmed_interrupt(app);
-            let waiting = app.panel_waiting();
-            app.status.tick(waiting);
-            app.banner.advance();
-            // The review's own waits happen while the app is idle, so the status model's spinner
-            // is not moving for them.
-            if app.current_view == crate::app::ViewMode::GuidedReview {
-                app.guided_review_workspace.tick();
-            }
-        }
+        Msg::Tick => tick(app),
         Msg::OpenAuthWizard(provider) => app.open_auth_wizard(provider.as_deref()),
         Msg::Auth(message) => {
             // The flow's own messages can end the wizard — a credential that landed closes it and
@@ -149,6 +147,7 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         | Msg::GuidedReviewSearchPrevious
         | Msg::GuidedReviewLineNext
         | Msg::GuidedReviewLinePrevious
+        | Msg::GuidedReviewWheel { .. }
         | Msg::GuidedReviewOpenSelection
         | Msg::GuidedReviewScrollGuide { .. }
         | Msg::GuidedReviewPageNext
@@ -191,6 +190,7 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         Msg::ScrollDock { up } => app.dock.scroll_by(up, app.dock_scroll_max.get()),
         Msg::ScrollContextFiles { up } => scroll_context_files(app, up),
         Msg::ScrollOverlayList { list, up } => app.walk_overlay_list(list, up),
+        Msg::GithubWheel { list, up } => crate::app::input::github_wheel(app, list, up),
         Msg::ScrollDockList { list, up } => {
             app.dock.scroll_list_by(list, up, app.dock_list_metrics(list));
         }
@@ -202,12 +202,10 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         Msg::ExtendTextSelection { hit } => super::selection::extend(app, hit),
         Msg::ClearTextSelection => super::selection::clear(app),
         Msg::CopySelection => super::selection::copy(app),
+        Msg::OpenTab { strip, index } => super::input::open_tab(app, strip, index),
         Msg::HoverTarget(target) => app.pointer.hover = target,
         Msg::ResizePane { pane, width } => app.size_pane(pane, Some(width)),
-        Msg::ResetPaneWidth(pane) => {
-            app.size_pane(pane, None);
-            app.panes.save();
-        }
+        Msg::ResetPaneWidth(pane) => reset_pane_width(app, pane),
         Msg::FinishPaneResize => app.panes.save(),
         Msg::OpenModelPicker(start) => app.open_model_picker_at(start),
         Msg::CopyText(text) => app.record_copy(text),
@@ -250,7 +248,8 @@ fn reduce_inner(app: &mut App, msg: Msg) {
                 pull_request_fix::open(app);
             } else if unsent_finding_ids(app).is_empty() {
                 app.push_convo(ConvoBlock::System(
-                    "[review feedback] No unsent comments — add one with c.".into(),
+                    "[review feedback] Nothing new to send — add a comment with c, or reply to one."
+                        .into(),
                 ));
             } else {
                 app.guided_review_workspace.open_send_preview(None, None);
@@ -272,14 +271,6 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         Msg::GuidedReviewToggleStackDraft => stack_opening::toggle_draft(app),
         Msg::GuidedReviewConfirmStack => stack_opening::confirm(app),
         Msg::GuidedReviewCancelStack => stack_opening::cancel(app),
-        Msg::GuidedReviewOpenPullRequestFix => {
-            // The post preview gives way only once there is an offer to give way to
-            let posting =
-                app.guided_review_workspace.github_post.as_ref().is_some_and(|post| post.posting);
-            if !posting && pull_request_fix::open(app) {
-                app.guided_review_workspace.github_post = None;
-            }
-        }
         Msg::GuidedReviewConfirmPullRequestFix => pull_request_fix::confirm(app),
         Msg::GuidedReviewCancelPullRequestFix => {
             app.guided_review_workspace.pull_request_fix = None;
@@ -309,12 +300,9 @@ fn reduce_inner(app: &mut App, msg: Msg) {
             }
         },
         Msg::GuidedReviewSavePullRequestEdit => pull_request_opening::save_edit(app),
-        Msg::GuidedReviewCancelPullRequestEdit => {
-            if let Some(opening) = app.guided_review_workspace.pull_request_opening.as_mut() {
-                opening.editing = None;
-            }
-        }
+        Msg::GuidedReviewCancelPullRequestEdit => pull_request_opening::cancel_edit(app),
         Msg::GuidedReviewTogglePullRequestDraft => pull_request_opening::toggle_draft(app),
+        Msg::GuidedReviewDraftPullRequest => pull_request_opening::draft(app),
         Msg::GuidedReviewConfirmPullRequest => pull_request_opening::confirm(app),
         Msg::GuidedReviewCancelPullRequest => pull_request_opening::cancel(app),
         Msg::GuidedReviewMoveThreadAnswers(forward) => {
@@ -344,13 +332,7 @@ fn reduce_inner(app: &mut App, msg: Msg) {
                 workspace.thread_answers = None;
             }
         }
-        Msg::GuidedReviewMoveGithubVerdict(forward) => {
-            if let Some(post) = app.guided_review_workspace.github_post.as_mut() {
-                if !post.posting {
-                    post.move_verdict(forward);
-                }
-            }
-        }
+        Msg::GuidedReviewMoveGithubVerdict(forward) => github_post::move_verdict(app, forward),
         Msg::GuidedReviewMoveGithubPostItem(forward) => {
             let count = github_post::item_count(app);
             if let Some(post) = app.guided_review_workspace.github_post.as_mut() {
@@ -422,7 +404,6 @@ fn reduce_inner(app: &mut App, msg: Msg) {
             review::toggle_selected_finding_resolved(app)
         }
         Msg::GuidedReviewDeleteSelectedFindingDraft => review::delete_selected_finding_draft(app),
-        Msg::GuidedReviewReanchorSelectedFinding => review::reanchor_selected_finding(app),
         Msg::PasteText(text) => {
             if crate::app::input::modal_took_paste(app, &text) {
                 return;
@@ -443,6 +424,12 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         Msg::DesktopThemeChanged => app.follow_desktop_theme(),
         Msg::ModelCatalogRefreshed(catalog) => app.apply_model_catalog_refresh(catalog),
     }
+}
+
+/// Puts a pane back to its default width and saves that, so the next session starts there too.
+fn reset_pane_width(app: &mut App, pane: crate::workspace_layout::Pane) {
+    app.size_pane(pane, None);
+    app.panes.save();
 }
 
 /// Scrolls the context files overlay, when it's open.
@@ -485,6 +472,10 @@ fn drag_scrollbar(app: &mut App, region: crate::mouse::ScrollRegionId, row: u16,
             app.dock.drag_list(list, row, height, app.dock_list_metrics(list));
         }
         ScrollRegionId::OverlayList(list) => app.drag_overlay_list(list, row, height),
-        ScrollRegionId::Dock | ScrollRegionId::ContextFiles => {}
+        // The GitHub views draw their bar to show where the reader is, not to be dragged
+        ScrollRegionId::Dock
+        | ScrollRegionId::ContextFiles
+        | ScrollRegionId::GithubList
+        | ScrollRegionId::GithubDetail => {}
     }
 }

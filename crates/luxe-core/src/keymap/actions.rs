@@ -114,7 +114,6 @@ ui_actions! {
     ReviewSend => ("tui.review.send", "Send comments"),
     ReviewEditFinding => ("tui.review.edit_finding", "Edit the selected comment"),
     ReviewDeleteFinding => ("tui.review.delete_finding", "Delete the selected unsent comment"),
-    ReviewReanchorFinding => ("tui.review.reanchor_finding", "Reanchor the selected stale comment"),
     ReviewFindings => ("tui.review.findings", "All comments"),
     ReviewResolveFinding => ("tui.review.resolve_finding", "Resolve or reopen the selected comment"),
     ReviewFinish => ("tui.review.finish", "Finish review"),

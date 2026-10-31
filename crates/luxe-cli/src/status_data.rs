@@ -23,6 +23,7 @@ pub(crate) async fn collect(
     context_window: u32,
     thinking: ThinkingLevel,
     auto_approve: bool,
+    trust_project: bool,
 ) -> StatusContext {
     let (git_branch, git_dirty) =
         tokio::join!(git_probe::branch(repo_root), git_probe::is_dirty(repo_root));
@@ -36,5 +37,6 @@ pub(crate) async fn collect(
         project: Some(luxe_core::paths::dir_name(repo_root)),
         cwd: Some(luxe_core::paths::home_relative(repo_root)),
         auto_approve,
+        trust_project,
     }
 }

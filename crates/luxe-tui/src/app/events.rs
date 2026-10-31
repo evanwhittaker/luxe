@@ -98,18 +98,12 @@ pub(super) fn reduce(app: &mut App, event: Event) {
             }
         }
         Event::StateChanged(state) => turn::state_changed(app, state),
-        Event::ContextUsage { used_tokens, context_window } if context_window > 0 => {
-            app.status.context_window = context_window;
-            app.status.context_pct =
-                crate::statusline::context_percent(used_tokens, context_window);
-        }
-        Event::TurnUsage {
-            prompt_tokens, completion_tokens, cost_usd, cache_read_tokens, ..
-        } => {
-            app.status.on_call_usage(prompt_tokens, completion_tokens, cache_read_tokens, cost_usd);
-        }
-        Event::SessionUsage(usage) => app.status.on_session_usage(usage),
-        Event::PlanUsage(plan) => app.status.plan_usage = Some(plan),
+        figures @ (Event::ContextUsage { .. }
+        | Event::TurnUsage { .. }
+        | Event::SessionUsage(_)
+        | Event::PlanUsage(_)
+        | Event::DockSection(_)
+        | Event::StatuslineModule(_)) => app.status.on_figures(figures),
         Event::ContextComposition(report) => app.push_convo(ConvoBlock::Context(report)),
         // Compaction rewrites what the model can see and spends a provider call doing it. Saying
         // so is the difference between "the agent forgot" and "the conversation was summarized".

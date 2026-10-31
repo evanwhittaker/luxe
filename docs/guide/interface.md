@@ -111,7 +111,7 @@ While the agent works, you can keep typing:
 | `enter` | **Steer**: the message reaches the running turn between steps, without stopping it |
 | `alt+enter` or `alt+q` | **Queue**: the message becomes the next turn, after this one ends |
 | `alt+↑` | Bring waiting messages back into the composer to edit |
-| `ctrl+esc` | Stop the turn. Waiting messages come back into the composer. |
+| `esc` | Stop the turn, once nothing else open claims it and the composer is empty. `ctrl+esc` works too where the terminal sends it. Waiting messages come back into the composer. |
 
 A waiting message sits above the composer, marked `steering` or `queued`, until it is delivered. A
 message with an image is always queued, because steering carries text only.
@@ -142,9 +142,10 @@ conversation, or in its place below 80 columns.
 | --- | --- |
 | **PROJECT** | The project, its branch, and the branch's pull request: `#138 · 1 failing · 2 threads` |
 | **PLAN** | The agent's todo list, scrolled to what it is working on |
-| **FILES** | The project as a tree, with what changed marked in it. Click a file to [preview](#preview) it. |
+| **FILES** | The project as a tree, with what changed marked in it. Click a file to [preview](#preview) it and move the keyboard into it. |
 | **ELSEWHERE** | Files the session changed outside the project, when there are any |
 | **MODEL** | The provider, model, thinking level and [mode](agent.md#plan-then-build). Click the provider or the model to change it, or the mode to switch it. |
+| **USAGE** | On a subscription such as ChatGPT or GitHub Copilot, how much of each of the plan's windows you've used and when it resets: `weekly 30% · resets 3d 4h`. It turns yellow at 75% and red at 90%, and shows up once the provider reports it. |
 | **SESSION** | Context used, tokens and cost, with what a review and compaction cost on rows of their own. A review's row shows its full cost once its guide or drafted summary is done. While a phone or another client has [joined](remote.md), a **joined** row names it. |
 
 `alt+d` shows or hides the dock, and `/dock left` or `/dock right` moves it. To set it for good:
@@ -159,6 +160,116 @@ conversation, or in its place below 80 columns.
 
 Drag the line between the dock and the conversation to make the dock wider or narrower. It stays
 that width the next time luxe starts; double-click the line to put it back.
+
+### Choose the sections
+
+`dock.sections` lists the sections to show. Leave one out to hide it:
+
+```json title="~/.config/luxe/config.json"
+{
+  "dock": { "sections": ["project", "plan", "files", "model", "session"] }
+}
+```
+
+That hides **ELSEWHERE** and **USAGE**. Without the key, every section shows. PROJECT stays at the
+top and MODEL, USAGE and SESSION at the bottom, so the order you give them applies within those
+groups: `["session", "model"]` puts SESSION above MODEL. luxe skips a name it doesn't know.
+
+Hiding **MODEL** still shows its **approvals** row while auto-approve is on, so you can't lose
+sight of it. With **FILES** hidden, `ctrl+t` says so instead of moving into a tree you can't see.
+
+### Your own sections
+
+A section can show what a program of yours prints: your quota as bars, CI status, anything that
+fits in a few rows. Define it under `dock.custom` and add its name to `dock.sections`:
+
+```json title="~/.config/luxe/config.json"
+{
+  "dock": {
+    "sections": ["project", "plan", "files", "model", "quota", "session"],
+    "custom": {
+      "quota": { "command": ["~/bin/luxe-quota"], "title": "QUOTA" }
+    }
+  }
+}
+```
+
+Without `sections`, your sections show after the built-in ones. One with the name of a built-in
+section takes its place, so `"session"` draws your own SESSION.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `command` | required | The program and its arguments. It runs directly, not through a shell, in the project folder. A leading `~/` is your home folder. |
+| `title` | the name, in capitals | The heading |
+| `place` | `bottom` | `bottom`, beside MODEL and SESSION, or `middle`, with PLAN and FILES |
+| `timeout_ms` | `2000` | How long a run may take, up to 10 seconds |
+
+luxe runs the program when a session starts or resumes, after each turn, and when the provider
+reports plan usage. There's no timer, and the conversation never waits for it. The program gets
+the session's state as JSON on stdin:
+
+```json
+{
+  "version": 1,
+  "section": "quota",
+  "place": "dock",
+  "session_id": "1bdcd3fd-419f-4102-af4e-0adc5aba74d9",
+  "cwd": "/home/you/project",
+  "provider": "chatgpt",
+  "model": "gpt-5.5",
+  "context": { "used_tokens": 50000, "window": 200000, "used_percent": 25.0 },
+  "plan_usage": {
+    "plan": "plus",
+    "primary": { "used_percent": 30.0, "window_minutes": 10080, "resets_in_secs": 270000 }
+  },
+  "session_usage": null
+}
+```
+
+`place` is `dock` here, or `statusline` when the program feeds a
+[statusline module](appearance.md#your-own-modules), so one program can serve both and answer
+shorter for the bar. A field luxe has no value for yet is `null`. `plan_usage` and `session_usage`
+have the shape of the [events](rpc.md#events) of the same names: `session_usage` is the session's
+tokens and cost so far, and `plan_usage` leaves out a window the plan doesn't have. New fields may
+be added, and none are removed.
+
+The program can size itself to the row, the way a program sizes itself to a terminal. `COLUMNS`
+is how many cells a row has, label included, and `LUXE_LABEL_COLUMNS` is how many of those the
+label column takes, so a labeled row has the difference for its text. Both follow the dock as you
+drag it wider or narrower, and a new width runs the program again (during a turn, once it ends).
+Until the interface has drawn the dock, neither is set.
+
+The program answers on stdout, one row per line:
+
+```text
+weekly ▰▰▰▱▱▱▱▱ 30%
+5h     ▰▱▱▱▱▱▱▱ 12%
+```
+
+Or in JSON, for labels and color:
+
+```json
+{"rows": [{"label": "weekly", "spans": [{"text": "▰▰▰▱▱▱▱▱", "ink": "accent"}, {"text": " 30%"}]}]}
+```
+
+A `label` lines up with the labels in MODEL and SESSION. `ink` is a color from your theme: `text`
+(the default), `muted`, `dim`, `accent`, `success`, `warning` or `error`. luxe draws up to 8 rows,
+cuts each one to fit the dock, and removes escape sequences and control characters.
+
+A section shows up once its program first answers, and printing nothing (or `{"rows": []}`) hides
+it until a run prints something. When a run fails (it exits with an error, takes too long, prints
+more than 16 KB, or prints JSON luxe can't read), the section keeps its last rows and adds one
+saying why, such as `last run: exited 1`. The log has more. A change to `dock.custom` takes effect
+in the next session. [Recipes](recipes.md#plan-usage-as-bars) has a complete one.
+
+A run is over when the program exits. A timeout ends it along with everything it started. A
+background job it leaves behind keeps running if its output goes elsewhere
+(`fetch-quota > ~/.cache/quota.json 2>/dev/null &`), and is ended if it still holds the
+program's output a moment after the program exits. So for something slow, start it in the
+background that way and print what the last run saved.
+
+A project's `dock.custom` runs programs, so luxe ignores it without `--trust-project`, as it does
+the project's [hooks](hooks.md).
 
 ### Files
 
@@ -243,8 +354,10 @@ The preview is not a review: looking at a file does not count it as reviewed.
 | Open a [Guided Review](guided-review.md) of your changes, at this file | `ctrl+g` |
 | Back to the conversation | `esc` |
 
-With the keyboard in the file (`ctrl+t` twice, or `tab` from the tree), a cursor moves line by
-line and the file scrolls to keep it in view. In a diff the same keys scroll.
+With the keyboard in the file, a cursor marks the line you are on with a `›` and a lighter band,
+and the file scrolls to keep it in view. Clicking a file under `FILES` or a line in the file puts
+the keyboard there, as do `ctrl+t` twice and `tab` from the tree. In a diff the cursor moves the
+same way, row by row, and picks nothing.
 
 | In the file | Key |
 | --- | --- |
@@ -266,16 +379,34 @@ The lines between panes move: the dock's, the preview's, and the one beside a re
 lights under the pointer; drag it to resize the pane beside it, or double-click it to put the pane
 back to its own width. luxe remembers the widths for next time.
 
-Drag across the conversation or the composer to select, and the selection is copied when you let
-go. Click a message to copy all of it. `ctrl+insert` or `ctrl+shift+c` copies a selection too.
+Drag across the conversation, the composer or the preview to select. Double-click takes a word and
+triple-click a line. The selection stays highlighted until you copy it, so letting go never changes
+your clipboard. The conversation scrolls to keep the end you are moving in view:
 
-Your terminal's own copy key reaches luxe only if the terminal passes it through. Either hold
-`shift` (`option` on macOS) while dragging, to make a selection the terminal copies itself, or let
-the copy key fall through when the terminal has nothing selected. In Ghostty:
+| Key | Does |
+| --- | --- |
+| `shift` + an arrow, `home` or `end` | Grow or shrink the selection |
+| `ctrl+shift+c`, `ctrl+insert`, `super+c` | Copy it |
+| `esc` | Drop it |
+
+Right-click a selection for **Copy**, or the composer for **Paste**. Click a message to copy all of
+it.
+
+Your terminal's own copy key reaches luxe only if the terminal passes it through. Most terminals
+keep `cmd+c` (and on Linux often `ctrl+shift+c`) for themselves, so let the key fall through when
+the terminal has nothing selected, or hold `shift` (`option` on macOS) while dragging to make a
+selection the terminal copies itself. In Ghostty:
 
 ```ini title="ghostty config"
 keybind = performable:control+insert=copy_to_clipboard
+keybind = performable:super+c=copy_to_clipboard
+keybind = copy=copy_to_clipboard
 ```
+
+The last line matters on Linux. Ghostty makes one of its copy keys a window shortcut that takes the
+key even when `performable:` says to let it through. A plain binding on the dedicated Copy key gives
+that job to a key you never press. On Omarchy, `super+c` reaches the terminal as `ctrl+insert`, so
+without that line it never gets to luxe.
 
 luxe copies to the desktop clipboard, and over SSH through the terminal (OSC 52). Inside tmux,
 that needs `set -g set-clipboard on`.

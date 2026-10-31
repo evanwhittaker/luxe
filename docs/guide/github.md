@@ -58,20 +58,23 @@ or whose author turned off edits by maintainers.
 ## Open a pull request
 
 Review the work with [Guided Review](guided-review.md), finish (`alt+enter`), and choose **Open pull
-request**. luxe drafts the title and description from the review, with `Closes #123` when the
-session started from an issue.
+request**. The title and description start blank: write them, or press `d` and the agent drafts
+both from the work it did. When the session started from an issue, they start with the issue's
+title and `Closes #123` instead. A review of a commit is the exception: its title and description
+are drafted from the commit's message and the review.
 
-![The pull request, drafted from the review](images/quickstart-pull-request.svg)
+![The pull request, drafted by the agent](images/quickstart-pull-request.svg)
 
 The heading says where it merges and what happens first, such as `commits and pushes first`.
 Nothing happens until you press `enter`.
 
 | Key | Does |
 | --- | --- |
+| `d` | Have the agent draft the title and description. It reads, and changes nothing; what you wrote goes with the request so it can keep it. |
 | `t` | Edit the title |
 | `e` | Edit the description |
 | `E` | Edit the description in your editor (`$LUXE_EDITOR`, `$VISUAL` or `$EDITOR`) |
-| `d` | Open it as a draft |
+| `D` | Open it as a draft |
 | `enter` | Open it |
 
 Afterward, `o` opens it in the browser, and the session remembers it for `luxe --from-pr`.
@@ -89,7 +92,7 @@ beside the list. Each tab is a GitHub search:
 | **Pull requests** | Every open pull request, most recently updated first |
 | **Issues** | Every open issue, most recently updated first |
 
-It opens on the first tab with something in it.
+It opens on the first tab with something in it. Click a tab to open it.
 
 ![/github, with a pull request's overview](images/github-overview.svg)
 
@@ -157,6 +160,10 @@ dealt with here has a key:
 | `R` | **Mark ready** for review |
 | `enter` on **Ready** | Merge, after a confirmation |
 
+The whole description follows, under **Description**. `↓` past the last row reads on, and
+`pgup` / `pgdn` or the mouse wheel scroll either tab when it is longer than the pane. In
+`/github`, the wheel over the list moves through it the way `↑` / `↓` do.
+
 The merge confirmation offers the methods the repository allows (merge commit, squash, rebase),
 starting on the one you used last there; `tab` switches and `d` chooses whether the branch is
 deleted. While something still stands in the way, an **Auto-merge** row turns on GitHub's
@@ -168,14 +175,14 @@ confirmation says so.
 1. In `/pr`, press `t`. The unresolved threads open in Guided Review as comments on their lines,
    against your working tree.
 2. `alt+u` sends them to the agent. It reads them as the reviewers' words, not as instructions.
-3. Verify each fix (`r` in **Feedback**), then commit and push.
-4. `alt+enter` and choose **Answer on GitHub**. Threads you verified are resolved; `c` adds a reply
-   in your own words.
+3. Check each fix (`v` in **Feedback**) and resolve it with `r`, then commit and push.
+4. `alt+enter` and choose **Answer on GitHub**. Threads you resolved here are resolved there; `c`
+   adds a reply in your own words.
 
 ## Conversation
 
 **Conversation** is the second tab in `/pr` and `/github`: the description, comments, reviews and
-threads, oldest first.
+threads, oldest first. Press `tab` or click it to switch.
 
 ![A pull request's conversation, with a drafted reply](images/github-conversation.svg)
 
@@ -195,7 +202,8 @@ and nothing in the conversation reaches the agent unless you mention it.
 
 When a review has two or more chapters, finishing offers **Open as a stack**: one pull request per
 chapter, each based on the one below. The lower ones get branches named `<branch>-part-1`,
-`-part-2` and so on, and yours is on top. It needs the reviewed work uncommitted.
+`-part-2` and so on, and yours is on top. It needs the reviewed work uncommitted. `D` opens them
+as drafts.
 
 When a lower branch changes, `/stack` moves the ones above it back on top. It shows what will move
 first, makes the new commits without checking anything out (with `git replay`, Git 2.44 or later),

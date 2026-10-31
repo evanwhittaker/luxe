@@ -336,6 +336,9 @@ pub enum Action {
         /// Whether it now has focus
         focused: bool,
     },
+    /// How wide the client draws custom dock sections and statusline modules, so their programs
+    /// can be told. Send it again when the layout changes; the same widths again run nothing.
+    SetRowWidths(crate::custom_dock::RowWidths),
     /// Record that this session worked on a pull request.
     LinkPullRequest {
         /// Its number

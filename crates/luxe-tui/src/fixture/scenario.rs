@@ -113,8 +113,6 @@ scenarios! {
     GuidedReviewFindingsEmpty => "guided-review-findings-empty",
     /// Guided Review with persisted findings ordered for triage.
     GuidedReviewFindings => "guided-review-findings",
-    /// Guided Review with a remapped finding awaiting explicit verification.
-    GuidedReviewNeedsVerification => "guided-review-needs-verification",
     /// Guided Review with the blocking-accept confirmation visible.
     GuidedReviewFinish => "guided-review-finish",
     /// Responsive medium Guided Review capture using the standard review corpus.
@@ -149,6 +147,12 @@ scenarios! {
     ChangesFailed => "changes-failed",
     /// The pane on a file this session changed outside the project, beside the rail that opened it.
     ChangesExternal => "changes-external",
+    /// The plan-bars recipe's QUOTA section in the dock, from a real run on a Copilot plan.
+    DockPlanBars => "dock-plan-bars",
+    /// The same recipe on the statusline, with the dock put away.
+    StatuslinePlanBars => "statusline-plan-bars",
+    /// The LM Studio recipe's LOCAL section, from a real run with a model loaded.
+    DockLmstudio => "dock-lmstudio",
 }
 
 impl FromStr for FixtureScenario {

@@ -191,8 +191,9 @@ fn the_first_steps_hint_shortens_from_its_tail_and_gives_way() {
     assert!(!running.contains("for commands"), "a running turn owns the row: {running:?}");
 }
 
-/// The footer keeps to the keys a reader works with. The reading toggles — layout, guide,
-/// churn — are listed by help, and a footer that also carried them stopped being read at all.
+/// The footer keeps to the keys a reader works with, plus the two that change how the diff reads
+/// when there is room for them. The other reading toggles — guide, churn — are listed by help, and
+/// a footer that also carried them stopped being read at all.
 #[test]
 fn the_footer_keeps_to_the_keys_that_work() {
     let (width, height) = (200, 30);
@@ -204,7 +205,7 @@ fn the_footer_keeps_to_the_keys_that_work() {
     let footer = row.rsplit('│').next().unwrap_or_default();
     assert_eq!(
         footer.trim(),
-        "space next · c comment · a ask agent · alt+enter finish · ? help",
+        "space next · c comment · a ask agent · alt+enter finish · ctrl+b unified · w wrap · ? help",
         "{footer}"
     );
 }

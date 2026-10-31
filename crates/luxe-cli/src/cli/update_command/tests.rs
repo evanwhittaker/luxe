@@ -20,6 +20,7 @@ fn each_source_takes_its_own_route() {
     assert_eq!(route(InstallSource::Cargo, false), Some(Route::Steps(cargo)));
     assert_eq!(route(InstallSource::Archive, false), None, "no owner to ask");
     assert_eq!(route(InstallSource::Installer, true), None, "a check runs nothing");
+    assert_eq!(route(InstallSource::SourceBuild, false), None, "a fork is its owner's to rebuild");
 }
 
 #[test]
@@ -74,4 +75,8 @@ fn the_instructions_name_the_owners_command_or_none() {
     assert!(download.contains("download it from"), "{download}");
     // No second command to offer beside it, so it isn't named twice
     assert_eq!(instructions(InstallSource::Installer, true), "To update: `luxe update`.");
+    assert_eq!(
+        instructions(InstallSource::SourceBuild, false),
+        "To update: pull and rebuild the source you installed it from."
+    );
 }

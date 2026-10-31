@@ -178,6 +178,7 @@ pub(super) enum KnownAction {
     SetFocus {
         focused: bool,
     },
+    SetRowWidths(crate::custom_dock::RowWidths),
     LinkPullRequest {
         number: u64,
         url: String,

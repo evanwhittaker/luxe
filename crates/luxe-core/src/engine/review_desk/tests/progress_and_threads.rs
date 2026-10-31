@@ -111,12 +111,13 @@ async fn your_own_pull_requests_threads_join_once_across_a_refresh() {
     );
 }
 
-/// A fix the agent reported still waits for the reader after a refresh that left its line alone.
+/// A comment the agent reported fixed stays open for the reader after a refresh that left its
+/// line alone: the report is on its thread, and only the reader resolves it.
 ///
-/// The break this catches: reconciling a refreshed source by resetting every finding, which would
-/// throw away the "check this fix" the reader has not done yet.
+/// The break this catches: reconciling a refreshed source by resetting every finding, or by
+/// marking a comment outdated whose line is still there.
 #[tokio::test]
-async fn a_reported_fix_still_waits_to_be_verified_after_a_refresh() {
+async fn a_reported_fix_stays_open_after_a_refresh() {
     let review = review_from(TWO_FILES);
     let (project, mut desk) = desk_with(&review).await;
     let (finding_id, _) = commented(&mut desk, &review).await;
@@ -145,7 +146,8 @@ async fn a_reported_fix_still_waits_to_be_verified_after_a_refresh() {
     .await;
     let session = stored(&project, &review).unwrap();
     assert_eq!(session.source, refreshed.source, "the refresh was stored");
-    assert_eq!(session.findings[0].state, FindingState::NeedsVerification);
+    assert_eq!(session.findings[0].state, FindingState::Open);
+    assert!(session.findings[0].thread.iter().any(|message| message.body.contains("fixed")));
 }
 
 /// A reply on a resolved comment opens it again: saying something about it makes it live.

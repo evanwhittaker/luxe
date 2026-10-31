@@ -115,6 +115,11 @@ pub(super) fn theme_is_dark(resolved: &HashMap<String, ColorValue>, theme_name: 
 /// which sits far darker than the midpoint of the sRGB byte range.
 pub(super) fn is_dark_rgb(red: u8, green: u8, blue: u8) -> bool {
     const MID_GRAY_LUMINANCE: f32 = 0.1842;
+    relative_luminance((red, green, blue)) < MID_GRAY_LUMINANCE
+}
+
+/// WCAG relative luminance of an sRGB color.
+fn relative_luminance((red, green, blue): (u8, u8, u8)) -> f32 {
     let channel = |value: u8| {
         let value = f32::from(value) / 255.0;
         if value <= 0.04045 {
@@ -123,7 +128,70 @@ pub(super) fn is_dark_rgb(red: u8, green: u8, blue: u8) -> bool {
             ((value + 0.055) / 1.055).powf(2.4)
         }
     };
-    0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue) < MID_GRAY_LUMINANCE
+    0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+}
+
+/// WCAG contrast ratio between two colors, lighter over darker, from 1 to 21.
+pub(super) fn contrast_ratio(a: (u8, u8, u8), b: (u8, u8, u8)) -> f32 {
+    let (first, second) = (relative_luminance(a), relative_luminance(b));
+    (first.max(second) + 0.05) / (first.min(second) + 0.05)
+}
+
+/// The least contrast secondary text keeps against the canvas: WCAG AA for body text.
+pub(super) const MUTED_CONTRAST: f32 = 4.5;
+
+/// The least contrast tertiary text keeps against the canvas: WCAG AA for large text.
+///
+/// Most bundled palettes pick `dim` to sit one step above the canvas (Everforest's is 1.3:1, the
+/// same color as its selection), which suits a border and loses a word. Lifted this far it still
+/// reads a clear step below `muted`.
+pub(super) const DIM_CONTRAST: f32 = 3.0;
+
+/// A text token, moved toward the body text until it reaches `floor`:1 against `canvas`.
+///
+/// Themes are free to pick their secondary colors for mood rather than legibility, and several
+/// shipped ones do; the floor is what keeps a label readable whatever the palette says. A theme
+/// that speaks in terminal palette colors has nothing to measure and keeps its token.
+pub(super) fn readable(
+    tokens: &super::Tokens<'_>,
+    token: &str,
+    canvas: Style,
+    floor: f32,
+) -> Style {
+    let ink = tokens.fg(token);
+    let text = rgb_token(tokens.0, "text");
+    match (rgb_color(ink.fg), text, rgb_color(canvas.bg)) {
+        (Some(shade), Some(text), Some(canvas)) => {
+            let (red, green, blue) = lift_to_contrast(shade, text, canvas, floor);
+            ink.fg(RatatuiColor::Rgb(red, green, blue))
+        }
+        _ => ink,
+    }
+}
+
+/// `ink` moved toward `text` just far enough to reach `floor`:1 against `canvas`.
+///
+/// Toward the body text rather than toward white or black, so the lifted shade keeps the theme's
+/// own tint instead of turning into a neutral gray. An ink that already clears the floor comes back
+/// untouched, and one that can't reach it stops at `text`, which is as far as a secondary shade
+/// should ever go.
+fn lift_to_contrast(
+    ink: (u8, u8, u8),
+    text: (u8, u8, u8),
+    canvas: (u8, u8, u8),
+    floor: f32,
+) -> (u8, u8, u8) {
+    const STEPS: u8 = 50;
+    (0..=STEPS)
+        .map(|step| blend_triple(text, ink, f32::from(step) / f32::from(STEPS)))
+        .find(|shade| contrast_ratio(*shade, canvas) >= floor)
+        .unwrap_or(text)
+}
+
+/// [`blend_rgb`], as a triple rather than a ratatui color.
+fn blend_triple(hue: (u8, u8, u8), base: (u8, u8, u8), alpha: f32) -> (u8, u8, u8) {
+    let mix = |h: u8, b: u8| (h as f32 * alpha + b as f32 * (1.0 - alpha)).round() as u8;
+    (mix(hue.0, base.0), mix(hue.1, base.1), mix(hue.2, base.2))
 }
 
 /// The RGB an xterm-256 index 16–255 stands for: the 6×6×6 color cube, then the grayscale ramp.
@@ -147,8 +215,8 @@ pub(super) fn rgb_color(color: Option<RatatuiColor>) -> Option<(u8, u8, u8)> {
 
 /// Alpha-blend `hue` over `base` (`hue*alpha + base*(1-alpha)`) into an RGB color.
 pub(super) fn blend_rgb(hue: (u8, u8, u8), base: (u8, u8, u8), alpha: f32) -> RatatuiColor {
-    let mix = |h: u8, b: u8| (h as f32 * alpha + b as f32 * (1.0 - alpha)).round() as u8;
-    RatatuiColor::Rgb(mix(hue.0, base.0), mix(hue.1, base.1), mix(hue.2, base.2))
+    let (red, green, blue) = blend_triple(hue, base, alpha);
+    RatatuiColor::Rgb(red, green, blue)
 }
 
 /// Convert a [`ColorValue`] to a ratatui [`ratatui::style::Color`].

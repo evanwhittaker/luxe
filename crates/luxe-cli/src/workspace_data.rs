@@ -136,12 +136,7 @@ impl WorkspaceCollector {
         let unresolved_findings = session
             .findings
             .iter()
-            .filter(|finding| {
-                matches!(
-                    finding.state,
-                    FindingState::Draft | FindingState::Open | FindingState::NeedsVerification
-                )
-            })
+            .filter(|finding| matches!(finding.state, FindingState::Draft | FindingState::Open))
             .count();
         match self.review.as_mut() {
             Some(summary) if summary.id == session.id.as_str() => {

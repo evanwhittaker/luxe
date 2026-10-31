@@ -4,12 +4,16 @@ use serde::{Deserialize, Serialize};
 
 /// A single key chord: modifiers + a key.
 ///
-/// Parses from strings like `"ctrl+k"`, `"shift+enter"`, `"alt+t"`.
+/// Parses from strings like `"ctrl+k"`, `"shift+enter"`, `"alt+t"`, `"super+c"`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct KeyChord {
     pub ctrl: bool,
     pub shift: bool,
     pub alt: bool,
+    /// Super: Cmd on a Mac, the Windows key elsewhere. A terminal only reports it with the kitty
+    /// keyboard protocol, and most bind Cmd+C and its kin for themselves.
+    #[serde(default, rename = "super")]
+    pub super_key: bool,
     pub key: KeyName,
 }
 
@@ -102,6 +106,9 @@ impl std::fmt::Display for KeyChord {
         if self.alt {
             parts.push("alt");
         }
+        if self.super_key {
+            parts.push("super");
+        }
         let key_display = self.key.display();
         parts.push(&key_display);
         write!(f, "{}", parts.join("+"))
@@ -113,7 +120,7 @@ impl std::fmt::Display for KeyChord {
 pub enum KeymapError {
     #[error("empty chord string")]
     Empty,
-    #[error("unknown modifier '{0}' (expected ctrl, shift, or alt)")]
+    #[error("unknown modifier '{0}' (expected ctrl, shift, alt or super)")]
     UnknownModifier(String),
     #[error("unknown key '{0}'")]
     UnknownKey(String),
@@ -124,8 +131,9 @@ pub enum KeymapError {
 impl KeyChord {
     /// Parse a chord string like `"ctrl+k"`, `"shift+enter"`, `"ctrl+alt+t"`.
     ///
-    /// Modifiers are case-insensitive; the final key is case-insensitive for
-    /// letters (so "Ctrl+K" and "Ctrl+k" both parse to the same chord).
+    /// Modifiers are case-insensitive, and `cmd` and `win` are other names for `super`; the final
+    /// key is case-insensitive for letters (so "Ctrl+K" and "Ctrl+k" both parse to the same
+    /// chord).
     pub fn parse(s: &str) -> Result<Self, KeymapError> {
         let s = s.trim();
         if s.is_empty() {
@@ -135,6 +143,7 @@ impl KeyChord {
         let mut ctrl = false;
         let mut shift = false;
         let mut alt = false;
+        let mut super_key = false;
         let mut key: Option<KeyName> = None;
 
         for part in s.split('+') {
@@ -143,6 +152,7 @@ impl KeyChord {
                 "ctrl" => ctrl = true,
                 "shift" => shift = true,
                 "alt" => alt = true,
+                "super" | "cmd" | "win" => super_key = true,
                 other => {
                     // Last segment must be the key.
                     let k = parse_key_name(other)?;
@@ -152,7 +162,7 @@ impl KeyChord {
         }
 
         let key = key.ok_or(KeymapError::MissingKey)?;
-        Ok(Self { ctrl, shift, alt, key })
+        Ok(Self { ctrl, shift, alt, super_key, key })
     }
 
     /// Format back to a string (round-trips parse).

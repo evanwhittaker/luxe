@@ -3,14 +3,15 @@
 use super::click::select_overlay_row;
 use super::{click, clicked_target, wheel, RouteAction, ScrollAction};
 use crate::app::{App, Msg};
+use crate::mouse::TextSurface;
 use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 use std::time::Duration;
 
 /// Route a mouse event to a [`RouteAction`].
 ///
 /// The wheel scrolls the region under the pointer; a press either acts on the chrome it hit or
-/// anchors a text selection; a drag extends it and the release copies. Never panics on
-/// out-of-bounds coordinates.
+/// anchors a text selection; a drag extends it and the release leaves it on screen for a copy key
+/// or the right-click menu. Never panics on out-of-bounds coordinates.
 pub fn route_mouse(app: &mut App, mouse: &MouseEvent) -> RouteAction {
     route_mouse_at(app, mouse, std::time::Instant::now())
 }
@@ -125,12 +126,6 @@ pub(super) fn right_press(app: &mut App, col: u16, row: u16) -> RouteAction {
     use crate::context_menu::ContextMenu;
     use crate::mouse::MouseTarget;
     let target = app.hit.borrow().at(col, row).cloned().or_else(|| file_line_at(app, col, row));
-    let chord = |app: &App, action, fallback: &str| {
-        app.keymap
-            .chords_for(action)
-            .and_then(|chords| chords.first())
-            .map_or_else(|| fallback.to_string(), ToString::to_string)
-    };
     app.overlays.context_menu = match target {
         Some(MouseTarget::DockFile(path)) => {
             let changed = app.project_changes().iter().any(|item| item.path == path);
@@ -147,13 +142,91 @@ pub(super) fn right_press(app: &mut App, col: u16, row: u16) -> RouteAction {
             if let Some(view) = app.changes.as_mut() {
                 view.pick_for_menu(line);
             }
-            let ask = chord(app, luxe_core::keymap::UiAction::AskAboutSelection, "alt+l");
-            let copy = chord(app, luxe_core::keymap::UiAction::CopySelection, "");
+            let ask = first_chord(app, luxe_core::keymap::UiAction::AskAboutSelection, "alt+l");
+            let copy = first_chord(app, luxe_core::keymap::UiAction::CopySelection, "");
             Some(ContextMenu::for_selection((col, row), &ask, &copy))
         }
-        _ => None,
+        Some(MouseTarget::ReviewDiffRow(index)) => review_line_menu(app, (col, row), index),
+        Some(MouseTarget::ReviewFindingRow(finding_id)) => {
+            feedback_row_menu(app, (col, row), finding_id)
+        }
+        _ => text_menu(app, col, row),
     };
     RouteAction::None
+}
+
+/// The menu for a line of the review's diff. The click puts the cursor on the line first, as a
+/// left click would, and picks the comment under it, so each item acts on what was clicked.
+fn review_line_menu(
+    app: &mut App,
+    anchor: (u16, u16),
+    index: usize,
+) -> Option<crate::context_menu::ContextMenu> {
+    if app.current_view != crate::app::ViewMode::GuidedReview {
+        return None;
+    }
+    app.update(crate::app::Msg::GuidedReviewSelectDiffRow(index));
+    let files = app.guided_review.as_ref().map_or(&[][..], |review| &review.files[..]);
+    let findings = app.review.session().map_or(&[][..], |session| &session.findings[..]);
+    let finding_id = app.guided_review_workspace.comment_at_cursor(files, findings);
+    let comment = finding_id.as_ref().and_then(|id| findings.iter().find(|f| &f.id == id));
+    let menu = review_comment_menu(app, anchor, comment, true);
+    if finding_id.is_some() {
+        app.guided_review_workspace.selected_finding_id = finding_id;
+    }
+    Some(menu)
+}
+
+/// The menu for a row of the feedback window, which selects the row first.
+fn feedback_row_menu(
+    app: &mut App,
+    anchor: (u16, u16),
+    finding_id: luxe_core::guided_review::FindingId,
+) -> Option<crate::context_menu::ContextMenu> {
+    app.update(crate::app::Msg::GuidedReviewSelectFinding(finding_id.clone()));
+    let session = app.review.session()?;
+    let comment = session.findings.iter().find(|finding| finding.id == finding_id)?;
+    let menu = review_comment_menu(app, anchor, Some(comment), false);
+    (!menu.items.is_empty()).then_some(menu)
+}
+
+/// A review comment's menu, each item naming the key bound to it.
+fn review_comment_menu(
+    app: &App,
+    anchor: (u16, u16),
+    comment: Option<&luxe_core::guided_review::ReviewFinding>,
+    on_line: bool,
+) -> crate::context_menu::ContextMenu {
+    let key = |action| first_chord(app, action, "");
+    crate::context_menu::ContextMenu::for_review_comment(anchor, comment, on_line, &key)
+}
+
+/// The key an action is bound to first, as a menu item names it, or `fallback` when it is unbound.
+fn first_chord(app: &App, action: luxe_core::keymap::UiAction, fallback: &str) -> String {
+    app.keymap
+        .chords_for(action)
+        .and_then(|chords| chords.first())
+        .map_or_else(|| fallback.to_string(), ToString::to_string)
+}
+
+/// The menu for a right-click on text: the composer always offers Paste, and the transcript
+/// offers Copy while it holds a selection, since a release no longer copies one.
+fn text_menu(app: &App, col: u16, row: u16) -> Option<crate::context_menu::ContextMenu> {
+    use crate::context_menu::ContextMenu;
+    use luxe_core::keymap::UiAction;
+    let surface = app.hit.borrow().text_at(col, row)?.surface;
+    let copy = first_chord(app, UiAction::CopySelection, "");
+    match surface {
+        TextSurface::Composer => {
+            let paste = first_chord(app, UiAction::PasteClipboard, "");
+            let selected = app.editor.selection().is_some();
+            Some(ContextMenu::for_composer((col, row), selected, &copy, &paste))
+        }
+        TextSurface::Conversation if app.transcript_selection_covers_cells() => {
+            Some(ContextMenu::for_text_selection((col, row), &copy))
+        }
+        _ => None,
+    }
 }
 
 /// The File view line whose code is under `(col, row)`. Only a line's gutter is a click target, its
@@ -167,11 +240,13 @@ fn file_line_at(app: &App, col: u16, row: u16) -> Option<crate::mouse::MouseTarg
     (file_view && code).then_some(crate::mouse::MouseTarget::PeekLine(line))
 }
 
-/// Handles a left release: copy what the gesture selected, or spend the remembered click.
+/// Handles a left release: keep what the gesture selected, or spend the remembered click.
 ///
-/// Whether cells ended up covered is the whole test. A gesture that covered some is a selection, so
-/// releasing copies it — the copy-on-select a terminal would have done. One that covered none never
-/// moved off its cell, so it was a click.
+/// Whether cells ended up covered is the whole test. A gesture that covered some is a selection,
+/// which stays highlighted until a copy key, the right-click menu, Esc or the next press. It is
+/// not copied here: a clipboard that changes on every drag overwrites what the reader meant to
+/// paste, and hides whether a copy key worked. One that covered none never moved off its cell, so
+/// it was a click.
 pub(super) fn release(app: &mut App) -> RouteAction {
     if std::mem::take(&mut app.pointer.peek_dragging) {
         app.pointer.pending_click = None;
@@ -190,7 +265,7 @@ pub(super) fn release(app: &mut App) -> RouteAction {
         return RouteAction::None;
     }
     if app.text_selection_is_active() {
-        return RouteAction::msg(Msg::CopySelection);
+        return RouteAction::None;
     }
     match pending {
         Some(target) => clicked_target(app, target),

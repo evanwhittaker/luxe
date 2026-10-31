@@ -1,6 +1,6 @@
 ---
 title: "Recipes"
-summary: "Extensions put together: Asana, subagents, a classifier guard, Herdr, your phone, and a local model."
+summary: "Extensions put together: Asana, subagents, a classifier guard, Herdr, your phone, a local model, and plan usage as bars."
 order: 8
 group: "Extend"
 ---
@@ -324,3 +324,152 @@ to it rather than replacing the file:
 ```
 
 [Custom providers](custom-providers.md) covers samplers and request formats.
+
+### What LM Studio has loaded
+
+This [dock section](interface.md#your-own-sections) shows the model LM Studio has loaded, the
+context it was loaded with, and how full the GPU is. It warns when the session's model isn't
+loaded, which is easy to miss after switching models in LM Studio. It needs `jq`, and reads the GPU
+with `nvidia-smi`; without one it leaves that row out.
+
+```bash title="~/.config/luxe/bin/lmstudio-loaded"
+#!/usr/bin/env bash
+# What LM Studio has loaded, for a luxe dock section. Prints nothing for other providers.
+set -euo pipefail
+input=$(cat)
+[ "$(jq -r .provider <<<"$input")" = lmstudio ] || exit 0
+loaded=$(lms ps --json)
+vram=$(nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null |
+  head -n 1 || true)
+jq -nc --argjson input "$input" --argjson loaded "$loaded" --arg vram "$vram" '
+  def gb: . / 1024 * 10 | round / 10;
+  def model_rows($m):
+    [ { label: "model",
+        spans: [ { text: $m.displayName }, { text: " · \($m.quantization.name)", ink: "muted" } ] },
+      { label: "context", spans: [ { text: "\($m.contextLength / 1024 | floor)k loaded" } ] } ];
+  def missing($model):
+    [ { label: "model",
+        spans: [ { text: "not loaded ", ink: "warning" }, { text: $model, ink: "muted" } ] } ];
+  def vram_row:
+    ($vram | split(", ") | map(tonumber)) as [$used, $total]
+    | { label: "vram",
+        spans: [ { text: "\($used | gb) / \($total | gb) GB",
+                   ink: (if $used / $total >= 0.9 then "warning" else "text" end) } ] };
+
+  ($loaded | map(select(.identifier == $input.model)) | first) as $mine
+  | { rows: ((if $mine then model_rows($mine) else missing($input.model) end)
+             + (if $vram == "" then [] else [vram_row] end)) }
+'
+```
+
+Make it executable with `chmod +x ~/.config/luxe/bin/lmstudio-loaded`, then add the section. The
+`timeout_ms` gives `lms` more room than the 2-second default:
+
+```json title="~/.config/luxe/config.json"
+{
+  "dock": {
+    "custom": { "local": { "command": ["~/.config/luxe/bin/lmstudio-loaded"], "timeout_ms": 5000 } }
+  }
+}
+```
+
+![The LOCAL section under SESSION, naming the loaded model and its context, with the GPU's memory in the warning color past 90%](images/recipes-lmstudio-loaded.svg)
+
+In a session on another provider it prints nothing, so the section stays hidden. If `lms` fails,
+the section keeps its last rows and says why.
+
+## Plan usage as bars
+
+On a subscription such as ChatGPT or GitHub Copilot, the dock's USAGE section says in words how
+much of each plan window you've used. This script draws it as bars instead, in a
+[dock section](interface.md#your-own-sections) and a
+[statusline module](appearance.md#your-own-modules) at once. It needs `jq`.
+
+```bash title="~/.config/luxe/bin/plan-bars"
+#!/usr/bin/env bash
+# Plan usage as bars, for a luxe dock section or statusline module.
+set -euo pipefail
+# Cells a dock row has beside its label, or 0 before luxe has drawn the dock
+room=$(( ${COLUMNS:-0} - ${LUXE_LABEL_COLUMNS:-0} ))
+jq -c --argjson room "$room" '
+  def blocks($n; $glyph): [range($n)] | map($glyph) | join("");
+  def ink($pct): if $pct >= 90 then "error" elif $pct >= 75 then "warning" else "accent" end;
+  def bar($pct; $cells):
+    ([$pct * $cells / 100 | round, $cells] | min) as $on
+    | [ { text: blocks($on; "▰"), ink: ink($pct) },
+        { text: blocks($cells - $on; "▱"), ink: "dim" } ]
+    | map(select(.text != ""));
+  def name($minutes):
+    if $minutes == 43200 then "monthly"
+    elif $minutes % 10080 == 0 then "weekly"
+    elif $minutes % 1440 == 0 then "daily"
+    else "\($minutes / 60 | floor)h" end;
+  def resets($secs):
+    if $secs == null then ""
+    elif $secs == 0 then " · now"
+    elif $secs >= 86400 then " · \($secs / 86400 | floor)d"
+    elif $secs >= 3600 then " · \($secs / 3600 | floor)h"
+    else " · \($secs / 60 | ceil)m" end;
+  def tail: " \(.used_percent | round)%\(resets(.resets_in_secs))";
+  def row($cells; $tail):
+    { label: name(.window_minutes),
+      spans: (bar(.used_percent; $cells) + [ { text: $tail, ink: "muted" } ]) };
+  # The room the widest tail leaves, so the bars of every row end in the same column
+  def cells($windows):
+    if $room <= 0 then 10
+    else [[$room - ([$windows[] | tail | length] | max // 0), 20] | min, 4] | max end;
+
+  [.plan_usage.primary, .plan_usage.secondary | select(. != null)] as $windows
+  | if .place == "statusline" then
+      { rows: [ $windows | max_by(.used_percent) // empty | row(5; " \(.used_percent | round)%") ] }
+    else
+      cells($windows) as $cells | { rows: [ $windows[] | row($cells; tail) ] }
+    end
+'
+```
+
+Make it executable with `chmod +x ~/.config/luxe/bin/plan-bars`, then point a section and a module
+at it. Leaving `usage` out of `dock.sections` hides the built-in section the bars replace, and this
+`right` list gives the bars the room `cost` and `tokens` had:
+
+```json title="~/.config/luxe/config.json"
+{
+  "dock": {
+    "sections": ["project", "plan", "files", "elsewhere", "model", "quota", "session"],
+    "custom": { "quota": { "command": ["~/.config/luxe/bin/plan-bars"] } }
+  },
+  "statusline": {
+    "right": ["context", "quota", "thinking", "model"],
+    "custom": { "quota": { "command": ["~/.config/luxe/bin/plan-bars"] } }
+  }
+}
+```
+
+On a GitHub Copilot plan, which is monthly, the dock gets one row:
+
+![The QUOTA section between MODEL and SESSION, reading monthly, a bar a third full, 32% and 3d](images/recipes-plan-bars-dock.svg)
+
+With the dock put away, the bar shows the same plan in five cells:
+
+![The statusline, with monthly and a short bar at 32% between the context reading and the thinking level](images/recipes-plan-bars-statusline.svg)
+
+On ChatGPT, which reports two windows, the dock gets a row for each:
+
+```text
+QUOTA
+5h             ▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱ 62% · 30m
+weekly         ▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱ 30% · 3d
+```
+
+- **One script, two places.** The input's `place` says where the answer goes, so the bar gets just
+  the fullest window, in five cells. The statusline makes way for a dock open beside the
+  conversation, so you see the bars in the dock, and on the bar once you close it with `/dock`.
+- **The bar fits the dock.** luxe tells the script its row's width in `COLUMNS` and the label
+  column's in `LUXE_LABEL_COLUMNS`, so the bar takes the room the percentage and reset leave, up to
+  20 cells. Drag the dock wider and the bar grows on the next run, which the drag itself starts.
+- **The colors are your theme's.** The filled cells use `accent`, then `warning` past 75% and
+  `error` past 90%, where the built-in USAGE section changes color too. The empty cells are `dim`,
+  so the fill is what you see first.
+- **On an API key it prints no rows**, so the section and the module stay hidden.
+- **It runs when a session starts, after each turn, and when the plan reports**, and the reset is
+  counted to the moment it runs. A change to the config takes effect in the next session.

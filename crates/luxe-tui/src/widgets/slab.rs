@@ -210,7 +210,7 @@ fn capped(
 /// `MODEL` half a character right of the `anthropic` it labels, and a vertical edge does not get to
 /// be approximate.
 pub fn badge(
-    label: &'static str,
+    label: impl Into<std::borrow::Cow<'static, str>>,
     depth: Depth,
     canvas: Color,
     theme: &ThemeStyles,

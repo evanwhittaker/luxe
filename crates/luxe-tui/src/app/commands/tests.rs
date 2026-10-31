@@ -12,6 +12,7 @@ pub(super) fn run(app: &mut App, command: &crate::commands::Command) {
 mod answering;
 mod github;
 mod opening;
+mod opening_draft;
 mod palette;
 mod review_target;
 mod slash;

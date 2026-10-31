@@ -2,9 +2,13 @@
 //!
 //! Capturing the mouse means the terminal's own click-drag selection never fires, so luxe draws
 //! and owns the selection itself: a drag records an anchor and a moving cursor over a surface's
-//! rendered lines, the view paints the covered cells, and releasing copies the text out. Positions
+//! rendered lines, the view paints the covered cells, and a copy key takes the text out. Positions
 //! are `(line, column)` in *terminal cells*, matching what the user actually sees, so wide glyphs
 //! and tabs select the way they render.
+
+mod step;
+
+pub use step::{step_point, SelectionStep};
 
 use std::ops::Range;
 use std::time::{Duration, Instant};

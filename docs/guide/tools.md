@@ -86,7 +86,7 @@ on the network. `bash` defaults to 30 seconds and `test` to 300, and the agent c
 up to an hour. `question` waits for you as long as it takes. `LUXE_TOOL_TIMEOUT_SECS` replaces the
 120- and 60-second limits; `bash` and `test` keep their own.
 
-`ctrl+esc` stops the whole batch of calls, not just the one running. A call that never started is
+`esc` stops the whole batch of calls, not just the one running. A call that never started is
 reported as having had no effect; one stopped partway says so, since it may have done half its work.
 
 A command that starts something and leaves it running, such as a dev server, returns when the

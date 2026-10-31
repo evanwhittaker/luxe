@@ -16,7 +16,9 @@ mod nav;
 mod rows;
 mod view;
 
-pub(crate) use layout::{render_pane, tab_line, wrapped_rows, Slot, Split, Window, PANE_GUTTER};
+pub(crate) use layout::{
+    publish_tabs, render_pane, tab_line, wrapped_rows, Slot, Split, Window, PANE_GUTTER,
+};
 pub use nav::PickerNav;
 pub use view::{render_picker, DetailFn, Edge, PickerRow, PickerView, TABBED_ROWS};
 

@@ -605,84 +605,84 @@
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M1385.00 517.00L1385.00 506.00M1385.00 517.00L1385.00 528.00"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M15.00 539.00L15.00 528.00M15.00 539.00L15.00 550.00"/>
     <path fill="none" stroke="#2e2b27" stroke-width="1.25" d="M605.00 539.00L605.00 528.00M605.00 539.00L605.00 550.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M665.00 550.00Q665.00 539.00 670.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M675.00 539.00L680.00 539.00M675.00 539.00L670.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M895.00 539.00L900.00 539.00M895.00 539.00L890.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M905.00 539.00L910.00 539.00M905.00 539.00L900.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M915.00 539.00L920.00 539.00M915.00 539.00L910.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M925.00 539.00L930.00 539.00M925.00 539.00L920.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M935.00 539.00L940.00 539.00M935.00 539.00L930.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M945.00 539.00L950.00 539.00M945.00 539.00L940.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M955.00 539.00L960.00 539.00M955.00 539.00L950.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M965.00 539.00L970.00 539.00M965.00 539.00L960.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M975.00 539.00L980.00 539.00M975.00 539.00L970.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M985.00 539.00L990.00 539.00M985.00 539.00L980.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M995.00 539.00L1000.00 539.00M995.00 539.00L990.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1005.00 539.00L1010.00 539.00M1005.00 539.00L1000.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1015.00 539.00L1020.00 539.00M1015.00 539.00L1010.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1025.00 539.00L1030.00 539.00M1025.00 539.00L1020.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1035.00 539.00L1040.00 539.00M1035.00 539.00L1030.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1045.00 539.00L1050.00 539.00M1045.00 539.00L1040.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1055.00 539.00L1060.00 539.00M1055.00 539.00L1050.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1065.00 539.00L1070.00 539.00M1065.00 539.00L1060.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1075.00 539.00L1080.00 539.00M1075.00 539.00L1070.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1085.00 539.00L1090.00 539.00M1085.00 539.00L1080.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1095.00 539.00L1100.00 539.00M1095.00 539.00L1090.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1105.00 539.00L1110.00 539.00M1105.00 539.00L1100.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1115.00 539.00L1120.00 539.00M1115.00 539.00L1110.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1125.00 539.00L1130.00 539.00M1125.00 539.00L1120.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1135.00 539.00L1140.00 539.00M1135.00 539.00L1130.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1145.00 539.00L1150.00 539.00M1145.00 539.00L1140.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1155.00 539.00L1160.00 539.00M1155.00 539.00L1150.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1165.00 539.00L1170.00 539.00M1165.00 539.00L1160.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1175.00 539.00L1180.00 539.00M1175.00 539.00L1170.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1185.00 539.00L1190.00 539.00M1185.00 539.00L1180.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1195.00 539.00L1200.00 539.00M1195.00 539.00L1190.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1205.00 539.00L1210.00 539.00M1205.00 539.00L1200.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1215.00 539.00L1220.00 539.00M1215.00 539.00L1210.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1225.00 539.00L1230.00 539.00M1225.00 539.00L1220.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1235.00 539.00L1240.00 539.00M1235.00 539.00L1230.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1245.00 539.00L1250.00 539.00M1245.00 539.00L1240.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1255.00 539.00L1260.00 539.00M1255.00 539.00L1250.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1265.00 539.00L1270.00 539.00M1265.00 539.00L1260.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1275.00 539.00L1280.00 539.00M1275.00 539.00L1270.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1285.00 539.00L1290.00 539.00M1285.00 539.00L1280.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1295.00 539.00L1300.00 539.00M1295.00 539.00L1290.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1305.00 539.00L1310.00 539.00M1305.00 539.00L1300.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1315.00 539.00L1320.00 539.00M1315.00 539.00L1310.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1325.00 539.00L1330.00 539.00M1325.00 539.00L1320.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1335.00 539.00L1340.00 539.00M1335.00 539.00L1330.00 539.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1345.00 550.00Q1345.00 539.00 1340.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M665.00 550.00Q665.00 539.00 670.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M675.00 539.00L680.00 539.00M675.00 539.00L670.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M895.00 539.00L900.00 539.00M895.00 539.00L890.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M905.00 539.00L910.00 539.00M905.00 539.00L900.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M915.00 539.00L920.00 539.00M915.00 539.00L910.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M925.00 539.00L930.00 539.00M925.00 539.00L920.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M935.00 539.00L940.00 539.00M935.00 539.00L930.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M945.00 539.00L950.00 539.00M945.00 539.00L940.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M955.00 539.00L960.00 539.00M955.00 539.00L950.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M965.00 539.00L970.00 539.00M965.00 539.00L960.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M975.00 539.00L980.00 539.00M975.00 539.00L970.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M985.00 539.00L990.00 539.00M985.00 539.00L980.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M995.00 539.00L1000.00 539.00M995.00 539.00L990.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1005.00 539.00L1010.00 539.00M1005.00 539.00L1000.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1015.00 539.00L1020.00 539.00M1015.00 539.00L1010.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1025.00 539.00L1030.00 539.00M1025.00 539.00L1020.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1035.00 539.00L1040.00 539.00M1035.00 539.00L1030.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1045.00 539.00L1050.00 539.00M1045.00 539.00L1040.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1055.00 539.00L1060.00 539.00M1055.00 539.00L1050.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1065.00 539.00L1070.00 539.00M1065.00 539.00L1060.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1075.00 539.00L1080.00 539.00M1075.00 539.00L1070.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1085.00 539.00L1090.00 539.00M1085.00 539.00L1080.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1095.00 539.00L1100.00 539.00M1095.00 539.00L1090.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1105.00 539.00L1110.00 539.00M1105.00 539.00L1100.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1115.00 539.00L1120.00 539.00M1115.00 539.00L1110.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1125.00 539.00L1130.00 539.00M1125.00 539.00L1120.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1135.00 539.00L1140.00 539.00M1135.00 539.00L1130.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1145.00 539.00L1150.00 539.00M1145.00 539.00L1140.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1155.00 539.00L1160.00 539.00M1155.00 539.00L1150.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1165.00 539.00L1170.00 539.00M1165.00 539.00L1160.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1175.00 539.00L1180.00 539.00M1175.00 539.00L1170.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1185.00 539.00L1190.00 539.00M1185.00 539.00L1180.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1195.00 539.00L1200.00 539.00M1195.00 539.00L1190.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1205.00 539.00L1210.00 539.00M1205.00 539.00L1200.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1215.00 539.00L1220.00 539.00M1215.00 539.00L1210.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1225.00 539.00L1230.00 539.00M1225.00 539.00L1220.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1235.00 539.00L1240.00 539.00M1235.00 539.00L1230.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1245.00 539.00L1250.00 539.00M1245.00 539.00L1240.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1255.00 539.00L1260.00 539.00M1255.00 539.00L1250.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1265.00 539.00L1270.00 539.00M1265.00 539.00L1260.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1275.00 539.00L1280.00 539.00M1275.00 539.00L1270.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1285.00 539.00L1290.00 539.00M1285.00 539.00L1280.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1295.00 539.00L1300.00 539.00M1295.00 539.00L1290.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1305.00 539.00L1310.00 539.00M1305.00 539.00L1300.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1315.00 539.00L1320.00 539.00M1315.00 539.00L1310.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1325.00 539.00L1330.00 539.00M1325.00 539.00L1320.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1335.00 539.00L1340.00 539.00M1335.00 539.00L1330.00 539.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1345.00 550.00Q1345.00 539.00 1340.00 539.00"/>
     <path fill="#ddc084" d="M1365.00 528.00h5.00v22.00h-5.00z"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M1385.00 539.00L1385.00 528.00M1385.00 539.00L1385.00 550.00"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M15.00 561.00L15.00 550.00M15.00 561.00L15.00 572.00"/>
     <path fill="none" stroke="#2e2b27" stroke-width="1.25" d="M605.00 561.00L605.00 550.00M605.00 561.00L605.00 572.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M665.00 561.00L665.00 550.00M665.00 561.00L665.00 572.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1345.00 561.00L1345.00 550.00M1345.00 561.00L1345.00 572.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M665.00 561.00L665.00 550.00M665.00 561.00L665.00 572.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1345.00 561.00L1345.00 550.00M1345.00 561.00L1345.00 572.00"/>
     <path fill="#ddc084" d="M1365.00 550.00h5.00v22.00h-5.00z"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M1385.00 561.00L1385.00 550.00M1385.00 561.00L1385.00 572.00"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M15.00 583.00L15.00 572.00M15.00 583.00L15.00 594.00"/>
     <path fill="none" stroke="#2e2b27" stroke-width="1.25" d="M605.00 583.00L605.00 572.00M605.00 583.00L605.00 594.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M665.00 583.00L665.00 572.00M665.00 583.00L665.00 594.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1345.00 583.00L1345.00 572.00M1345.00 583.00L1345.00 594.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M665.00 583.00L665.00 572.00M665.00 583.00L665.00 594.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1345.00 583.00L1345.00 572.00M1345.00 583.00L1345.00 594.00"/>
     <path fill="#2e2b27" d="M1368.75 572.00h1.25v22.00h-1.25z"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M1385.00 583.00L1385.00 572.00M1385.00 583.00L1385.00 594.00"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M15.00 605.00L15.00 594.00M15.00 605.00L15.00 616.00"/>
     <path fill="none" stroke="#2e2b27" stroke-width="1.25" d="M605.00 605.00L605.00 594.00M605.00 605.00L605.00 616.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M665.00 605.00L665.00 594.00M665.00 605.00L665.00 616.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1345.00 605.00L1345.00 594.00M1345.00 605.00L1345.00 616.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M665.00 605.00L665.00 594.00M665.00 605.00L665.00 616.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1345.00 605.00L1345.00 594.00M1345.00 605.00L1345.00 616.00"/>
     <path fill="#2e2b27" d="M1368.75 594.00h1.25v22.00h-1.25z"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M1385.00 605.00L1385.00 594.00M1385.00 605.00L1385.00 616.00"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M15.00 627.00L15.00 616.00M15.00 627.00L15.00 638.00"/>
     <path fill="none" stroke="#2e2b27" stroke-width="1.25" d="M605.00 627.00L605.00 616.00M605.00 627.00L605.00 638.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M665.00 627.00L665.00 616.00M665.00 627.00L665.00 638.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1345.00 627.00L1345.00 616.00M1345.00 627.00L1345.00 638.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M665.00 627.00L665.00 616.00M665.00 627.00L665.00 638.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1345.00 627.00L1345.00 616.00M1345.00 627.00L1345.00 638.00"/>
     <path fill="#2e2b27" d="M1368.75 616.00h1.25v22.00h-1.25z"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M1385.00 627.00L1385.00 616.00M1385.00 627.00L1385.00 638.00"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M15.00 649.00L15.00 638.00M15.00 649.00L15.00 660.00"/>
     <path fill="none" stroke="#2e2b27" stroke-width="1.25" d="M605.00 649.00L605.00 638.00M605.00 649.00L605.00 660.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M665.00 649.00L665.00 638.00M665.00 649.00L665.00 660.00"/>
-    <path fill="none" stroke="#4d4a45" stroke-width="1.25" d="M1345.00 649.00L1345.00 638.00M1345.00 649.00L1345.00 660.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M665.00 649.00L665.00 638.00M665.00 649.00L665.00 660.00"/>
+    <path fill="none" stroke="#65625c" stroke-width="1.25" d="M1345.00 649.00L1345.00 638.00M1345.00 649.00L1345.00 660.00"/>
     <path fill="#2e2b27" d="M1368.75 638.00h1.25v22.00h-1.25z"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M1385.00 649.00L1385.00 638.00M1385.00 649.00L1385.00 660.00"/>
     <path fill="none" stroke="#ddc084" stroke-width="1.25" d="M15.00 671.00L15.00 660.00M15.00 671.00L15.00 682.00"/>
@@ -970,25 +970,25 @@
   <text x="0" y="83.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan>                                                                                                                                      </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="105.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                                                                                                        </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="127.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#ddc084">  / </tspan><tspan fill="#97938c">is:open is:pr author:@me</tspan><tspan>                     </tspan><tspan fill="#97938c">2 shown</tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#97938c">#142 </tspan><tspan fill="#e4dfd6" font-weight="700">Route digests by category</tspan><tspan>                                              </tspan><tspan> </tspan><tspan> </tspan></text>
-  <text x="0" y="149.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#d2a5cd">nora-quinn</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#e4dfd6">main</tspan><tspan fill="#97938c"> ← </tspan><tspan fill="#e4dfd6">digest-routing</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#81caa0">+96</tspan><tspan fill="#e68485"> −31</tspan><tspan fill="#97938c"> in 7 files</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#97938c">25m ago</tspan><tspan>           </tspan><tspan> </tspan><tspan> </tspan></text>
+  <text x="0" y="149.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#d2a5cd">nora-quinn</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#e4dfd6">main</tspan><tspan fill="#97938c"> ← </tspan><tspan fill="#e4dfd6">digest-routing</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#81caa0">+96</tspan><tspan fill="#e68485"> −31</tspan><tspan fill="#97938c"> in 7 files</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#97938c">25m ago</tspan><tspan>           </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="171.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#ddc084">❯ </tspan><tspan fill="#81caa0">󰓂 </tspan><tspan fill="#97938c">#142 </tspan><tspan fill="#e4dfd6">Route digests by category</tspan><tspan>                 </tspan><tspan fill="#97938c">25m</tspan><tspan>   </tspan><tspan> </tspan><tspan>                                                                             </tspan><tspan> </tspan><tspan> </tspan></text>
-  <text x="0" y="193.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>     </tspan><tspan fill="#d2a5cd">nora-quinn</tspan><tspan>         </tspan><tspan fill="#e68485">✗ 1 failing</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#e68485">changes requested</tspan><tspan>   </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#12100e" font-weight="700">open</tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#1d76db">● </tspan><tspan fill="#e4dfd6">backend</tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#5319e7">● </tspan><tspan fill="#e4dfd6">notifications</tspan><tspan> </tspan><tspan> </tspan><tspan>                                  </tspan><tspan> </tspan><tspan> </tspan></text>
+  <text x="0" y="193.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>     </tspan><tspan fill="#d2a5cd">nora-quinn</tspan><tspan>         </tspan><tspan fill="#e68485">✗ 1 failing</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#e68485">changes requested</tspan><tspan>   </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#12100e" font-weight="700">open</tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#1d76db">● </tspan><tspan fill="#e4dfd6">backend</tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#5319e7">● </tspan><tspan fill="#e4dfd6">notifications</tspan><tspan> </tspan><tspan> </tspan><tspan>                                  </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="215.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan>                                                                             </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="237.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>   </tspan><tspan fill="#97938c">󰓂 #139 </tspan><tspan fill="#e4dfd6">Batch digest sends per tenant</tspan><tspan>              </tspan><tspan fill="#97938c">3d</tspan><tspan>   </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#97938c">   Overview  </tspan><tspan> </tspan><tspan> </tspan><tspan fill="#ddc084" font-weight="700">󰆁 Conversation 7</tspan><tspan> </tspan><tspan> </tspan><tspan>                                          </tspan><tspan> </tspan><tspan> </tspan></text>
-  <text x="0" y="259.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>     </tspan><tspan fill="#d2a5cd">nora-quinn</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#81caa0">+140</tspan><tspan fill="#e68485"> −22</tspan><tspan>            </tspan><tspan fill="#97938c">draft</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#faaa51">◔ running</tspan><tspan>   </tspan><tspan> </tspan><tspan> </tspan><tspan>                                                                           </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
+  <text x="0" y="259.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>     </tspan><tspan fill="#d2a5cd">nora-quinn</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#81caa0">+140</tspan><tspan fill="#e68485"> −22</tspan><tspan>            </tspan><tspan fill="#97938c">draft</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#faaa51">◔ running</tspan><tspan>   </tspan><tspan> </tspan><tspan> </tspan><tspan>                                                                           </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="281.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan>                                                                             </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="303.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>  </tspan><tspan fill="#e4dfd6">rules is right, but it is decided in two places; and on-call-only for</tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="325.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>  </tspan><tspan fill="#e4dfd6">incidents needs a test, since that is the one a mistake here would </tspan><tspan>  </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="347.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>  </tspan><tspan fill="#e4dfd6">page the wrong people over.</tspan><tspan>                                          </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="369.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>                                                                         </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="391.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan>                                                                           </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
-  <text x="0" y="413.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>   </tspan><tspan fill="#97938c">▾ </tspan><tspan fill="#d2a5cd">@jon-avery</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#e4dfd6">src/dispatch/router.rs:88</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#85c7d7">unresolved</tspan><tspan>                 </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
-  <text x="0" y="435.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>  </tspan><tspan fill="#d2a5cd">@jon-avery</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#97938c">3h ago</tspan><tspan>                                                  </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
+  <text x="0" y="413.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>   </tspan><tspan fill="#97938c">▾ </tspan><tspan fill="#d2a5cd">@jon-avery</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#e4dfd6">src/dispatch/router.rs:88</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#85c7d7">unresolved</tspan><tspan>                 </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
+  <text x="0" y="435.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>  </tspan><tspan fill="#d2a5cd">@jon-avery</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#97938c">3h ago</tspan><tspan>                                                  </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="457.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>  </tspan><tspan fill="#e4dfd6">This decides the fallback again — the scheduler already does it. If </tspan><tspan> </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="479.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>  </tspan><tspan fill="#e4dfd6">the two ever disagree, a tenant without rules gets incidents on the </tspan><tspan> </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="501.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>  </tspan><tspan fill="#e4dfd6">daily send. Can this read the schedule the scheduler picked instead?</tspan><tspan> </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="523.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan> </tspan><tspan>                                                                         </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
-  <text x="0" y="545.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan>     </tspan><tspan>   </tspan><tspan fill="#ddc084" font-weight="700">Your reply</tspan><tspan fill="#4d4a45"> · </tspan><tspan fill="#faaa51">unsent</tspan><tspan>                                               </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
+  <text x="0" y="545.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan>     </tspan><tspan>   </tspan><tspan fill="#ddc084" font-weight="700">Your reply</tspan><tspan fill="#65625c"> · </tspan><tspan fill="#faaa51">unsent</tspan><tspan>                                               </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="567.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan>     </tspan><tspan>  </tspan><tspan fill="#e4dfd6">Good catch — they could drift, and the failure mode is the one </tspan><tspan>  </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="589.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan>     </tspan><tspan>  </tspan><tspan fill="#e4dfd6">you describe: a tenant without routing rules would get incidents </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>
   <text x="0" y="611.0" textLength="1400" lengthAdjust="spacingAndGlyphs" xml:space="preserve"><tspan> </tspan><tspan> </tspan><tspan>                                                          </tspan><tspan> </tspan><tspan>     </tspan><tspan>  </tspan><tspan fill="#e4dfd6">on the daily send if the router and the scheduler ever disagreed </tspan><tspan>  </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan><tspan> </tspan></text>

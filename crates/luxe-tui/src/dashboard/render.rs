@@ -247,7 +247,7 @@ impl DashboardState {
         let parts = match entry {
             Entry::Heading(label, note) => {
                 let mut spans = vec![Span::raw(" ")];
-                spans.extend(badge(label, Depth::Recessed, theme.slab.canvas, theme));
+                spans.extend(badge(*label, Depth::Recessed, theme.slab.canvas, theme));
                 if let Some(note) = note {
                     spans.push(Span::styled(format!(" {note}"), theme.muted));
                 }

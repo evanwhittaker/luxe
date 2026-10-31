@@ -88,6 +88,33 @@ pub(super) const CURSOR_LINE_WASH: f32 = 0.07;
 /// How far a pick's band leans from the canvas toward the accent.
 pub(super) const PICK_WASH: f32 = 0.24;
 
+/// The bands under rows a cursor or a pick marks.
+impl super::ThemeStyles {
+    /// The faint band under the line a cursor stands on: there at a glance, quieter than a pick.
+    pub fn cursor_line_bg(&self) -> Style {
+        self.wash(self.text, CURSOR_LINE_WASH, self.tool_bg)
+    }
+
+    /// The cursor's band over a row already wearing `band`, a diff's add or delete tint: the same
+    /// faint lift toward the text, so the row reads as changed and as the cursor's at once. Where
+    /// the theme has no colors to blend the tint stays, and the gutter's mark carries the cursor.
+    pub fn cursor_line_over(&self, band: Option<Style>) -> Style {
+        let Some(band) = band else { return self.cursor_line_bg() };
+        match (rgb_color(self.text.fg), rgb_color(band.bg)) {
+            (Some(text), Some(under)) => {
+                Style::default().bg(blend_rgb(text, under, CURSOR_LINE_WASH))
+            }
+            _ => band,
+        }
+    }
+
+    /// The band under picked lines, in the accent's hue, so a pick never reads as the cursor line
+    /// or as the plain highlight a hovered row wears.
+    pub fn pick_bg(&self) -> Style {
+        self.wash(self.accent, PICK_WASH, self.selected_bg)
+    }
+}
+
 /// A ramp of [`ACTIVITY_TRAIL_LEN`] shades fading `style`'s color into `base`, nearest end first.
 pub(super) fn shade_ramp(
     style: Style,

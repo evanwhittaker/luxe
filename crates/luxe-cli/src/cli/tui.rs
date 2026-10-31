@@ -76,6 +76,8 @@ pub(super) async fn run_tui(
             },
             crate::workspace_runtime::pull_request_watch(&settings.work_root),
         );
+        let event_rx =
+            crate::workspace_runtime::custom_dock_feed(event_rx, &settings, &session_id.0);
         let (event_rx, _sharing) =
             super::share::share(event_rx, engine_tx.clone(), &settings, &session_id.0);
         let exit = main_loop::run(
@@ -285,6 +287,7 @@ async fn starting_status(
         launch.context_window,
         settings.starting_thinking(),
         settings.auto_approve,
+        settings.trust_project,
     )
     .await
 }

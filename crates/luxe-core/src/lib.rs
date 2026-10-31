@@ -17,6 +17,7 @@ pub mod compression;
 pub mod config;
 pub(crate) mod context;
 pub mod context_report;
+pub mod custom_dock;
 pub mod dashboard;
 pub(crate) mod empty_blocks;
 pub mod engine;

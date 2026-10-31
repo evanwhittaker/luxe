@@ -91,9 +91,8 @@ fn state_words(finding: &ReviewFinding) -> (&'static str, &'static str) {
             ("the agent replied", "info")
         }
         FindingState::Open => ("sent \u{00b7} waiting on the agent", "dim"),
-        FindingState::NeedsVerification => ("to verify", "info"),
-        FindingState::Resolved => ("verified", "success"),
-        FindingState::Stale => ("the code moved", "dim"),
+        FindingState::Resolved => ("resolved", "success"),
+        FindingState::Stale => ("outdated", "dim"),
     }
 }
 
@@ -120,16 +119,14 @@ fn thread(renderer: &dyn Renderer, finding: &ReviewFinding) -> String {
 }
 
 /// The edits the review desk takes in this state: a draft is sent or deleted, an open comment
-/// answered or resolved, a resolved one reopened. A moved one is the TUI's to re-anchor.
+/// answered or resolved, a resolved one reopened. An outdated one can still be resolved.
 fn acts(finding: &ReviewFinding) -> &'static [(&'static str, &'static str)] {
     match finding.state {
         _ if finding.posted.is_some() => &[],
         FindingState::Draft => &[("send", "Send"), ("delete", "Delete")],
-        FindingState::Open | FindingState::NeedsVerification => {
-            &[("reply", "Reply"), ("resolve", "Resolve")]
-        }
+        FindingState::Open => &[("reply", "Reply"), ("resolve", "Resolve")],
         FindingState::Resolved => &[("reopen", "Reopen")],
-        FindingState::Stale => &[],
+        FindingState::Stale => &[("resolve", "Resolve")],
     }
 }
 

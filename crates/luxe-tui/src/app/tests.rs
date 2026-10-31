@@ -3,6 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use luxe_core::engine::ReviewEdit;
 mod composer;
 mod dashboard;
+mod esc_interrupt;
 mod github;
 mod joined;
 mod mentions;

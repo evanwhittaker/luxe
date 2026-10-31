@@ -58,9 +58,9 @@
     },
     "images": {
       "type": "string",
-      "enum": ["auto", "pixels", "blocks", "off"],
+      "enum": ["auto", "pixels", "sixel", "blocks", "off"],
       "default": "auto",
-      "description": "How an inline image is drawn. pixels uses the kitty graphics protocol; blocks uses half-block cells, which are coarse but need no protocol; off prints a line naming the image and its size. auto (default) picks pixels where the terminal is known to draw them and blocks everywhere else."
+      "description": "How an inline image is drawn. pixels uses the kitty graphics protocol; sixel uses Sixel graphics, which Windows Terminal 1.22 and later draw; blocks uses half-block cells, which are coarse but need no protocol; off prints a line naming the image and its size. auto (default) picks pixels where the terminal is known to draw them and blocks everywhere else."
     },
     "tools": {
       "type": "object",
@@ -167,6 +167,52 @@
           "enum": ["left", "right"],
           "default": "left",
           "description": "Which side the full-height sidebar occupies."
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "anyOf": [
+              { "enum": ["project", "plan", "files", "elsewhere", "model", "usage", "session"] },
+              { "description": "A section defined under 'custom'." }
+            ]
+          },
+          "uniqueItems": true,
+          "default": ["project", "plan", "files", "elsewhere", "model", "usage", "session"],
+          "description": "Which dock sections show, in order; leave one out to hide it. PROJECT stays at the top and MODEL, USAGE and SESSION at the bottom beside the composer, so the order applies within those groups. Hiding MODEL keeps its auto-approve warning on screen. A name from 'custom' places that section."
+        },
+        "custom": {
+          "type": "object",
+          "description": "Dock sections drawn from a program, by name. The program gets the session's state as JSON on stdin and answers with rows. Only read from your own config, or a project's under --trust-project. A custom section with a built-in's name replaces it.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1,
+                "description": "Program and arguments, run directly without a shell. A leading ~/ is expanded."
+              },
+              "title": {
+                "type": "string",
+                "description": "The section's heading. Default: its name, uppercased."
+              },
+              "place": {
+                "type": "string",
+                "enum": ["middle", "bottom"],
+                "default": "bottom",
+                "description": "'middle' joins PLAN and FILES; 'bottom' joins MODEL and SESSION beside the composer."
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 2000,
+                "description": "Most a run may take, in milliseconds, capped at 10000."
+              }
+            },
+            "required": ["command"],
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false
@@ -493,7 +539,10 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["project", "branch", "pr", "todo", "changes", "cwd", "activity"]
+            "anyOf": [
+              { "enum": ["project", "branch", "pr", "todo", "changes", "cwd", "activity"] },
+              { "description": "A module defined under 'custom'." }
+            ]
           },
           "uniqueItems": true,
           "default": ["project", "branch", "pr", "todo", "changes"],
@@ -503,7 +552,10 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["context", "cost", "tokens", "thinking", "model"]
+            "anyOf": [
+              { "enum": ["context", "cost", "tokens", "thinking", "model"] },
+              { "description": "A module defined under 'custom'." }
+            ]
           },
           "uniqueItems": true,
           "default": ["context", "cost", "tokens", "thinking", "model"],
@@ -513,6 +565,29 @@
           "type": "boolean",
           "default": false,
           "description": "Color the thinking module by level: muted off, text minimal, yellow low, green medium, blue high, purple xhigh, magenta ultra."
+        },
+        "custom": {
+          "type": "object",
+          "description": "Modules drawn from a program, by name; list a name in 'left' or 'right' to show it. The program gets the session's state as JSON on stdin and answers with a row. Only read from your own config, or a project's under --trust-project. A custom module with a built-in's name replaces it.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1,
+                "description": "Program and arguments, run directly without a shell. A leading ~/ is expanded."
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 2000,
+                "description": "Most a run may take, in milliseconds, capped at 10000."
+              }
+            },
+            "required": ["command"],
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false

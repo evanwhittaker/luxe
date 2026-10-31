@@ -56,7 +56,7 @@ pub(super) fn tree_row_line(
             right: Vec::new(),
         },
         // What `.gitignore` ignores is drawn faint, since it is there only because it was asked for
-        TreeRow::Folder { name, depth, open: unfolded, holds_change, ignored, .. } => TreeCells {
+        TreeRow::Folder { name, depth, open: unfolded, ignored, .. } => TreeCells {
             depth: *depth,
             lead: TreeLead::Folder { open: *unfolded },
             name: name.clone(),
@@ -64,10 +64,7 @@ pub(super) fn tree_row_line(
                 true => styles.dim,
                 false => styles.text.add_modifier(Modifier::BOLD),
             },
-            right: match *holds_change && !*unfolded {
-                true => vec![(" •".to_string(), styles.warning)],
-                false => Vec::new(),
-            },
+            right: folder_mark(row, styles),
         },
         TreeRow::File { name, depth, change, ignored, .. } => {
             let (name_style, right) = match change {
@@ -103,6 +100,24 @@ pub(super) fn tree_row_line(
         }
     };
     tree_line(cells, width, highlight, app)
+}
+
+/// What a folder row says on the right: CHANGES' `?` for a folder git reports as new, open or
+/// closed, since that is the whole folder's status; a dot for a closed one with a change inside.
+fn folder_mark(
+    row: &TreeRow,
+    styles: &crate::theme::styles::ThemeStyles,
+) -> Vec<(String, ratatui::style::Style)> {
+    let TreeRow::Folder { open, holds_change, untracked, .. } = row else { return Vec::new() };
+    if *untracked {
+        let (marker, style) =
+            status_mark(luxe_core::workspace::FileChangeStatus::Untracked, styles);
+        return vec![(format!(" {marker}"), style)];
+    }
+    match *holds_change && !*open {
+        true => vec![(" •".to_string(), styles.warning)],
+        false => Vec::new(),
+    }
 }
 
 /// What a tree row draws, whichever list it sits in: FILES' tree, or a place under ELSEWHERE.

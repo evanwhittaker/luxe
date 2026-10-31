@@ -124,7 +124,7 @@ fn carried_comments_join_the_review_each_once_where_their_code_is() {
     let mut session = ReviewSession::new(ReviewId::new(), ReviewTarget::WorkingTree, source(), 42);
     let mut remaps = vec![
         FindingAnchorRefresh::Exact,
-        FindingAnchorRefresh::NeedsVerification(moved_to.clone()),
+        FindingAnchorRefresh::Moved(moved_to.clone()),
         FindingAnchorRefresh::Stale,
     ]
     .into_iter();
@@ -262,10 +262,10 @@ fn stale_finding_reanchor_requires_reviewer_confirmation() {
         FindingAnchor::Chapter { chapter_id: ChapterId::from_item_keys("semantic", &["new home"]) };
     assert_eq!(session.reanchor_stale_finding(&finding_id, anchor.clone()), Ok(()));
     assert_eq!(session.findings[0].anchor, anchor);
-    assert_eq!(session.findings[0].state, FindingState::NeedsVerification);
+    assert_eq!(session.findings[0].state, FindingState::Open);
     assert_eq!(
         session.reanchor_stale_finding(&finding_id, FindingAnchor::Review),
-        Err(ReviewSessionMutationError::FindingNotStale { state: FindingState::NeedsVerification })
+        Err(ReviewSessionMutationError::FindingNotStale { state: FindingState::Open })
     );
 }
 
@@ -360,7 +360,7 @@ fn line_anchor_remap_requires_an_exact_or_unique_context_match() {
     };
     assert!(matches!(
         remap_finding_anchor(&moved, &parsed.files, &[]),
-        FindingAnchorRefresh::NeedsVerification(anchor) if anchor == exact
+        FindingAnchorRefresh::Moved(anchor) if anchor == exact
     ));
 }
 
@@ -504,7 +504,7 @@ fn agent_fixed_report_requires_reviewer_verification_and_retains_evidence() {
     assert_eq!(session.record_remediation_report(&report, 44), Ok(()));
     let fixed = session.findings.iter().find(|finding| finding.id == fixed_id).unwrap();
     let not_fixed = session.findings.iter().find(|finding| finding.id == not_fixed_id).unwrap();
-    assert_eq!(fixed.state, FindingState::NeedsVerification);
+    assert_eq!(fixed.state, FindingState::Open, "a reported fix is a message, not a state");
     assert_eq!(not_fixed.state, FindingState::Open);
     assert_eq!(
         fixed.thread.last().map(|message| message.author),
@@ -622,8 +622,8 @@ fn a_submission_asks_for_the_strongest_thing_in_it() {
     }
 }
 
-/// Unsent means written or open and never posted: resolved, stale, needing verification, or
-/// already on GitHub are all accounted for elsewhere.
+/// Unsent means written or open and never posted: resolved, stale, or already on GitHub are all
+/// accounted for elsewhere.
 #[test]
 fn only_written_and_open_comments_never_posted_are_unsent() {
     let mut session = ReviewSession::new(ReviewId::new(), ReviewTarget::WorkingTree, source(), 42);
@@ -637,10 +637,34 @@ fn only_written_and_open_comments_never_posted_are_unsent() {
         state(FindingState::Open),
         state(FindingState::Resolved),
         state(FindingState::Stale),
-        state(FindingState::NeedsVerification),
         posted,
     ];
     let expected: Vec<FindingId> =
         session.findings[..2].iter().map(|finding| finding.id.clone()).collect();
     assert_eq!(session.unsent_finding_ids(), expected);
+}
+
+/// A sent comment goes to the agent once: the agent's report leaves it out of the next send, and
+/// the reviewer's reply puts it back.
+///
+/// The break this catches: a comment the agent reported fixed going back to it on the next send,
+/// or a reply that never reaches it.
+#[test]
+fn a_sent_comment_goes_again_only_after_a_reply() {
+    let mut session = ReviewSession::new(ReviewId::new(), ReviewTarget::WorkingTree, source(), 42);
+    let finding = finding(FindingAnchor::Review);
+    let finding_id = finding.id.clone();
+    session.add_finding(finding).expect("add the comment");
+    let ids = std::slice::from_ref(&finding_id);
+    let mode = ReviewFeedbackMode::RequestFixes;
+    session.queue_submission(SubmissionId::new(), mode, ids, &[], 43).expect("send it");
+    session.findings[0].thread.push(FindingMessage {
+        author: FindingMessageAuthor::Agent,
+        body: "Agent reported: fixed.".into(),
+        created_at_ms: 44,
+    });
+    assert_eq!(session.findings[0].state, FindingState::Open);
+    assert!(session.unsent_finding_ids().is_empty(), "the agent already answered it");
+    session.append_reviewer_message(&finding_id, "Still wrong.".into(), 45).expect("reply");
+    assert_eq!(session.unsent_finding_ids(), vec![finding_id], "the reply sends it again");
 }

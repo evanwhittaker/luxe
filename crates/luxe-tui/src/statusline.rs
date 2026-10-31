@@ -17,6 +17,7 @@
 //! the plan has got, which is a slower fact and survives a glance.
 
 mod activity;
+mod custom;
 mod layout;
 pub mod plain;
 mod segments;
@@ -25,6 +26,7 @@ use crate::app::App;
 use crate::theme::styles::{Depth, SlabShades, ThemeStyles};
 use crate::workspace_dock::DockPresentation;
 pub(crate) use activity::{activity_parts, format_elapsed_compact, thinking_label};
+pub(crate) use custom::MAX_CUSTOM_WIDTH;
 use layout::{compose_line, fit_segments, lay, Shape, Side};
 use luxe_core::{
     config::{StatuslineModule, StatuslineStyle},
@@ -102,6 +104,8 @@ pub struct StatusContext {
     pub cwd: Option<String>,
     /// Whether the session starts in walk-away mode (`--auto-approve`)
     pub auto_approve: bool,
+    /// Whether the project's own config is trusted (`--trust-project`)
+    pub trust_project: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,6 +128,10 @@ enum SegmentKind {
     Cost,
     /// Walk-away mode, drawn only while it is on — not a configurable module.
     AutoApprove,
+    /// A `statusline.custom` module.
+    ///
+    /// Args: its place in its side's list, so two custom modules never count as one.
+    Custom(usize),
 }
 
 impl SegmentKind {
@@ -143,8 +151,9 @@ impl SegmentKind {
             // meant to press reads as a label rather than as something to do.
             Self::Cwd | Self::Todo | Self::Changes | Self::Hint | Self::Context => Surface::Bare,
             // Like the context reading: its color is the datum, and a slab behind it would argue
-            // with the warning hue that is the whole point of drawing it.
-            Self::AutoApprove => Surface::Bare,
+            // with the warning hue that is the whole point of drawing it. A custom module's colors
+            // are the program's to choose, so the same goes for it.
+            Self::AutoApprove | Self::Custom(_) => Surface::Bare,
             Self::Heading | Self::Project | Self::Model => Surface::Slab(Depth::Hero),
             Self::Branch | Self::PullRequest | Self::Activity | Self::Thinking => {
                 Surface::Slab(Depth::Raised)

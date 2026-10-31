@@ -17,6 +17,7 @@ use luxe_core::guided_review::ReviewFile;
 use luxe_core::project_files::{FileReadRequestId, ProjectFile, ProjectFileFailure};
 
 mod cells;
+mod cursor;
 pub(crate) use cells::CellPick;
 
 /// How far one wheel notch moves the diff.
@@ -116,6 +117,11 @@ pub(crate) struct ChangesView {
     pub(crate) focused: bool,
     /// The File view line the keyboard is on, 1-based
     pub(crate) cursor: Option<u32>,
+    /// The diff row the keyboard is on, in the row space the diff scrolls in
+    pub(crate) diff_cursor: Option<usize>,
+    /// Visual lines each diff row took in the last frame, so the cursor can be kept on screen
+    /// across wrapped lines and the blank above a hunk
+    pub(crate) diff_row_heights: std::cell::RefCell<Vec<usize>>,
     /// Visual-line mode: every move grows the pick from where it began, as `V` does in vim
     pub(crate) visual: bool,
     /// Text selected with the mouse, by the character
@@ -143,6 +149,8 @@ impl ChangesView {
             selection: None,
             focused: false,
             cursor: None,
+            diff_cursor: None,
+            diff_row_heights: std::cell::RefCell::new(Vec::new()),
             visual: false,
             cells: None,
         }
@@ -258,6 +266,7 @@ impl ChangesView {
         self.text_request = None;
         self.selection = None;
         self.cursor = None;
+        self.diff_cursor = None;
         self.visual = false;
         self.cells = None;
         self.scroll = 0;
@@ -344,6 +353,8 @@ impl ChangesView {
         self.request = None;
         self.load = diff.file.map_or(ChangesLoad::Unchanged, ChangesLoad::Ready);
         self.scroll = 0;
+        // The rows it stood on are gone, so a cursor starts again where the view does
+        self.diff_cursor = self.diff_cursor.map(|_| 0);
         self.cells = None;
         true
     }

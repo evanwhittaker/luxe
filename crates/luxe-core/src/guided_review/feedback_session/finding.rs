@@ -142,15 +142,19 @@ pub enum FindingSeverity {
 }
 
 /// Lifecycle state controlled by user review, never inferred from a missing line.
+///
+/// The same three a GitHub review thread has: pending (`Draft`), open or resolved, and outdated
+/// (`Stale`). An agent's report that it fixed something is a message on the thread, not a state:
+/// the thread already says it, and only the reviewer closes it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FindingState {
     /// Local finding not included in a submission yet.
     Draft,
-    /// Submitted finding awaiting remediation or verification.
+    /// Submitted finding the reviewer has not closed.
+    // older saved reviews and clients may still carry `needs_verification`; it reads as open
+    #[serde(alias = "needs_verification")]
     Open,
-    /// A refresh or agent report requires user confirmation.
-    NeedsVerification,
     /// Explicitly resolved by the reviewer.
     Resolved,
     /// Original anchor no longer maps conservatively.

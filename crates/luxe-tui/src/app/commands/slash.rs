@@ -82,10 +82,8 @@ pub(super) fn run_slash(app: &mut App, cmd: &crate::commands::Command) -> bool {
         id::WORKTREE => worktree_command(app, cmd.args.as_deref()),
         id::EDITOR => editor::editor_command(app, cmd.args.as_deref()),
         id::COST => {
-            let report = crate::cost_report::render_with_plan(
-                &app.status.session,
-                app.status.plan_usage.as_ref(),
-            );
+            let plan = app.status.plan_usage_now(app.frame_now());
+            let report = crate::cost_report::render_with_plan(&app.status.session, plan.as_ref());
             app.push_convo(ConvoBlock::System(report));
         }
         // The engine owns the measurement — it is the only place the assembled prompt, the tool
@@ -264,7 +262,7 @@ fn permissions_command(app: &mut App, arguments: Option<&str>) {
 }
 
 pub(crate) fn reload_config(app: &mut App, repo_root: &std::path::Path) {
-    let new_config = Config::load(repo_root);
+    let new_config = Config::load_trusted(repo_root, app.status.trust_project);
     app.themes.reread();
     for notice in crate::app::theme_notices(&new_config, &app.themes) {
         app.push_convo(ConvoBlock::System(notice));

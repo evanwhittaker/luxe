@@ -3,7 +3,8 @@
 use super::*;
 
 /// The footer trims its least important key the moment the row would overflow, and not a
-/// cell before: all five fit in exactly their width, and a narrower row keeps what matters.
+/// cell before: all seven fit in exactly their width, the layout keys go first, and a narrower
+/// row keeps what matters.
 #[test]
 fn the_footer_trims_by_priority_at_its_exact_width() {
     let app = seeded_app("nord", FixtureScenario::GuidedReviewReady).expect("fixture app");
@@ -13,8 +14,15 @@ fn the_footer_trims_by_priority_at_its_exact_width() {
             .map(|segment| segment.label)
             .collect()
     };
-    let all = ["space next", "c comment", "a ask agent", "alt+enter finish", "? help"];
-    assert_eq!(footer_segments_width(&ready_footer_segments(&app, 200)), 64);
+    let work = ["space next", "c comment", "a ask agent", "alt+enter finish"];
+    let with = |layout: &[&str]| -> Vec<String> {
+        work.iter().chain(layout).chain(&["? help"]).map(ToString::to_string).collect()
+    };
+    assert_eq!(footer_segments_width(&ready_footer_segments(&app, 200)), 95);
+    assert_eq!(labels(95), with(&["ctrl+b side by side", "w wrap"]));
+    assert_eq!(labels(94), with(&["ctrl+b side by side"]), "wrap goes first");
+    assert_eq!(labels(85), with(&[]), "then the layout");
+    let all = with(&[]);
     assert_eq!(labels(64), all);
     assert_eq!(labels(63), ["space next", "c comment", "alt+enter finish", "? help"]);
     assert_eq!(labels(49), ["space next", "alt+enter finish", "? help"]);
@@ -87,14 +95,14 @@ fn footer_clicks_land_on_the_key_drawn_there() {
     assert_eq!(target(at("space next")), Some(next));
 }
 
-/// The feedback window offers to send from inside itself, and only where sending does
-/// anything: not on someone else's pull request, whose comments go to GitHub.
+/// The feedback window offers to send from inside itself and names where the comments go: the
+/// agent, or GitHub on someone else's pull request.
 #[test]
 fn the_feedback_window_offers_sending() {
     let mut app = seeded_app("nord", FixtureScenario::GuidedReviewFindings).expect("fixture app");
     let hint = |app: &mut App| frame_rows(app, 160, 40).join("\n");
     let own = hint(&mut app);
-    assert!(own.contains("c reply · u send · esc close"), "{own}");
+    assert!(own.contains("c reply · alt+u send to the agent · esc close"), "{own}");
     app.guided_review.as_mut().expect("review").source.base =
         luxe_core::guided_review::ReviewBase::PullRequest {
             number: 42,
@@ -105,7 +113,10 @@ fn the_feedback_window_offers_sending() {
             head_oid: "a9d9d84ee3e848f0e1ea97eaef837126d3a7d983".into(),
         };
     let theirs = hint(&mut app);
-    assert!(!theirs.contains("u send"), "{theirs}");
+    assert!(
+        theirs.contains("alt+enter post to GitHub") && !theirs.contains("send to the agent"),
+        "{theirs}"
+    );
 }
 
 /// The footer names finishing, which is where committing and opening a pull request live, and

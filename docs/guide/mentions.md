@@ -6,8 +6,8 @@ group: "Using luxe"
 ---
 
 Type `@` at the start of a word in the composer to mention something. The picker opens on your
-project's files; `tab` and `shift+tab` move between its tabs, typing filters, `↑`/`↓` move,
-`enter` inserts the mention, and `esc` or a space closes it.
+project's files; `tab` and `shift+tab` move between its tabs (or click one), typing filters,
+`↑`/`↓` move, `enter` inserts the mention, and `esc` or a space closes it.
 
 ![The @ picker on its Files tab, changed files first](images/mentions-picker.svg)
 

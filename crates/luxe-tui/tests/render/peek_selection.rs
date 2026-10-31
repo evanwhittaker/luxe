@@ -29,14 +29,21 @@ fn drag(app: &mut App, from: (u16, u16), to: (u16, u16)) {
     mouse(app, MouseEventKind::Up(MouseButton::Left), to);
 }
 
+/// What the copy key puts on the clipboard.
+fn copied(app: &mut App) -> Option<String> {
+    let modifiers = KeyModifiers::CONTROL | KeyModifiers::SHIFT;
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Char('c'), modifiers)));
+    app.outbox.copy.clone()
+}
+
 /// Where `needle` first sits on screen, as `(column, row)`.
 fn find(buffer: &Buffer, needle: &str, width: u16, height: u16) -> (u16, u16) {
     let row = row_containing(buffer, needle, width, height);
     (column_of(&row_text(buffer, row, width), needle), row)
 }
 
-/// A drag over the File view's code highlights the characters it covers and copies them on
-/// release, as it does in the transcript. The code used to be only a line-pick target, so the same
+/// A drag over the File view's code highlights the characters it covers for a copy key, as it does
+/// in the transcript. The code used to be only a line-pick target, so the same
 /// drag picked the whole line instead.
 #[test]
 fn dragging_over_file_view_code_selects_and_copies_the_characters() {
@@ -53,7 +60,8 @@ fn dragging_over_file_view_code_selects_and_copies_the_characters() {
 
     mouse(&mut app, MouseEventKind::Up(MouseButton::Left), (column + 5, row));
     let shown = buffer_to_string(&render_app(&mut app, &backend));
-    assert_eq!(app.outbox.copy.as_deref(), Some("bravo"));
+    assert!(app.outbox.copy.is_none(), "a release copies nothing");
+    assert_eq!(copied(&mut app).as_deref(), Some("bravo"));
     assert!(!shown.contains("ask about"), "no lines were picked: {shown}");
 }
 
@@ -67,7 +75,54 @@ fn a_drag_across_lines_copies_the_source_tabs_and_all() {
     let (column, row) = find(&buffer, "bravo", width, height);
 
     drag(&mut app, start, (column + 5, row));
-    assert_eq!(app.outbox.copy.as_deref(), Some("alpha() {\n\tlet bravo"));
+    assert_eq!(copied(&mut app).as_deref(), Some("alpha() {\n\tlet bravo"));
+}
+
+fn shift(app: &mut App, code: KeyCode) {
+    app.update(Msg::Key(KeyEvent::new(code, KeyModifiers::SHIFT)));
+}
+
+/// Shift and an arrow, Home or End grow a File view drag by the character, as they grow one in the
+/// transcript, rather than starting a line pick over it.
+#[test]
+fn shift_and_an_arrow_grow_a_file_view_drag() {
+    let (width, height) = (100, 20);
+    let (mut app, _backend, buffer) = file_view(FILE, width, height);
+    let (column, row) = find(&buffer, "alpha", width, height);
+    drag(&mut app, (column, row), (column + 5, row));
+
+    // Down keeps the column, eight cells in, and the tab is four of them. The pane holds the
+    // keyboard after the press, and would otherwise take Shift and Down for a line pick
+    shift(&mut app, KeyCode::Down);
+    assert_eq!(copied(&mut app).as_deref(), Some("alpha() {\n\tlet "));
+    shift(&mut app, KeyCode::End);
+    assert_eq!(copied(&mut app).as_deref(), Some("alpha() {\n\tlet bravo = 1;"));
+    shift(&mut app, KeyCode::Left);
+    shift(&mut app, KeyCode::Left);
+    assert_eq!(copied(&mut app).as_deref(), Some("alpha() {\n\tlet bravo = "));
+}
+
+/// The diff grows the same way, and its cursor goes with the free end so the view can follow it.
+#[test]
+fn shift_and_down_grow_a_diff_drag_onto_the_next_row() {
+    let (width, height) = (90, 24);
+    let backend = test_backend(width, height);
+    let (mut app, mut rx) = create_app_with_engine();
+    app.update(Msg::TerminalResized { width, height });
+    app.dock.hide();
+    app.workspace = Some(changed_workspace("peek-select-step", 2));
+    let path = "src/module00/file00.rs";
+    open_changes_with(&mut app, &mut rx, path, Some(one_hunk_file(path)));
+    let buffer = render_app(&mut app, &backend);
+    let (start, row) = find(&buffer, "let total = a + b;", width, height);
+    drag(&mut app, (start, row), (start + 18, row));
+
+    shift(&mut app, KeyCode::Down);
+    let copy = copied(&mut app);
+    assert_eq!(copy.as_deref(), Some("let total = a + b;\nlet total = a - b;"));
+    let buffer = render_app(&mut app, &backend);
+    let next = row_containing(&buffer, "a - b", width, height);
+    assert!(peek_diff_text(&buffer, next, &app, width).contains('›'), "the cursor went too");
 }
 
 /// The line numbers still pick whole lines, which is how a reader asks the agent about them.
@@ -97,7 +152,7 @@ fn a_double_click_on_file_view_code_takes_the_word() {
     click_cell(&mut app, column + 2, row, now);
     click_cell(&mut app, column + 2, row, now);
     render_app(&mut app, &backend);
-    assert_eq!(app.outbox.copy.as_deref(), Some("bravo"));
+    assert_eq!(copied(&mut app).as_deref(), Some("bravo"));
 }
 
 /// A long line wraps, and a drag on a later row selects what that row shows, not the same columns
@@ -117,7 +172,7 @@ fn a_drag_on_a_wrapped_row_selects_what_that_row_shows() {
     let column = column_of(&text, &word);
 
     drag(&mut app, (column, first + 1), (column + 4, first + 1));
-    assert_eq!(app.outbox.copy.as_deref(), Some(word.as_str()));
+    assert_eq!(copied(&mut app).as_deref(), Some(word.as_str()));
 }
 
 /// In a side-by-side diff a drag stays in the column it began in: down the new side it copies the
@@ -142,7 +197,7 @@ fn a_drag_down_the_new_column_copies_only_new_code() {
     let (end, bottom) = find(&buffer, "let total = a - b;", width, height);
 
     drag(&mut app, (new_side, top), (end + 18, bottom));
-    assert_eq!(app.outbox.copy.as_deref(), Some("fn sum() {\nlet total = a - b;"));
+    assert_eq!(copied(&mut app).as_deref(), Some("fn sum() {\nlet total = a - b;"));
 }
 
 /// The unified diff selects the same way, across a deletion and the addition under it, and never
@@ -163,5 +218,6 @@ fn a_drag_over_the_unified_diff_copies_its_code() {
     let start = find(&buffer, "let total = a + b;", width, height);
     let (end, bottom) = find(&buffer, "let total = a - b;", width, height);
     drag(&mut app, start, (end + 18, bottom));
-    assert_eq!(app.outbox.copy.as_deref(), Some("let total = a + b;\nlet total = a - b;"));
+    let copy = copied(&mut app);
+    assert_eq!(copy.as_deref(), Some("let total = a + b;\nlet total = a - b;"));
 }

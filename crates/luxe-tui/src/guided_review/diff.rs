@@ -91,11 +91,17 @@ impl SplitRow<'_> {
     }
 
     /// The last unified row this row covers: its own index, or a pair's later half.
-    fn last_index(&self) -> usize {
+    pub(crate) fn last_index(&self) -> usize {
         match self {
             Self::Pair { last_index, .. } => *last_index,
             other => other.unified_index(),
         }
+    }
+
+    /// Whether unified `row` is drawn on this row: its own, or either half of a pair. The rows
+    /// between a pair's halves belong to the pairs beside it.
+    pub(crate) fn holds(&self, row: usize) -> bool {
+        row == self.unified_index() || row == self.last_index()
     }
 
     /// The hunk this row belongs to, when it belongs to one.

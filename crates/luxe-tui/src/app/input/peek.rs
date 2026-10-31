@@ -4,9 +4,9 @@
 //! trades it between the tree and the pane. In the File view a cursor moves line by line, the way
 //! the review's diff does, so a pick can be made from the keyboard as well as with a drag: `v` or
 //! `V` is vim's visual-line mode, where every move grows the pick until `y`, `Enter` or `Esc`. In
-//! the diff the keys scroll. `Ctrl+D` and `Ctrl+U` move half a page in either, the only chords
-//! the pane keeps; every other chord is the app's. A key the pane does not know hands the keyboard back and goes to the
-//! composer, the same as the tree.
+//! the diff the cursor moves row by row and picks nothing. `Ctrl+D` and `Ctrl+U` move half a page
+//! in either, the only chords the pane keeps; every other chord is the app's. A key the pane does
+//! not know hands the keyboard back and goes to the composer, the same as the tree.
 
 use crate::app::{App, Msg};
 use crate::changes::PeekView;
@@ -18,10 +18,14 @@ const EVERYTHING: i64 = i64::MAX / 4;
 
 /// Answers whether the pane took `key`.
 pub(super) fn peek_took(app: &mut App, key: KeyEvent) -> bool {
-    let Some(view) = app.changes.as_mut() else { return false };
-    if !view.focused {
+    if !app.changes.as_ref().is_some_and(|view| view.focused) {
         return false;
     }
+    // Text dragged over grows by the character, ahead of the line pick the same keys make
+    if crate::app::selection::peek_step_took(app, &key) {
+        return true;
+    }
+    let Some(view) = app.changes.as_mut() else { return false };
     let page = i64::try_from(view.viewport_rows.get().saturating_sub(1).max(1)).unwrap_or(1);
     if key.modifiers == KeyModifiers::CONTROL {
         // vim's half-page moves, the one pair of chords the pane keeps for itself
@@ -34,10 +38,7 @@ pub(super) fn peek_took(app: &mut App, key: KeyEvent) -> bool {
         if delta != 0 {
             match view.view {
                 PeekView::File => view.move_cursor(delta, false),
-                PeekView::Diff => app.update(Msg::ScrollChanges {
-                    up: delta < 0,
-                    lines: usize::try_from(half).unwrap_or(1),
-                }),
+                PeekView::Diff => view.move_diff_cursor(delta),
             }
             return true;
         }
@@ -57,6 +58,7 @@ pub(super) fn peek_took(app: &mut App, key: KeyEvent) -> bool {
             view.visual = false;
             view.selection = None;
         }
+        KeyCode::Esc if view.cells_picked() => view.cells = None,
         KeyCode::Esc => view.focused = false,
         KeyCode::Char('o') if view.visual => view.swap_pick_ends(),
         KeyCode::Char('o') => {
@@ -102,24 +104,22 @@ pub(super) fn peek_took(app: &mut App, key: KeyEvent) -> bool {
     true
 }
 
-/// The diff's keys: it has rows to scroll rather than lines to stand on.
+/// The diff's keys: its cursor moves through the rows, and the view follows it.
 fn diff_key(app: &mut App, key: KeyEvent, page: i64) -> bool {
-    let rows = usize::try_from(page).unwrap_or(1);
-    let msg = match key.code {
-        KeyCode::Down | KeyCode::Char('j') => Msg::ScrollChanges { up: false, lines: 1 },
-        KeyCode::Up | KeyCode::Char('k') => Msg::ScrollChanges { up: true, lines: 1 },
-        KeyCode::PageDown | KeyCode::Char(' ') => Msg::ScrollChanges { up: false, lines: rows },
-        KeyCode::PageUp => Msg::ScrollChanges { up: true, lines: rows },
-        KeyCode::Home | KeyCode::Char('g') => Msg::JumpChanges(true),
-        KeyCode::End | KeyCode::Char('G') => Msg::JumpChanges(false),
+    let Some(view) = app.changes.as_mut() else { return false };
+    let delta = match key.code {
+        KeyCode::Down | KeyCode::Char('j') => 1,
+        KeyCode::Up | KeyCode::Char('k') => -1,
+        KeyCode::PageDown | KeyCode::Char(' ') => page,
+        KeyCode::PageUp => -page,
+        KeyCode::Home | KeyCode::Char('g') => -EVERYTHING,
+        KeyCode::End | KeyCode::Char('G') => EVERYTHING,
         _ => {
-            if let Some(view) = app.changes.as_mut() {
-                view.focused = false;
-            }
+            view.focused = false;
             return false;
         }
     };
-    app.update(msg);
+    view.move_diff_cursor(delta);
     true
 }
 
@@ -134,136 +134,4 @@ fn pick_cursor_line(app: &mut App) {
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::app::Msg;
-    use crate::fixture::{seed_file_view, seeded_app, FixtureScenario};
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
-    fn press(app: &mut crate::app::App, code: KeyCode, modifiers: KeyModifiers) {
-        app.update(Msg::Key(KeyEvent::new(code, modifiers)));
-    }
-
-    fn previewing() -> crate::app::App {
-        let mut app = seeded_app("nord", FixtureScenario::ChatIdle).expect("chat fixture");
-        let text: String = (1..=40).map(|n| format!("line {n}\n")).collect();
-        seed_file_view(&mut app, "src/lib.rs", &text, None);
-        app.changes.as_ref().expect("a preview").viewport_rows.set(10);
-        app
-    }
-
-    /// The walk: Ctrl+T's message takes the keyboard from the composer to the tree to the preview,
-    /// Tab trades it back to the tree, and Esc gives it to the composer.
-    #[test]
-    fn the_keyboard_walks_from_the_composer_to_the_tree_to_the_preview() {
-        let mut app = previewing();
-        app.update(Msg::FocusFiles);
-        assert!(app.files.focused);
-        app.update(Msg::FocusFiles);
-        let view = app.changes.as_ref().expect("a preview");
-        assert!(view.focused && !app.files.focused);
-        assert_eq!(view.cursor, Some(1), "the cursor starts on the first line showing");
-
-        press(&mut app, KeyCode::Tab, KeyModifiers::NONE);
-        assert!(app.files.focused && !app.changes.as_ref().expect("a preview").focused);
-        press(&mut app, KeyCode::Tab, KeyModifiers::NONE);
-        assert!(app.changes.as_ref().expect("a preview").focused);
-        press(&mut app, KeyCode::Esc, KeyModifiers::NONE);
-        assert!(!app.changes.as_ref().expect("still open").focused && !app.files.focused);
-    }
-
-    /// The cursor moves line by line and the view follows it; Shift, or the capitals, grow a pick
-    /// from where it stood; a plain move drops the pick.
-    #[test]
-    fn the_cursor_moves_scrolls_and_picks() {
-        let mut app = previewing();
-        app.update(Msg::FocusPeek);
-        for _ in 0..12 {
-            press(&mut app, KeyCode::Char('j'), KeyModifiers::NONE);
-        }
-        let view = app.changes.as_ref().expect("a preview");
-        assert_eq!(view.cursor, Some(13));
-        assert_eq!(view.scroll, 3, "scrolled the least that keeps line 13 on a 10-row screen");
-
-        press(&mut app, KeyCode::Char('J'), KeyModifiers::SHIFT);
-        press(&mut app, KeyCode::Down, KeyModifiers::SHIFT);
-        assert_eq!(app.changes.as_ref().expect("a preview").selected_lines(), Some((13, 15)));
-        press(&mut app, KeyCode::Char('k'), KeyModifiers::NONE);
-        assert_eq!(app.changes.as_ref().expect("a preview").selection, None);
-
-        press(&mut app, KeyCode::Char('G'), KeyModifiers::SHIFT);
-        assert_eq!(app.changes.as_ref().expect("a preview").cursor, Some(40));
-        press(&mut app, KeyCode::Char('g'), KeyModifiers::NONE);
-        assert_eq!(app.changes.as_ref().expect("a preview").cursor, Some(1));
-    }
-
-    /// Enter asks about the pick, or the line the cursor is on, and hands the keyboard to the
-    /// composer, where the question is typed; a letter the pane does not know goes there too.
-    #[test]
-    fn enter_asks_about_the_cursor_line_and_typing_goes_to_the_composer() {
-        let mut app = previewing();
-        app.update(Msg::FocusPeek);
-        press(&mut app, KeyCode::Char('j'), KeyModifiers::NONE);
-        press(&mut app, KeyCode::Enter, KeyModifiers::NONE);
-        assert!(
-            app.editor.current_input().contains("src/lib.rs:2"),
-            "{}",
-            app.editor.current_input()
-        );
-        assert!(!app.changes.as_ref().expect("still open").focused);
-
-        app.update(Msg::FocusPeek);
-        press(&mut app, KeyCode::Char('w'), KeyModifiers::NONE);
-        assert!(!app.changes.as_ref().expect("still open").focused);
-        assert!(app.editor.current_input().ends_with('w'), "{}", app.editor.current_input());
-    }
-
-    /// `v` is visual-line mode: every move after it grows the pick, `o` swaps which end moves,
-    /// `y` copies and leaves the mode, and `Esc` drops it. Before, a move after `v` dropped the
-    /// pick, which is what a plain move does and not what anyone pressing `v` meant.
-    #[test]
-    fn v_keeps_growing_the_pick_until_it_is_used_or_dropped() {
-        let mut app = previewing();
-        app.update(Msg::FocusPeek);
-        press(&mut app, KeyCode::Char('j'), KeyModifiers::NONE);
-        press(&mut app, KeyCode::Char('v'), KeyModifiers::NONE);
-        press(&mut app, KeyCode::Char('j'), KeyModifiers::NONE);
-        press(&mut app, KeyCode::Down, KeyModifiers::NONE);
-        let view = app.changes.as_ref().expect("a preview");
-        assert!(view.visual);
-        assert_eq!(view.selected_lines(), Some((2, 4)));
-
-        press(&mut app, KeyCode::Char('o'), KeyModifiers::NONE);
-        press(&mut app, KeyCode::Char('k'), KeyModifiers::NONE);
-        assert_eq!(app.changes.as_ref().expect("a preview").selected_lines(), Some((1, 4)));
-
-        press(&mut app, KeyCode::Char('y'), KeyModifiers::NONE);
-        let view = app.changes.as_ref().expect("a preview");
-        assert!(!view.visual && view.selection.is_none(), "a yank ends the mode");
-        press(&mut app, KeyCode::Char('j'), KeyModifiers::NONE);
-        assert_eq!(app.changes.as_ref().expect("a preview").selection, None, "plain moves again");
-
-        press(&mut app, KeyCode::Char('V'), KeyModifiers::SHIFT);
-        press(&mut app, KeyCode::Char('j'), KeyModifiers::NONE);
-        press(&mut app, KeyCode::Esc, KeyModifiers::NONE);
-        let view = app.changes.as_ref().expect("a preview");
-        assert!(!view.visual && view.selection.is_none() && view.focused, "Esc drops it, stays");
-    }
-
-    /// `Ctrl+D` and `Ctrl+U` move the cursor half a page, and in visual mode grow the pick by it.
-    #[test]
-    fn ctrl_d_and_ctrl_u_move_half_a_page() {
-        let mut app = previewing();
-        app.update(Msg::FocusPeek);
-        press(&mut app, KeyCode::Char('d'), KeyModifiers::CONTROL);
-        // ten rows on screen: a page is nine, half of it four
-        assert_eq!(app.changes.as_ref().expect("a preview").cursor, Some(5));
-        press(&mut app, KeyCode::Char('v'), KeyModifiers::NONE);
-        press(&mut app, KeyCode::Char('d'), KeyModifiers::CONTROL);
-        assert_eq!(app.changes.as_ref().expect("a preview").selected_lines(), Some((5, 9)));
-        press(&mut app, KeyCode::Esc, KeyModifiers::NONE);
-        press(&mut app, KeyCode::Char('u'), KeyModifiers::CONTROL);
-        let view = app.changes.as_ref().expect("a preview");
-        assert_eq!(view.cursor, Some(5));
-        assert!(view.focused, "the keyboard stays in the pane");
-    }
-}
+mod tests;

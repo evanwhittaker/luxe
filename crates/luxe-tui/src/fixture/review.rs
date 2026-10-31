@@ -26,7 +26,6 @@ pub(super) fn seed(app: &mut App, scenario: FixtureScenario) -> Result<bool, Str
         | FixtureScenario::GuidedReviewWide
         | FixtureScenario::GuidedReviewFindingsEmpty
         | FixtureScenario::GuidedReviewFindings
-        | FixtureScenario::GuidedReviewNeedsVerification
         | FixtureScenario::GuidedReviewFinish
         | FixtureScenario::GuidedReviewMedium
         | FixtureScenario::GuidedReviewNarrow

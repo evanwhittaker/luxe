@@ -110,7 +110,9 @@ impl ReviewSession {
         Ok(())
     }
 
-    /// Reanchors a stale finding at an explicit reviewer-selected current location.
+    /// Reanchors a stale finding at an explicit reviewer-selected current location, opening it
+    /// again there. RPC clients move outdated comments with this; the TUI leaves them outdated, as
+    /// GitHub does.
     pub fn reanchor_stale_finding(
         &mut self,
         finding_id: &FindingId,
@@ -126,7 +128,7 @@ impl ReviewSession {
             return Err(ReviewSessionMutationError::FindingNotStale { state: finding.state });
         }
         finding.anchor = anchor;
-        finding.state = FindingState::NeedsVerification;
+        finding.state = FindingState::Open;
         Ok(())
     }
 
@@ -175,7 +177,7 @@ impl ReviewSession {
             }
             match remap(&finding.anchor) {
                 FindingAnchorRefresh::Exact => {}
-                FindingAnchorRefresh::NeedsVerification(anchor) => finding.anchor = anchor,
+                FindingAnchorRefresh::Moved(anchor) => finding.anchor = anchor,
                 FindingAnchorRefresh::Stale => finding.state = FindingState::Stale,
             }
             if self.findings.iter().any(|existing| existing.label == finding.label) {
@@ -220,16 +222,43 @@ impl ReviewSession {
         }
     }
 
-    /// The comments not sent anywhere yet: written or open, and never posted to GitHub.
+    /// The comments the agent has not seen as they stand, and never posted to GitHub: drafts, and
+    /// open comments never sent or replied to since they last were.
+    ///
+    /// A comment goes to the agent once, as a GitHub thread does to its author; a reply is what
+    /// sends it again. So a comment the agent reported fixed waits for the reviewer instead of
+    /// going back to an agent that already answered it.
     pub fn unsent_finding_ids(&self) -> Vec<FindingId> {
         self.findings
             .iter()
-            .filter(|finding| {
-                matches!(finding.state, FindingState::Draft | FindingState::Open)
-                    && finding.posted.is_none()
+            .filter(|finding| finding.posted.is_none())
+            .filter(|finding| match finding.state {
+                FindingState::Draft => true,
+                FindingState::Open => self.has_news_for_the_agent(finding),
+                FindingState::Resolved | FindingState::Stale => false,
             })
             .map(|finding| finding.id.clone())
             .collect()
+    }
+
+    /// Whether the agent has yet to see this comment as it stands: it was never sent and never
+    /// answered (a thread adopted from GitHub, a reopened draft), or the reviewer has replied
+    /// since the agent last had it.
+    fn has_news_for_the_agent(&self, finding: &ReviewFinding) -> bool {
+        let sent = self
+            .submissions
+            .iter()
+            .filter(|submission| submission.findings.iter().any(|s| s.finding_id == finding.id))
+            .map(|submission| submission.created_at_ms);
+        let answered = finding
+            .thread
+            .iter()
+            .filter(|message| message.author == FindingMessageAuthor::Agent)
+            .map(|message| message.created_at_ms);
+        let Some(last_seen) = sent.chain(answered).max() else { return true };
+        finding.thread.iter().any(|message| {
+            message.author == FindingMessageAuthor::Reviewer && message.created_at_ms > last_seen
+        })
     }
 
     /// Updates mutable text for a local draft while retaining its immutable evidence and history.

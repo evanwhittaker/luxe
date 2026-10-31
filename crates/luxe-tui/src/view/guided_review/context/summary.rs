@@ -43,10 +43,10 @@ pub(super) enum ChecksTone {
     Unsettled,
 }
 
-/// The `{n} files · +a −d · {n} hunks` change-size summary for the review.
+/// The `{n} files · +a −d` change-size summary for the review.
 ///
-/// The hunk count joined it when the overview's own "Scale" section went: that section restated
-/// this line and added the one figure it was missing.
+/// No hunk count: the heading's `Step 1 of 7` already says how many steps the walk has, and two
+/// numbers that nearly always agree read as two things to keep track of.
 pub(super) fn review_stats_summary(review: &luxe_core::guided_review::GuidedReview) -> String {
     let mut stats = format!(
         "{} {}",
@@ -55,13 +55,6 @@ pub(super) fn review_stats_summary(review: &luxe_core::guided_review::GuidedRevi
     );
     if let (Some(additions), Some(deletions)) = (review.stats.additions, review.stats.deletions) {
         stats.push_str(&format!(" · +{additions} −{deletions}"));
-    }
-    if review.stats.hunks > 0 {
-        stats.push_str(&format!(
-            " · {} {}",
-            review.stats.hunks,
-            if review.stats.hunks == 1 { "hunk" } else { "hunks" }
-        ));
     }
     stats
 }
@@ -215,8 +208,8 @@ pub(super) fn chapter_progress_summary(
 
 /// Whether `finding` went in a send the agent has not finished: queued, or its turn running.
 ///
-/// Sent is not the same thing. Once its turn is over a comment is back with the reader, to verify
-/// or to read, whatever its state says.
+/// Sent is not the same thing. Once its turn is over a comment is back with the reader, to read
+/// and resolve, whatever its state says.
 pub(in crate::view::guided_review) fn with_the_agent(
     session: &luxe_core::guided_review::ReviewSession,
     finding: &luxe_core::guided_review::FindingId,
@@ -268,7 +261,7 @@ pub(super) fn feedback_summary(
         .map_or_else(|| "No feedback yet".into(), |tally| format!("Feedback {tally}"))
 }
 
-/// `3 · 2 unposted`: how many comments, and the one thing the most urgent of them is waiting on.
+/// `3 · 2 not posted`: how many comments, and the one thing the most urgent of them is waiting on.
 /// `None` with nothing written.
 pub(super) fn feedback_tally(
     session: Option<&luxe_core::guided_review::ReviewSession>,
@@ -291,20 +284,17 @@ pub(super) fn feedback_tally(
         .count();
     let posted = count(|finding| finding.posted.is_some());
     let sent = |finding: &&luxe_core::guided_review::ReviewFinding| {
-        matches!(finding.state, FindingState::Open | FindingState::NeedsVerification)
-            && finding.posted.is_none()
+        finding.state == FindingState::Open && finding.posted.is_none()
     };
     let (waiting, back): (Vec<_>, Vec<_>) = session
         .findings
         .iter()
         .filter(sent)
         .partition(|finding| with_the_agent(session, &finding.id));
-    let to_verify =
-        back.iter().filter(|finding| finding.state == FindingState::NeedsVerification).count();
-    // Open and back from the agent: it answered, said it could not, or luxe said it said nothing
+    // Back from the agent: it answered, reported a fix, said it could not, or luxe said it said
+    // nothing
     let to_read = back
         .iter()
-        .filter(|finding| finding.state == FindingState::Open)
         .filter(|finding| {
             finding.thread.last().is_some_and(|message| {
                 message.author != luxe_core::guided_review::FindingMessageAuthor::Reviewer
@@ -314,15 +304,13 @@ pub(super) fn feedback_tally(
     // Unsent leads: a count of what you have written that does not say none of it has left is the
     // wrong half of the fact. The keys that send it are the footer's, not repeated here.
     let tail = if unsent > 0 && pull_request {
-        format!(" \u{b7} {unsent} unposted")
+        format!(" \u{b7} {unsent} not posted")
     } else if unsent > 0 {
-        format!(" \u{b7} {unsent} unsent")
+        format!(" \u{b7} {unsent} not sent")
     } else if posted > 0 {
         format!(" \u{b7} {posted} on GitHub")
     } else if !waiting.is_empty() {
         format!(" \u{b7} {} with the agent", waiting.len())
-    } else if to_verify > 0 {
-        format!(" \u{b7} {to_verify} to verify")
     } else if to_read > 0 {
         format!(" \u{b7} {to_read} to read")
     } else {

@@ -133,6 +133,37 @@ fn github_panel_key(app: &mut App, key: KeyEvent) -> bool {
     true
 }
 
+/// Lines one wheel notch scrolls the open tab of a pull request or issue.
+const GITHUB_WHEEL_LINES: isize = 3;
+
+/// A wheel notch over `/github`'s list walks it the way `↑`/`↓` do, reading the next page and
+/// the row's overview the same way; the list takes the focus, as the reader's eyes are on it.
+/// Over the open tab, in `/github` or `/pr`, it scrolls without moving the cursor.
+pub(crate) fn github_wheel(app: &mut App, list: bool, up: bool) {
+    if list {
+        let Some(panel) = app.overlays.github.as_mut() else { return };
+        panel.focus = crate::github_panel::Focus::List;
+        let code = if up { KeyCode::Up } else { KeyCode::Down };
+        github_panel_key(app, KeyEvent::new(code, KeyModifiers::NONE));
+        return;
+    }
+    let lines = if up { -GITHUB_WHEEL_LINES } else { GITHUB_WHEEL_LINES };
+    if let Some(detail) = open_github_detail(app) {
+        detail.scroll_by(lines);
+    }
+}
+
+/// The detail on screen: `/pr`'s, which covers `/github` when both are open, or `/github`'s.
+fn open_github_detail(app: &mut App) -> Option<&mut crate::github_detail::GithubDetail> {
+    if let Some(card) = app.overlays.pull_request_card.as_mut() {
+        return match &mut card.state {
+            crate::github_detail::CardState::Ready(detail) => Some(detail),
+            _ => None,
+        };
+    }
+    app.overlays.github.as_mut()?.detail_mut()
+}
+
 /// `/pr`'s card covers the conversation, so it takes every key until Esc closes it. What its
 /// detail asks for is what the same detail asks for under `/github`, for the checkout's own pull
 /// request.

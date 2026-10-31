@@ -161,10 +161,11 @@ fn the_reading_pane_says_what_the_comment_is() {
     };
     let label = feedback(&mut app)[0].label.clone();
     let shown = text(&mut app);
-    assert!(shown.contains("Comment · open"), "{shown}");
+    assert!(shown.contains("Comment") && shown.contains("Sent to the agent."), "{shown}");
     assert!(!shown.contains(&format!("{label} ")), "no label is drawn: {shown}");
     feedback(&mut app)[0].severity = FindingSeverity::Question;
-    assert!(text(&mut app).contains("Question · open"));
+    let shown = text(&mut app);
+    assert!(shown.contains("Question") && !shown.contains("Sent to the agent."), "{shown}");
     feedback(&mut app)[0].severity = FindingSeverity::Issue;
     feedback(&mut app)[0].github_thread = Some(luxe_core::guided_review::GitHubThread {
         id: "PRRT_1".into(),
@@ -184,6 +185,34 @@ fn the_reading_pane_says_what_the_comment_is() {
     feedback(&mut app)[0].proposed_fix = Some("Bound the retry.".into());
     let shown = text(&mut app);
     assert!(shown.contains("Proposed fix") && shown.contains("Bound the retry."));
+}
+
+/// A row names its state in GitHub's terms, only where it isn't plain open or resolved, and its
+/// mark never makes one state look like another.
+///
+/// The break this catches: `open` and `resolved` coming back on every row, or `?` marking
+/// anything but a question.
+#[test]
+fn a_row_names_only_the_states_that_ask_for_something() {
+    use super::super::overlays::{finding_row_note, finding_state_glyph};
+    use luxe_core::guided_review::FindingState;
+    let mut app = open(FixtureScenario::GuidedReviewFindings);
+    let mut finding = feedback(&mut app)[0].clone();
+    finding.posted = None;
+    finding.github_thread = None;
+    let cases = [
+        (FindingState::Draft, FindingSeverity::Issue, "not sent", "○"),
+        (FindingState::Open, FindingSeverity::Issue, "", "•"),
+        (FindingState::Open, FindingSeverity::Question, "", "?"),
+        (FindingState::Resolved, FindingSeverity::Issue, "", "✓"),
+        (FindingState::Stale, FindingSeverity::Issue, "outdated", "~"),
+    ];
+    for (state, severity, note, mark) in cases {
+        finding.state = state;
+        finding.severity = severity;
+        assert_eq!(finding_row_note(&finding), note, "{state:?} {severity:?}");
+        assert_eq!(finding_state_glyph(&finding), mark, "{state:?} {severity:?}");
+    }
 }
 
 /// Sending shows the same window with checkboxes: a question says so, an excluded row dims,

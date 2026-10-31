@@ -48,6 +48,16 @@ impl PlanWindow {
         };
         Some(label)
     }
+
+    /// The window as it stands `elapsed` after it was reported: its reset that much nearer.
+    ///
+    /// The provider counts down from the moment it answered, and a surface that stays on screen
+    /// between answers would otherwise keep showing that moment's countdown. A reset already due
+    /// reads as `now` rather than going negative.
+    pub fn aged(self, elapsed: std::time::Duration) -> Self {
+        let resets_in_secs = self.resets_in_secs.map(|secs| secs.saturating_sub(elapsed.as_secs()));
+        Self { resets_in_secs, ..self }
+    }
 }
 
 /// A subscription's remaining headroom, as reported alongside a response.
@@ -78,6 +88,18 @@ impl PlanUsage {
             && self.primary.is_none()
             && self.secondary.is_none()
             && self.credits_balance.is_none()
+    }
+
+    /// The report as it stands `elapsed` after it arrived, every reset that much nearer. See
+    /// [`PlanWindow::aged`].
+    pub fn aged(&self, elapsed: std::time::Duration) -> Self {
+        let age = |window: Option<PlanWindow>| window.map(|window| window.aged(elapsed));
+        Self { primary: age(self.primary), secondary: age(self.secondary), ..self.clone() }
+    }
+
+    /// Every window the plan reported, the main one first.
+    pub fn windows(&self) -> impl Iterator<Item = &PlanWindow> {
+        self.primary.iter().chain(self.secondary.iter())
     }
 
     /// The window worth putting on a status line: whichever is closest to its limit.
@@ -157,6 +179,30 @@ mod plan_tests {
         };
         assert_eq!(plan.compact().as_deref(), Some("83% 5h"));
         assert_eq!(plan.summary().as_deref(), Some("pro · 83% of 5h (resets in 30m)"));
+    }
+
+    #[test]
+    fn an_aged_window_resets_sooner_and_never_before_now() {
+        let hour = std::time::Duration::from_secs(3_600);
+        assert_eq!(window(0.0, 300, Some(7_200)).aged(hour).resets_in_secs, Some(3_600));
+        assert_eq!(window(0.0, 300, Some(1_800)).aged(hour).reset_label().as_deref(), Some("now"));
+        assert_eq!(window(0.0, 300, None).aged(hour).resets_in_secs, None, "no reset to age");
+        assert_eq!(window(42.0, 300, Some(7_200)).aged(hour).used_percent, 42.0);
+    }
+
+    #[test]
+    fn windows_come_main_first_and_skip_what_is_missing() {
+        let both = PlanUsage {
+            primary: Some(window(20.0, 10_080, None)),
+            secondary: Some(window(83.0, 300, None)),
+            ..PlanUsage::default()
+        };
+        let minutes: Vec<u64> = both.windows().map(|window| window.window_minutes).collect();
+        assert_eq!(minutes, [10_080, 300]);
+        let only_short =
+            PlanUsage { secondary: Some(window(5.0, 300, None)), ..PlanUsage::default() };
+        assert_eq!(only_short.windows().count(), 1);
+        assert_eq!(PlanUsage::default().windows().count(), 0);
     }
 
     #[test]

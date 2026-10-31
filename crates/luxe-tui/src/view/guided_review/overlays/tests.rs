@@ -60,7 +60,10 @@ fn the_finish_dialog_hugs_its_options_and_centers() {
     // With nothing the agent already has, nothing goes again
     let mut fresh = app;
     for finding in &mut fresh.review.session_mut().expect("session").findings {
-        if finding.state == luxe_core::guided_review::FindingState::Open {
+        // The one the agent answered stays out either way: it waits for the reader, not a send
+        if finding.state == luxe_core::guided_review::FindingState::Open
+            && finding.thread.is_empty()
+        {
             finding.state = luxe_core::guided_review::FindingState::Draft;
         }
     }

@@ -145,3 +145,29 @@ pub(crate) fn tab_line(tabs: &[&str], open: usize, theme: &ThemeStyles) -> Line<
     }
     Line::from(spans)
 }
+
+/// Publishes a click region for each tab of a [`tab_line`] drawn along `area`'s top row, cut off
+/// at its right edge, the way the line itself is.
+///
+/// Args: `(hit, area, tabs, first, strip)` — `first` the index of the leftmost tab drawn, for a
+/// line showing a run of a longer row.
+pub(crate) fn publish_tabs(
+    hit: &mut crate::mouse::HitRegions,
+    area: Rect,
+    tabs: &[&str],
+    first: usize,
+    strip: crate::mouse::TabStrip,
+) {
+    let mut x = area.x;
+    for (offset, tab) in tabs.iter().enumerate() {
+        // Open or closed, a tab spends the same cells: the slab's frame, or blanks in its place
+        let cells = unicode_width::UnicodeWidthStr::width(*tab) + crate::widgets::SLAB_FRAME;
+        let width = u16::try_from(cells).unwrap_or(u16::MAX).min(area.right().saturating_sub(x));
+        if width == 0 {
+            return;
+        }
+        let target = crate::mouse::MouseTarget::Tab { strip, index: first + offset };
+        hit.push(Rect::new(x, area.y, width, 1), target);
+        x = x.saturating_add(width);
+    }
+}

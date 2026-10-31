@@ -44,10 +44,10 @@ your own config only:
 - `agent.on_ask`, which a project can set to `deny` but not to `allow`
 - `agent.cache_warming`, which a project can turn down but not up, since it spends your money
 
-Project `gate.commands` also run programs. luxe ignores them and warns unless you start with
-`--trust-project`. With trust, a nonempty project list replaces your global list. Otherwise, the
-loop uses your global commands. Move the list to your own config if you don't want to trust the
-project.
+Project `gate.commands`, `dock.custom` and `statusline.custom` also run programs. luxe ignores them
+and warns unless you start with `--trust-project`. With trust, a nonempty project `gate.commands`
+list replaces your global list. Otherwise, the loop uses your global commands. Move any of them to
+your own config if you don't want to trust the project.
 
 ### Editing
 
@@ -165,7 +165,8 @@ it, showing each one before it runs:
 | --- | --- |
 | The install script | The install script again, downloaded from the new release |
 | Homebrew | `brew update`, then `brew upgrade luxe` |
-| Cargo | `cargo install --locked --force luxe-cli` |
+| Cargo, from crates.io | `cargo install --locked --force luxe-cli` |
+| Cargo, from a checkout or fork (`--path`, `--git`) | Nothing. It tells you to pull and rebuild, so your build isn't replaced |
 
 luxe never replaces its own program; whatever installed it does. For the install script, that's
 the new release's copy of the same script, run into the folder the first install used. Its
@@ -224,11 +225,14 @@ Every key in `config.json`, with its default.
 | `joinable` | `true` | Let another program on this machine join a running session; see [Joining a session](#joining-a-session) |
 | `statusline.visibility` | `auto` | `auto`, `shown` or `hidden`; see [Appearance](appearance.md#statusline) |
 | `statusline.style` | `slab` | `slab` or `flat` |
-| `statusline.left` | `["project", "branch", "pr", "todo", "changes"]` | Modules on the left |
-| `statusline.right` | `["context", "cost", "tokens", "thinking", "model"]` | Modules on the right |
+| `statusline.left` | `["project", "branch", "pr", "todo", "changes"]` | Modules on the left, including your own |
+| `statusline.right` | `["context", "cost", "tokens", "thinking", "model"]` | Modules on the right, including your own |
 | `statusline.thinking_colors` | `false` | Color the thinking level |
+| `statusline.custom` | none | Modules drawn from your own programs, by name; see [Appearance](appearance.md#your-own-modules) |
 | `dock.mode` | `auto` | `auto`, `shown` or `hidden`; see [The interface](interface.md#the-dock) |
 | `dock.position` | `left` | `left` or `right` |
+| `dock.sections` | every section | Which dock sections show, in order; see [The interface](interface.md#choose-the-sections) |
+| `dock.custom` | none | Dock sections drawn from your own programs, by name; see [The interface](interface.md#your-own-sections) |
 | `conversation.alignment` | `full` | `full`, `left` or `center`; see [Appearance](appearance.md#the-conversation) |
 | `conversation.prose_max_width` | `120` | Text width under `left` or `center` |
 | `conversation.wide_block_max_width` | `140` | Code and table width under `left` or `center` |

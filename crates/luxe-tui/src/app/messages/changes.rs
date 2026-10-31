@@ -95,6 +95,7 @@ pub(super) fn toggle_view(app: &mut App) {
         return;
     }
     view.scroll = 0;
+    view.diff_cursor = view.diff_cursor.map(|_| 0);
     view.view = match view.view {
         crate::changes::PeekView::Diff => crate::changes::PeekView::File,
         crate::changes::PeekView::File => crate::changes::PeekView::Diff,
@@ -321,6 +322,10 @@ pub(super) fn reduce(app: &mut App, msg: Msg) {
     match msg {
         Msg::OpenChanges(path) => open(app, path),
         Msg::OpenProjectFile(path) => open_project_file(app, path),
+        Msg::PreviewProjectFile(path) => {
+            open_project_file(app, path);
+            app.update(Msg::FocusPeek);
+        }
         Msg::TogglePeekView => toggle_view(app),
         Msg::StartPeekPick(line) => {
             if let Some(view) = app.changes.as_mut() {
@@ -331,6 +336,8 @@ pub(super) fn reduce(app: &mut App, msg: Msg) {
                 // The keyboard picks up where the pointer left off, out of visual mode
                 view.cursor = Some(line);
                 view.visual = false;
+                view.focused = true;
+                app.files.focused = false;
             }
         }
         Msg::ExtendPeekPick(head) => {

@@ -85,6 +85,8 @@ pub enum TreeRow {
         open: bool,
         /// Whether a changed file sits anywhere under it
         holds_change: bool,
+        /// Whether git reports the whole folder as new, as one `dir/` entry rather than its files
+        untracked: bool,
         /// Whether `.gitignore` ignores it
         ignored: bool,
     },
@@ -220,11 +222,21 @@ impl FilesTree {
     }
 
     /// Whether `folder` is drawn open: the reader's word first, then the way to a change.
-    fn is_open(&self, folder: &str, ancestors: &HashSet<String>, from_changes: bool) -> bool {
+    ///
+    /// An untracked folder is a change itself rather than the way to one, so it waits to be opened
+    /// like any other: git names the folder, not what is in it, and a `__pycache__` nobody ignored
+    /// is not worth unfolding on its own.
+    fn is_open(
+        &self,
+        folder: &str,
+        ancestors: &HashSet<String>,
+        from_changes: bool,
+        untracked: bool,
+    ) -> bool {
         if self.closed.contains(folder) {
             return false;
         }
-        from_changes || self.opened.contains(folder) || ancestors.contains(folder)
+        (from_changes && !untracked) || self.opened.contains(folder) || ancestors.contains(folder)
     }
 
     /// The row standing in for a folder whose entries are not here.
@@ -274,18 +286,25 @@ impl FilesTree {
     }
 }
 
-/// Every folder on the way to a changed file.
+/// Every folder on the way to a changed file, or to an untracked folder (but not that folder).
 fn ancestors(changes: &[DockChangeItem]) -> HashSet<String> {
     let mut folders = HashSet::new();
     for item in changes {
+        let path = item.path.trim_end_matches('/');
         let mut end = 0;
-        while let Some(slash) = item.path[end..].find('/') {
+        while let Some(slash) = path[end..].find('/') {
             end += slash;
-            folders.insert(item.path[..end].to_string());
+            folders.insert(path[..end].to_string());
             end += 1;
         }
     }
     folders
+}
+
+/// Whether git reports `folder` as untracked: `git status` names a new folder once, as `dir/`,
+/// instead of every file in it.
+fn untracked_folder(folder: &str, changed: &HashMap<&str, &DockChangeItem>) -> bool {
+    changed.contains_key(format!("{folder}/").as_str())
 }
 
 #[cfg(test)]

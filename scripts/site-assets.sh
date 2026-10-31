@@ -111,6 +111,9 @@ GUIDE_SHOTS=(
 	"chat-idle:100:22:mentions-picker:mention-files-status"
 	"session-picker:100:28:sessions-picker"
 	"chat-plan-ready:100:26:loop-plan-ready"
+	"dock-plan-bars:140:34:recipes-plan-bars-dock"
+	"statusline-plan-bars:100:10:recipes-plan-bars-statusline"
+	"dock-lmstudio:140:34:recipes-lmstudio-loaded"
 )
 guide_dir="${repo_root}/docs/guide/images"
 # The phone app's wordmark, from the same art. The app has no build step, so it ships the file

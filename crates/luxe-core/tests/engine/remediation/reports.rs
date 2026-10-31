@@ -418,7 +418,7 @@ async fn a_missing_report_is_asked_for_once_and_the_answer_counts() {
     assert!(!asked[1].contains("Submission: "), "a retry must not mistake it for the feedback");
     assert_eq!(luxe_core::briefs::label(&asked[1]), Some("Asked the agent for its report"));
     for (finding, note) in session.findings.iter().zip(["Split it.", "Renamed it."]) {
-        assert_eq!(finding.state, FindingState::NeedsVerification, "{}", finding.title);
+        assert_eq!(finding.state, FindingState::Open, "the report is a message: {}", finding.title);
         assert!(finding.thread.iter().any(|m| m.body.contains(note)), "{:?}", finding.thread);
         assert!(luxe_notes(finding).is_empty(), "nothing went unreported: {:?}", finding.thread);
     }
@@ -460,7 +460,7 @@ async fn a_report_that_leaves_a_comment_out_says_so_on_that_comment() {
     .await;
     assert_eq!(asked.len(), 1, "a usable report is not asked for again");
     let (reported, left_out) = (&session.findings[0], &session.findings[1]);
-    assert_eq!(reported.state, FindingState::NeedsVerification);
+    assert_eq!(reported.state, FindingState::Open, "only the reviewer moves a comment");
     assert!(luxe_notes(reported).is_empty());
     assert_eq!(left_out.state, FindingState::Open);
     assert_eq!(luxe_notes(left_out).len(), 1);

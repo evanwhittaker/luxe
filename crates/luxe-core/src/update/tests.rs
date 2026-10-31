@@ -67,6 +67,55 @@ fn the_legacy_updater_beside_the_binary_marks_an_installer_copy() {
     assert_eq!(InstallSource::Installer.advice(), "`luxe update`");
 }
 
+/// Writes a `.crates2.json` into the install root above `luxe`, recording it from `source`.
+fn record_cargo_install(luxe: &Path, source: &str) {
+    let root = luxe.parent().and_then(Path::parent).expect("luxe sits in <root>/bin");
+    let name = luxe.file_name().and_then(|name| name.to_str()).expect("a utf-8 name");
+    let record = format!(
+        r#"{{"installs": {{"luxe-cli 0.1.7 ({source})": {{"version_req": null, "bins": ["{name}"], "profile": "release"}}}}}}"#
+    );
+    std::fs::write(root.join(".crates2.json"), record).expect("a cargo record");
+}
+
+/// A fork built with `cargo install --path` sits in `~/.cargo/bin` like a crates.io install, and
+/// running `cargo install luxe-cli` over it would silently replace the fork with the release.
+#[test]
+fn a_path_install_is_a_source_build_not_a_cargo_one() {
+    let (_dir, luxe) = luxe_in_cargo_bin();
+    record_cargo_install(&luxe, "path+file:///home/dev/luxe");
+    assert_eq!(InstallSource::from_install_with(&luxe, None), InstallSource::SourceBuild);
+    assert_eq!(InstallSource::SourceBuild.update_steps(), None, "nothing luxe may run");
+    assert_eq!(
+        InstallSource::SourceBuild.advice(),
+        "pull and rebuild the source you installed it from"
+    );
+}
+
+#[test]
+fn a_git_install_is_a_source_build() {
+    let (_dir, luxe) = luxe_in_cargo_bin();
+    record_cargo_install(&luxe, "git+https://github.com/someone/luxe#aae34b01");
+    assert_eq!(InstallSource::from_install_with(&luxe, None), InstallSource::SourceBuild);
+}
+
+/// A crates.io record changes nothing: the path still decides, so the advice stays cargo's.
+#[test]
+fn a_registry_install_stays_a_cargo_one() {
+    let (_dir, luxe) = luxe_in_cargo_bin();
+    record_cargo_install(&luxe, "registry+https://github.com/rust-lang/crates.io-index");
+    assert_eq!(InstallSource::from_install_with(&luxe, None), InstallSource::Cargo);
+}
+
+/// The installer's receipt still wins: a copy it put in `~/.cargo/bin` is updated by rerunning it.
+#[test]
+fn the_receipt_outranks_the_cargo_record() {
+    let (_dir, luxe) = luxe_in_cargo_bin();
+    record_cargo_install(&luxe, "path+file:///home/dev/luxe");
+    let receipt =
+        InstallReceipt { install_prefix: luxe.parent().unwrap().into(), modify_path: true };
+    assert_eq!(InstallSource::from_install_with(&luxe, Some(&receipt)), InstallSource::Installer);
+}
+
 /// A directory named like the updater is not the updater.
 #[test]
 fn a_directory_named_like_the_updater_does_not_count() {
@@ -112,6 +161,7 @@ fn every_source_gives_advice_and_none_of_it_is_a_guess() {
         InstallSource::Homebrew,
         InstallSource::SystemPackage,
         InstallSource::Archive,
+        InstallSource::SourceBuild,
     ] {
         assert!(!source.advice().is_empty(), "{source:?}");
     }

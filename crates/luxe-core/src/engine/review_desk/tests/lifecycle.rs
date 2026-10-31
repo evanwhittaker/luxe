@@ -66,7 +66,8 @@ async fn a_failed_turn_is_retryable_even_when_it_never_dispatched() {
     assert_eq!(dispatch, SubmissionDispatch::FailedRetryable, "failed again after dispatch");
 }
 
-/// The agent's report goes on the comments it names, and a fix asks the reader to verify it.
+/// The agent's report goes on the comments it names, as a message: a fix leaves the comment open
+/// for the reader to resolve.
 #[tokio::test]
 async fn a_remediation_report_lands_on_the_comments_it_names() {
     let review = review_from(TWO_FILES);
@@ -88,7 +89,7 @@ async fn a_remediation_report_lands_on_the_comments_it_names() {
     };
     desk.handle(DeskCommand::Remediation(report)).await;
     let finding = &stored(&project, &review).unwrap().findings[0];
-    assert_eq!(finding.state, FindingState::NeedsVerification);
+    assert_eq!(finding.state, FindingState::Open);
     assert!(finding.thread.iter().any(|message| message.body.contains("Kept the old value.")));
 }
 

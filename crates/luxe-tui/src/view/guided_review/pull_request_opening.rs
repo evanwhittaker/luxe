@@ -36,6 +36,12 @@ fn tail_lines(
             styles.muted,
         )));
     }
+    if let Some((_, since)) = opening.drafting {
+        tail.push(super::github_post::drafting_line(app, since, "the title and description"));
+    }
+    if let Some(note) = opening.draft_note.as_deref() {
+        tail.extend(crate::github_detail::draft_note_lines(note, usize::from(inner_width), styles));
+    }
     tail
 }
 
@@ -104,7 +110,10 @@ fn render_description(
             .is_empty() =>
         {
             frame.render_widget(
-                Paragraph::new(Span::styled("(no description)", styles.muted)),
+                Paragraph::new(Span::styled(
+                    "No description · e write one · d draft with agent",
+                    styles.muted,
+                )),
                 body_area,
             )
         }
@@ -136,17 +145,19 @@ fn render_description(
     overflows
 }
 
-/// The key hints for what the popup is doing right now.
+/// The key hints for what the popup is doing right now, most needed first, since a narrow footer
+/// drops them from the end.
 fn opening_hint(opening: &PullRequestOpening, overflows: bool) -> String {
     match (opening.opening, opening.editing.as_ref(), opening.prepared.as_ref()) {
         (true, ..) => " opening… ".to_owned(),
+        _ if opening.drafting.is_some() => " drafting… · esc cancel ".to_owned(),
         (_, Some((OpeningField::Title, _)), _) => " enter save · esc cancel ".to_owned(),
         (_, Some((OpeningField::Body, _)), _) => " ctrl+enter save · esc cancel ".to_owned(),
         (_, None, Some(_)) => {
             let scroll = if overflows { " · ↑/↓ scroll" } else { "" };
             format!(
-                " enter open · t title · e description · E in your editor · d draft{scroll} · esc \
-                 cancel "
+                " enter open · d draft with agent · t title · e description{scroll} · E in your \
+                 editor · D open as draft · esc cancel "
             )
         }
         (_, None, None) if opening.error.is_some() => " enter try again · esc cancel ".to_owned(),
@@ -186,6 +197,12 @@ fn render_title(
         _ => {
             let title =
                 opening.prepared.as_ref().map_or("", |prepared| &prepared.pull_request.title);
+            if title.trim().is_empty() {
+                let empty =
+                    Span::styled("No title · t write one · d draft with agent", styles.muted);
+                frame.render_widget(Paragraph::new(empty), area);
+                return;
+            }
             frame.render_widget(
                 Paragraph::new(Span::styled(
                     clip_terminal_cells_ellipsis(title, usize::from(inner_width)),
@@ -239,7 +256,7 @@ pub(super) fn render_pull_request_opening(
             let mut lines = Vec::new();
             if opening.error.is_none() {
                 lines.push(Line::from(Span::styled(
-                    format!("{spinner} Drafting it from the review…"),
+                    format!("{spinner} Checking the branch…"),
                     styles.muted,
                 )));
             }

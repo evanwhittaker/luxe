@@ -271,6 +271,8 @@ Opening a repository should not run its code. So, without `--trust-project`:
 - Its `.luxe/hooks.json` is ignored.
 - Its `gate.commands` in `.luxe/config.json` are ignored with a warning. The loop uses your global
   commands instead; a project list needs `--trust-project`.
+- Its custom dock sections and statusline modules, `dock.custom` and `statusline.custom` in
+  `.luxe/config.json`, are ignored with a warning.
 - Its `.luxe/permissions.json` can only tighten your rules.
 - Its MCP servers, language servers and formatters start only in an interactive session; see
   [Tools](tools.md#a-server-the-project-installed).

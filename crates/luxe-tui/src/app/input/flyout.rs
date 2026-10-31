@@ -103,24 +103,7 @@ fn mention_key(app: &mut App, key: KeyEvent) {
             app.mention_rows.insert(format!("{kind}:{}", row.id), row.text);
             app.overlays.mention = None;
         }
-        MentionFlyoutOutcome::Fetch(tab) => {
-            use crate::mention_flyout::MentionTab;
-            // Listed already this session: the rows are kept, and `r` in `/github` refreshes
-            match tab {
-                // Files, skills and servers are listed when the picker opens
-                MentionTab::Files | MentionTab::Skills | MentionTab::Mcp => {}
-                MentionTab::GitHub => match app.github_listing.clone() {
-                    Some(listing) => mention.set_github(listing, None),
-                    None => {
-                        super::super::commands::list_github(app);
-                    }
-                },
-                MentionTab::Source(source) => match app.mention_listings.get(&source.kind()) {
-                    Some(rows) => mention.set_source(&source.kind(), Ok(rows.clone())),
-                    None => app.outbox.mention_source = Some(source),
-                },
-            }
-        }
+        MentionFlyoutOutcome::Fetch(tab) => fetch_mention_tab(app, tab),
         MentionFlyoutOutcome::RefreshFiles => {
             app.file_listing.request();
         }
@@ -132,6 +115,42 @@ fn mention_key(app: &mut App, key: KeyEvent) {
             app.editor.handle_key(key);
             sync_completion_flyouts(app);
         }
+    }
+}
+
+/// Opens the `@` picker's tab `index`, for a click on it, asking for its rows as Tab would.
+pub(super) fn open_mention_tab(app: &mut App, index: usize) {
+    let outcome = app.overlays.mention.as_mut().and_then(|mention| mention.open_tab(index));
+    if let Some(crate::mention_flyout::MentionFlyoutOutcome::Fetch(tab)) = outcome {
+        fetch_mention_tab(app, tab);
+    }
+}
+
+/// Fills a tab just opened with nothing listed, from what this session listed already or by asking.
+fn fetch_mention_tab(app: &mut App, tab: crate::mention_flyout::MentionTab) {
+    use crate::mention_flyout::MentionTab;
+    // Listed already this session: the rows are kept, and `r` in `/github` refreshes
+    match tab {
+        // Files, skills and servers are listed when the picker opens
+        MentionTab::Files | MentionTab::Skills | MentionTab::Mcp => {}
+        MentionTab::GitHub => match (app.github_listing.clone(), app.overlays.mention.as_mut()) {
+            (Some(listing), Some(mention)) => mention.set_github(listing, None),
+            (Some(_), None) => {}
+            (None, _) => {
+                commands::list_github(app);
+            }
+        },
+        MentionTab::Source(source) => fetch_source_tab(app, source),
+    }
+}
+
+/// Fills a source's tab from this session's answer, or asks the source.
+fn fetch_source_tab(app: &mut App, source: luxe_core::config::MentionSource) {
+    let kind = source.kind();
+    match (app.mention_listings.get(&kind).cloned(), app.overlays.mention.as_mut()) {
+        (Some(rows), Some(mention)) => mention.set_source(&kind, Ok(rows)),
+        (Some(_), None) => {}
+        (None, _) => app.outbox.mention_source = Some(source),
     }
 }
 

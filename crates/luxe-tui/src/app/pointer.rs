@@ -15,6 +15,9 @@ pub struct PointerState {
     /// Asks the next render to grow the transcript selection to the word under it — only the frame
     /// that laid the transcript out knows where a word ends.
     pub(crate) expand_word: bool,
+    /// Shift and arrow presses waiting on the next render to move the transcript selection's free
+    /// end, which only the frame that laid out the lines can do
+    pub(crate) selection_steps: Vec<crate::selection::SelectionStep>,
     /// Asks the next render to extract and copy the transcript selection (only that frame knows
     /// the rendered text).
     pub copy_requested: bool,

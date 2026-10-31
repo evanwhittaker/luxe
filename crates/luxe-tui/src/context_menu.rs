@@ -14,6 +14,8 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::mouse::{MouseTarget, PeekSelectionAction};
 use crate::theme::styles::ThemeStyles;
+use luxe_core::guided_review::{FindingSeverity, FindingState, ReviewFinding};
+use luxe_core::keymap::UiAction;
 
 /// What choosing an item does.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,6 +42,14 @@ pub enum MenuAction {
     ToggleScope,
     /// Show what `.gitignore` ignores too, or stop
     ToggleIgnored,
+    /// Copy the text selected in the transcript or the composer
+    CopyText,
+    /// Drop the transcript's text selection
+    ClearText,
+    /// Paste the clipboard into the composer, an image as an attachment
+    Paste,
+    /// Do what a Guided Review key does, to the comment or line the menu was opened on
+    ReviewKey(UiAction),
 }
 
 /// One row of the menu.
@@ -141,6 +151,53 @@ impl ContextMenu {
         Self { anchor, items, selected: 0 }
     }
 
+    /// The menu for a line of the review's diff, or a row of its feedback window: what can be done
+    /// to the `comment` there, then, `on_line`, what can be left on the line. `key` names the key
+    /// that does the same.
+    pub fn for_review_comment(
+        anchor: (u16, u16),
+        comment: Option<&ReviewFinding>,
+        on_line: bool,
+        key: &dyn Fn(UiAction) -> String,
+    ) -> Self {
+        let item =
+            |label: &str, action| MenuItem::new(label, &key(action), MenuAction::ReviewKey(action));
+        let mut items: Vec<MenuItem> =
+            comment.map_or_else(Vec::new, |comment| review_comment_items(comment, &item));
+        if comment.is_some() && on_line {
+            items.push(item("Show in the feedback window", UiAction::ReviewFindings));
+        }
+        if on_line {
+            items.push(item("Comment here", UiAction::ReviewAddFinding));
+            items.push(item("Ask the agent about this", UiAction::ReviewAskQuestion));
+        }
+        Self { anchor, items, selected: 0 }
+    }
+
+    /// The menu for the composer: Copy when part of the draft is selected, and Paste.
+    pub fn for_composer(
+        anchor: (u16, u16),
+        selected: bool,
+        copy_key: &str,
+        paste_key: &str,
+    ) -> Self {
+        let mut items = Vec::new();
+        if selected {
+            items.push(MenuItem::new("Copy", copy_key, MenuAction::CopyText));
+        }
+        items.push(MenuItem::new("Paste", paste_key, MenuAction::Paste));
+        Self { anchor, items, selected: 0 }
+    }
+
+    /// The menu for text selected in the transcript.
+    pub fn for_text_selection(anchor: (u16, u16), copy_key: &str) -> Self {
+        let items = vec![
+            MenuItem::new("Copy", copy_key, MenuAction::CopyText),
+            MenuItem::new("Clear the selection", "esc", MenuAction::ClearText),
+        ];
+        Self { anchor, items, selected: 0 }
+    }
+
     /// Moves the highlight, wrapping at both ends.
     pub fn step(&mut self, down: bool) {
         let count = self.items.len().max(1);
@@ -173,6 +230,33 @@ impl ContextMenu {
             false => below,
         };
         Rect::new(x, y, width, height)
+    }
+}
+
+/// What can be done to one review comment, by where it stands. A comment on GitHub, or one whose
+/// line moved, is managed from the feedback window, so it offers nothing here.
+fn review_comment_items(
+    comment: &ReviewFinding,
+    item: &dyn Fn(&str, UiAction) -> MenuItem,
+) -> Vec<MenuItem> {
+    if comment.state == FindingState::Draft && comment.posted.is_none() {
+        return vec![
+            item("Edit the comment", UiAction::ReviewEditFinding),
+            item("Delete the comment", UiAction::ReviewDeleteFinding),
+        ];
+    }
+    let resolve = resolve_label(comment);
+    resolve.map(|label| vec![item(label, UiAction::ReviewResolveFinding)]).unwrap_or_default()
+}
+
+/// What `r` does to a sent comment, by where it stands.
+fn resolve_label(comment: &ReviewFinding) -> Option<&'static str> {
+    let question = comment.severity == FindingSeverity::Question;
+    match comment.state {
+        FindingState::Open if question => Some("Resolve the question"),
+        FindingState::Open | FindingState::Stale => Some("Resolve the comment"),
+        FindingState::Resolved => Some("Reopen"),
+        FindingState::Draft => None,
     }
 }
 

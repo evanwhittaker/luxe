@@ -4,10 +4,16 @@
 use serde::{Deserialize, Serialize};
 
 mod conversation;
+mod custom_dock;
+mod custom_statusline;
 mod diff;
+mod dock_sections;
 
 pub use conversation::*;
+pub use custom_dock::{CustomDockSection, DockPlace};
+pub use custom_statusline::CustomStatuslineModule;
 pub use diff::*;
+pub use dock_sections::DockSectionName;
 
 /// A setting read leniently: a value this build does not know deserializes to [`Lenient::UNKNOWN`],
 /// and resolving it gives the default, with a warning, so one typo never costs the whole file.
@@ -37,9 +43,10 @@ pub(crate) fn known_or<T: Lenient>(value: Option<T>) -> T {
 /// Configurable modules for either half of the TUI statusline.
 ///
 /// The left half favors workspace/interaction state; the right half favors model/runtime
-/// telemetry. A module only renders on the side that knows how to build it, so listing a
-/// right-only module on the left (or vice versa) is a harmless no-op.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// telemetry. A built-in only renders on the side that knows how to build it, so listing a
+/// right-only module on the left (or vice versa) is a harmless no-op. A custom module renders on
+/// either side.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StatuslineModule {
     // === Left half ===
@@ -70,11 +77,12 @@ pub enum StatuslineModule {
     /// Active model name
     Model,
 
-    /// Unknown module names are ignored for forward compatibility. Retired names land here too, so
-    /// an older config keeps loading — `mode` was one, from an experiment in emulating a modal
-    /// editor's statusline, and `lsp` another, which only ever read back a setting.
-    #[serde(other)]
-    Unknown,
+    /// A name this build has no built-in module for.
+    ///
+    /// Args: the name as written. `statusline.custom` can claim it; otherwise it draws nothing, so
+    /// a module from a newer build or a retired one (`mode`, `lsp`) never fails the whole file.
+    #[serde(untagged)]
+    Other(String),
 }
 
 /// How the statusline draws its modules.
@@ -175,6 +183,8 @@ pub struct StatuslineConfig {
     pub thinking_colors: Option<bool>,
     /// How modules are drawn; `None` keeps the slabs
     pub style: Option<StatuslineStyle>,
+    /// Modules drawn from a program, by name; a project's are dropped unless it's trusted
+    pub custom: Option<std::collections::BTreeMap<String, CustomStatuslineModule>>,
 }
 
 impl StatuslineConfig {
@@ -232,7 +242,8 @@ impl Lenient for GlyphStyle {
 /// thing should lose shine, not information. `pixels` needs the kitty graphics protocol *with*
 /// Unicode placeholders, a narrower set than "speaks kitty graphics" (WezTerm draws the
 /// placeholders as tofu), so `auto` picks it only for terminals measured to handle it and `pixels`
-/// is the override for one `auto` does not know yet.
+/// is the override for one `auto` does not know yet. `sixel` is the other protocol luxe speaks,
+/// which Windows Terminal draws where it has no kitty graphics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ImageStyle {
@@ -244,6 +255,9 @@ pub enum ImageStyle {
     Auto,
     /// Kitty graphics protocol with Unicode placeholders.
     Pixels,
+    /// Sixel graphics, drawn over blank cells: what Windows Terminal 1.22 and later speak, and an
+    /// override for another terminal that does.
+    Sixel,
     /// Half-block cells: coarse, but no protocol and nothing to be incompatible with.
     Blocks,
     /// A text line naming the image and its size.
@@ -435,6 +449,11 @@ pub struct DockConfig {
     pub mode: Option<DockMode>,
     /// Which side the dock occupies; omitted values anchor it to the left.
     pub position: Option<DockPosition>,
+    /// Which sections show, in order; `None` shows every built-in section. Read through
+    /// [`DockConfig::sections`].
+    pub sections: Option<Vec<String>>,
+    /// Sections drawn from a program, by name; a project's are dropped unless it's trusted
+    pub custom: Option<std::collections::BTreeMap<String, CustomDockSection>>,
 }
 
 impl DockConfig {

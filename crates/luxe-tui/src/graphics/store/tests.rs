@@ -5,7 +5,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 
-fn png(width: u32, height: u32) -> Vec<u8> {
+pub(super) fn png(width: u32, height: u32) -> Vec<u8> {
     let image = RgbaImage::from_pixel(width, height, Rgba([10, 120, 240, 255]));
     let mut out = std::io::Cursor::new(Vec::new());
     image::DynamicImage::ImageRgba8(image)
@@ -14,7 +14,7 @@ fn png(width: u32, height: u32) -> Vec<u8> {
     out.into_inner()
 }
 
-fn origin(label: &str) -> ImageOrigin {
+pub(super) fn origin(label: &str) -> ImageOrigin {
     ImageOrigin { label: label.into(), path: None }
 }
 
@@ -67,7 +67,7 @@ fn the_pixel_tier_paints_addressable_cells_and_nothing_else() {
         painted.fg,
         kitty::id_color(match store.live[&key].kind {
             LiveKind::Pixels(id) => id,
-            LiveKind::Blocks(_) => panic!("pixel tier"),
+            LiveKind::Blocks(_) | LiveKind::Sixel(_) => panic!("pixel tier"),
         })
     );
     assert_eq!(buf[(3, 1)].symbol(), kitty::placeholder(0, 1), "columns are addressed in turn");

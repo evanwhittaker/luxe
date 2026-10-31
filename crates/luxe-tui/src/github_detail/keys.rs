@@ -5,6 +5,9 @@ use super::{
     GithubDetail, MergeDialog, Stop, Subject,
 };
 
+/// Lines PageUp and PageDown move the open tab.
+const SCROLL_PAGE: isize = 10;
+
 impl GithubDetail {
     /// The key hint for the open tab. `leave` says where Esc goes: `← list` beside the list,
     /// `Esc close` on its own.
@@ -34,6 +37,10 @@ impl GithubDetail {
             }
         };
         let mut hint = parts.join(" · ");
+        // Only when there is more than the pane holds, which the last frame measured
+        if self.scroll + self.scroll_room.get() > 0 {
+            hint.push_str(" · pgup/pgdn scroll");
+        }
         hint.push_str(&format!(" · {leave}"));
         hint
     }
@@ -67,11 +74,14 @@ impl GithubDetail {
                     return DetailKey::Draft(ask);
                 }
             }
-            KeyCode::Down if stops > 0 => self.cursor = (self.cursor + 1).min(stops - 1),
-            KeyCode::Up => self.cursor = self.cursor.saturating_sub(1),
+            KeyCode::Down => self.step_down(stops),
+            KeyCode::Up => self.step_up(),
+            KeyCode::PageDown => self.scroll_by(SCROLL_PAGE),
+            KeyCode::PageUp => self.scroll_by(-SCROLL_PAGE),
             KeyCode::Char('b') if self.tab == DetailTab::Conversation => {
                 self.hide_bots = !self.hide_bots;
                 self.cursor = 0;
+                self.scroll = 0;
             }
             KeyCode::Enter if self.tab == DetailTab::Overview => {
                 if let Some(key) = self.enter_overview_row() {
@@ -133,6 +143,31 @@ impl GithubDetail {
         None
     }
 
+    /// Down moves to the next row that acts; past the last, it reads on, so a long description
+    /// or an opened comment is never cut off at the pane's edge.
+    fn step_down(&mut self, stops: usize) {
+        if self.cursor + 1 < stops {
+            self.cursor += 1;
+            self.scroll = 0;
+        } else {
+            self.scroll_by(1);
+        }
+    }
+
+    /// Up reads back first, then moves to the row above.
+    fn step_up(&mut self) {
+        match self.scroll {
+            0 => self.cursor = self.cursor.saturating_sub(1),
+            _ => self.scroll -= 1,
+        }
+    }
+
+    /// Scrolls the open tab by `lines`, within what the last frame had to show.
+    pub(crate) fn scroll_by(&mut self, lines: isize) {
+        let room = self.scroll_room.get();
+        self.scroll = self.scroll.saturating_add_signed(lines).min(room);
+    }
+
     /// Flips between the tabs; the first look at the conversation is what reads it.
     fn switch_tab(&mut self) -> Option<DetailKey> {
         self.tab = match self.tab {
@@ -140,6 +175,7 @@ impl GithubDetail {
             DetailTab::Conversation => DetailTab::Overview,
         };
         self.cursor = 0;
+        self.scroll = 0;
         // Read only when looked at: most details are glanced at on their Overview
         if self.tab == DetailTab::Conversation && !self.conversation_asked {
             self.conversation_asked = true;

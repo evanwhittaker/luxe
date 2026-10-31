@@ -1,6 +1,6 @@
 //! The narration band — this change's own sentence, above the diff that shows it.
 //!
-//! What the reader is looking at, and what it does: `path · symbol · hunk 2 of 2`, the guide's
+//! What the reader is looking at, and what it does: `path · symbol`, the guide's
 //! sentence for *this* hunk, and the graph facts that change a judgement about the file. It changes
 //! on every step, which is what makes advancing a visible event rather than a redraw of the same
 //! frame with different code in it.
@@ -47,7 +47,8 @@ pub(super) fn narration_lines(
     (!lines.is_empty()).then_some(lines)
 }
 
-/// `path   symbol   hunk 2 of 3` — what the diff below belongs to.
+/// `path   symbol`: what the diff below belongs to. Where it falls in the walk is the guide's
+/// `Step 3 of 7`, the one count of the reader's place.
 fn item_heading_spans(
     heading: ItemHeading,
     styles: &crate::theme::styles::ThemeStyles,
@@ -56,9 +57,6 @@ fn item_heading_spans(
     if let Some(symbol) = heading.symbol {
         spans.push(Span::styled("   ", styles.dim));
         spans.push(Span::styled(symbol, styles.text.add_modifier(ratatui::style::Modifier::BOLD)));
-    }
-    if let Some((at, total)) = heading.hunk {
-        spans.push(Span::styled(format!("   hunk {at} of {total}"), styles.muted));
     }
     spans
 }
@@ -69,8 +67,6 @@ struct ItemHeading {
     path: String,
     /// The symbol the hunk sits in, when the diff named one.
     symbol: Option<String>,
-    /// `(at, total)` hunks in this file, when the cursor is on one.
-    hunk: Option<(usize, usize)>,
 }
 
 /// The heading for the current position, or `None` when there is no file to name.
@@ -88,7 +84,7 @@ fn item_heading(app: &App, review: &GuidedReview) -> Option<ItemHeading> {
     let symbol = index.and_then(|index| file.hunks.get(index)).and_then(|hunk| {
         hunk.symbol.as_ref().and_then(|symbol| symbol.name.clone()).or_else(|| hunk.heading.clone())
     });
-    Some(ItemHeading { path, symbol, hunk: index.map(|index| (index + 1, file.hunks.len())) })
+    Some(ItemHeading { path, symbol })
 }
 
 /// What the harness noticed about the file on screen, said where the reviewer is already reading.

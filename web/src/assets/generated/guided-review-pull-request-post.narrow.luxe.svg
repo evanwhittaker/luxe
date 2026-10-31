@@ -1,6 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 660" width="720" height="660" font-family="'JetBrainsMono Nerd Font Mono', 'AdwaitaMono Nerd Font Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16.67">
   <rect width="720" height="660" fill="#12100e"/>
   <g shape-rendering="crispEdges">
+    <rect x="10" y="110" width="10" height="22" fill="#211e1c"/>
+    <rect x="700" y="110" width="10" height="22" fill="#211e1c"/>
     <rect x="10" y="154" width="10" height="22" fill="#3f2020"/>
     <rect x="310" y="154" width="190" height="22" fill="#2e2b27"/>
     <rect x="700" y="154" width="10" height="22" fill="#3f2020"/>

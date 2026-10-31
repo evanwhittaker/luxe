@@ -80,7 +80,7 @@ fn the_feedback_window_reads_a_long_comment_in_full() {
     assert!(has("Why this matters") && !has("## Why"), "drawn as markdown: {text}");
     assert!(has("point 1") && !has("The last line."), "{text}");
     assert!(has("pgup/pgdn scroll"), "{text}");
-    assert!(has("Confirm the migration") && has("to verify"), "the list stays beside it: {text}");
+    assert!(has("Confirm the migration") && has("not sent"), "the list stays beside it: {text}");
 
     app.update(crate::app::Msg::Key(crossterm::event::KeyEvent::new(
         crossterm::event::KeyCode::PageDown,
@@ -128,7 +128,6 @@ fn the_feedback_drawer_orders_actionable_comments_before_finished_ones() {
         ("Stale anchor", FindingState::Stale, FindingSeverity::Note),
         ("Resolved concern", FindingState::Resolved, FindingSeverity::Issue),
         ("Draft thought", FindingState::Draft, FindingSeverity::Suggestion),
-        ("Verify remediation", FindingState::NeedsVerification, FindingSeverity::Issue),
         ("Open concern", FindingState::Open, FindingSeverity::Issue),
         ("Blocking concern", FindingState::Open, FindingSeverity::Blocking),
     ] {
@@ -162,8 +161,7 @@ fn the_feedback_drawer_orders_actionable_comments_before_finished_ones() {
     let position = |title: &str| text.find(title).expect("a row in the drawer");
 
     assert!(position("Blocking concern") < position("Open concern"));
-    assert!(position("Open concern") < position("Verify remediation"));
-    assert!(position("Verify remediation") < position("Draft thought"));
+    assert!(position("Open concern") < position("Draft thought"));
     assert!(position("Draft thought") < position("Resolved concern"));
     assert!(position("Resolved concern") < position("Stale anchor"));
 }
@@ -235,7 +233,7 @@ fn a_comment_renders_under_the_line_it_is_anchored_to() {
         "and says what it says, in the diff, not two overlays away: {text}"
     );
     assert!(
-        text.contains("unsent"),
+        text.contains("not sent"),
         "and what happens to it next, which a drawer never said: {text}"
     );
 }
@@ -265,7 +263,7 @@ fn a_question_being_answered_says_so_on_its_card() {
     session.dispatch_submission(&submission).expect("dispatched");
     let card = |app: &crate::app::App| {
         let finding = app.review.session().expect("session").findings[0].clone();
-        super::diff_render::comment_lines(app, &[finding], 100)
+        super::diff_render::comment_lines(app, &[finding], 100, false)
             .iter()
             .map(|line| line.spans.iter().map(|span| span.content.as_ref()).collect::<String>())
             .collect::<Vec<_>>()
@@ -306,7 +304,7 @@ fn a_comment_the_agent_replied_to_says_so_on_its_card() {
         .expect("queued");
     let card = |app: &crate::app::App| {
         let finding = app.review.session().expect("session").findings[0].clone();
-        super::diff_render::comment_lines(app, &[finding], 100)
+        super::diff_render::comment_lines(app, &[finding], 100, false)
             .iter()
             .map(|line| line.spans.iter().map(|span| span.content.as_ref()).collect::<String>())
             .collect::<Vec<_>>()
@@ -337,7 +335,7 @@ fn a_comment_with_no_word_from_the_agent_says_so_on_its_card() {
         created_at_ms: 1,
     });
     let finding = session.findings[0].clone();
-    let text = super::diff_render::comment_lines(&app, &[finding], 100)
+    let text = super::diff_render::comment_lines(&app, &[finding], 100, false)
         .iter()
         .map(|line| line.spans.iter().map(|span| span.content.as_ref()).collect::<String>())
         .collect::<Vec<_>>()
@@ -522,8 +520,13 @@ fn draft_finding_details_only_advertise_draft_mutations() {
     assert!(!text.contains("r resolve/reopen"));
 }
 
+/// A comment the agent reported fixed is still just open: the report is on its thread, and `r`
+/// resolves it like any other.
+///
+/// The break this catches: the report moving the comment into a state of its own again, with its
+/// own key words.
 #[test]
-fn needs_verification_requires_explicit_verification_before_resolution() {
+fn a_reported_fix_resolves_like_any_open_comment() {
     use ratatui::{backend::TestBackend, Terminal};
 
     let mut app = seeded_app("nord", FixtureScenario::GuidedReviewFindings).expect("fixture app");
@@ -533,19 +536,20 @@ fn needs_verification_requires_explicit_verification_before_resolution() {
         .expect("review session")
         .findings
         .iter()
-        .find(|finding| finding.state == FindingState::NeedsVerification)
-        .expect("verification finding");
+        .find(|finding| finding.thread.iter().any(|said| said.body.starts_with("Agent reported")))
+        .expect("a comment the agent reported fixed");
+    assert_eq!(finding.state, FindingState::Open);
     app.guided_review_workspace.selected_finding_id = Some(finding.id.clone());
     app.guided_review_workspace.finding_details_visible = true;
 
     let backend = TestBackend::new(120, 30);
     let mut terminal = Terminal::new(backend).expect("test terminal");
-    terminal.draw(|frame| render(frame, frame.area(), &app)).expect("render verification finding");
+    terminal.draw(|frame| render(frame, frame.area(), &app)).expect("render reported finding");
     let text: String =
         terminal.backend().buffer().content.iter().map(|cell| cell.symbol()).collect();
 
-    assert!(text.contains("r verify and resolve"));
-    assert!(!text.contains("r resolve · esc close"));
+    assert!(text.contains("r resolve · esc close"), "{text}");
+    assert!(!text.contains("verify and"), "{text}");
 }
 
 #[test]
@@ -579,7 +583,7 @@ fn finding_details_render_the_whole_thread_attributed_to_each_author() {
     let text: String =
         terminal.backend().buffer().content.iter().map(|cell| cell.symbol()).collect();
 
-    assert!(text.contains("an agent report is a claim; reviewer verification required"));
+    assert!(text.contains("an agent report is a claim; check the code before resolving"));
     // Both halves of the exchange, attributed and in order.
     assert!(text.contains("Agent:"));
     assert!(text.contains("Agent reported: fixed the retry cap."));
@@ -593,8 +597,12 @@ fn finding_details_render_the_whole_thread_attributed_to_each_author() {
     assert!(!text.contains("A longer audit trail remains durable."));
 }
 
+/// An outdated comment offers what changed at its line and resolving it, as GitHub does, and
+/// nothing that moves it.
+///
+/// The break this catches: the window still offering `alt+r`, or offering no way to close it.
 #[test]
-fn stale_finding_drawer_only_advertises_reanchoring() {
+fn an_outdated_comment_offers_what_changed_and_resolve() {
     use ratatui::{backend::TestBackend, Terminal};
 
     let mut app = seeded_app("nord", FixtureScenario::GuidedReviewFindings).expect("fixture app");
@@ -615,9 +623,9 @@ fn stale_finding_drawer_only_advertises_reanchoring() {
     let text: String =
         terminal.backend().buffer().content.iter().map(|cell| cell.symbol()).collect();
 
-    assert!(text.contains("alt+r re-anchor and verify"));
-    assert!(!text.contains("r resolve/reopen"));
-    assert!(!text.contains("x delete draft"));
+    assert!(text.contains("v what changed · r resolve"), "{text}");
+    assert!(text.contains("outdated"), "{text}");
+    assert!(!text.contains("alt+r") && !text.contains("x delete"), "{text}");
 }
 
 #[test]
@@ -646,8 +654,9 @@ fn edit_draft_overlay_preserves_submitted_feedback_immutability() {
     assert!(text.contains("submitted feedback stays immutable"));
 }
 
+/// An outdated comment's details close it with `r`, and offer nothing that moves it.
 #[test]
-fn stale_finding_details_expose_the_reanchor_shortcut() {
+fn outdated_finding_details_offer_resolve() {
     use ratatui::{backend::TestBackend, Terminal};
 
     let mut app = seeded_app("nord", FixtureScenario::GuidedReviewFindings).expect("fixture app");
@@ -669,7 +678,7 @@ fn stale_finding_details_expose_the_reanchor_shortcut() {
         terminal.backend().buffer().content.iter().map(|cell| cell.symbol()).collect();
 
     assert!(text.contains("Pinned revision:"));
-    assert!(text.contains("alt+r re-anchor and verify"));
+    assert!(text.contains("r resolve · esc close") && !text.contains("alt+r"), "{text}");
 }
 
 #[test]
@@ -734,6 +743,6 @@ fn the_guide_foot_says_what_the_feedback_wants() {
 
     // Unsent leads over severity: a count that does not say none of it has left is the wrong
     // fact to put in front of someone. The key that sends it is the footer's.
-    assert!(text.contains("FEEDBACK") && text.contains(" 1 · 1 unsent"), "{text}");
+    assert!(text.contains("FEEDBACK") && text.contains(" 1 · 1 not sent"), "{text}");
     assert!(!text.contains("alt+u"), "{text}");
 }

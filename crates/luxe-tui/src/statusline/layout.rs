@@ -60,18 +60,50 @@ pub(super) fn fit_segments(
             SegmentKind::Model,
         ]
     };
-    for &kind in removal_order {
+    // Custom modules outlast the extras (the trivia, the cost, the plan, the change, the pull
+    // request), which are defaults the dock and `/cost` also carry, where a custom module is one
+    // someone chose. They go before the anchors, from the branch on: where you are and what is
+    // answering have to outlast a width that is whatever a program printed.
+    let anchors = removal_order.iter().position(|&kind| kind == SegmentKind::Branch);
+    let (extras, anchors) = removal_order.split_at(anchors.unwrap_or(removal_order.len()));
+    remove_kinds(left, right, extras, width, shape);
+    while segments_width(left, right, shape) > width && remove_a_custom(left, right) {}
+    remove_kinds(left, right, anchors, width, shape);
+
+    // Safety net for anything outside the priority list: trim from the right cluster then the left
+    // until the line fits, so the composed line can never overflow.
+    while segments_width(left, right, shape) > width && right.pop().is_some() {}
+    while segments_width(left, right, shape) > width && left.pop().is_some() {}
+}
+
+/// Drops `kinds` in order, from both sides, until the bar fits.
+fn remove_kinds(
+    left: &mut Vec<Segment>,
+    right: &mut Vec<Segment>,
+    kinds: &[SegmentKind],
+    width: usize,
+    shape: Shape,
+) {
+    for &kind in kinds {
         if segments_width(left, right, shape) <= width {
             break;
         }
         remove_kind(left, kind);
         remove_kind(right, kind);
     }
+}
 
-    // Safety net for anything outside the priority list: trim from the right cluster then the left
-    // until the line fits, so the composed line can never overflow.
-    while segments_width(left, right, shape) > width && right.pop().is_some() {}
-    while segments_width(left, right, shape) > width && left.pop().is_some() {}
+/// Drops the custom module nearest the middle of the bar, right side first. False when there
+/// are none left.
+fn remove_a_custom(left: &mut Vec<Segment>, right: &mut Vec<Segment>) -> bool {
+    let is_custom = |segment: &Segment| matches!(segment.kind, SegmentKind::Custom(_));
+    if let Some(index) = right.iter().position(is_custom) {
+        right.remove(index);
+        return true;
+    }
+    let Some(index) = left.iter().rposition(is_custom) else { return false };
+    left.remove(index);
+    true
 }
 
 fn remove_kind(segments: &mut Vec<Segment>, kind: SegmentKind) {

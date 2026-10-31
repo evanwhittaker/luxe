@@ -13,10 +13,12 @@ mod picker;
 mod review;
 pub mod review_keys;
 mod submit;
+mod tabs;
 
 pub(crate) use chord::{chord_of, resolve_key_event};
-pub(crate) use modal::modal_took_paste;
+pub(crate) use modal::{github_wheel, modal_took_paste};
 pub(super) use submit::{submit_prompt, submit_prompt_with};
+pub(super) use tabs::open_tab;
 
 use super::{commands, App, ConvoBlock, MidTurnDelivery};
 use crate::editor::Editor;
@@ -110,13 +112,10 @@ pub(super) fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) {
             return;
         }
     }
-    // Esc drops a live text selection before anything else claims it (without a selection it
-    // still falls through to the composer, where it clears the draft).
-    if key.code == KeyCode::Esc && key.modifiers.is_empty() && super::selection::is_active(app) {
-        app.update(super::Msg::ClearTextSelection);
+    if super::selection::key_took(app, &key) {
         return;
     }
-    // Then it puts the Changes pane away and gives the column back to the transcript. Ahead of
+    // Then Esc puts the Changes pane away and gives the column back to the transcript. Ahead of
     // the composer's own Esc, because a visible surface is what the key most obviously means.
     if key.code == KeyCode::Esc && key.modifiers.is_empty() && app.changes.is_some() {
         app.update(super::Msg::CloseChanges);
@@ -131,8 +130,9 @@ pub(super) fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) {
         return;
     }
 
-    let is_text_input = matches!(key.code, KeyCode::Char(_))
-        && !key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
+    // Super+C is a shortcut, not a letter, from a terminal that reports Super at all
+    let shortcut = KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER;
+    let is_text_input = matches!(key.code, KeyCode::Char(_)) && !key.modifiers.intersects(shortcut);
     if app.current_view == super::ViewMode::GuidedReview
         && key.code == KeyCode::Char('r')
         && key.modifiers == KeyModifiers::CONTROL
@@ -145,11 +145,8 @@ pub(super) fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) {
         app.outbox.launch = Some(launcher.clone());
         return;
     }
-    if let Some(action) = resolve_key_event(&app.keymap, key) {
-        let is_review_action = action.is_review();
-        if (!is_text_input || is_review_action) && app.dispatch_action(action) {
-            return;
-        }
+    if bound_action_took(app, key, is_text_input) {
+        return;
     }
 
     // Alt+Enter queues a follow-up turn instead of steering the running one. Handled here rather
@@ -169,7 +166,27 @@ pub(super) fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) {
         sync_completion_flyouts(app);
         return;
     }
+    submit_composer(app);
+}
 
+/// Whether the key map bound `key` to an action that ran.
+///
+/// Text input only reaches a review action, so a letter bound elsewhere still types. A bare Esc
+/// bound to the interrupt is left for the composer when [`commands::esc_yields_to_composer`] says
+/// it is the composer's.
+fn bound_action_took(app: &mut App, key: crossterm::event::KeyEvent, is_text_input: bool) -> bool {
+    use crossterm::event::KeyCode;
+
+    let bare_esc = key.code == KeyCode::Esc && key.modifiers.is_empty();
+    let action = resolve_key_event(&app.keymap, key).filter(|action| {
+        !(bare_esc && *action == UiAction::Cancel && commands::esc_yields_to_composer(app))
+    });
+    let Some(action) = action else { return false };
+    (!is_text_input || action.is_review()) && app.dispatch_action(action)
+}
+
+/// Enter in the composer: runs a slash command, or submits the draft when there is one.
+fn submit_composer(app: &mut App) {
     let compact_input = app.editor.current_input().trim().to_string();
     if compact_input.starts_with('/') {
         let registry = crate::commands::CommandRegistry::all();

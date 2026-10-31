@@ -13,6 +13,7 @@
 //! key could be routed on wrongly — `Enter` dead in the whole view, `↑`/`↓` never reaching the
 //! surface that needed them — and with one cursor neither is expressible.
 
+mod cursor_row;
 pub(crate) mod diff;
 mod findings;
 mod fold;
@@ -24,7 +25,9 @@ mod source;
 mod source_picker;
 pub mod state;
 mod viewport;
+mod window;
 
+pub(crate) use cursor_row::{hunk_anchor_matches, line_anchor_matches, CursorRow};
 pub use fold::{
     has_mechanical_churn, hunk_row_span, is_mechanical, mechanical_label, visible_groups, Fold,
     FoldedRun, VisibleGroup,
@@ -125,6 +128,9 @@ pub(crate) struct GuidedReviewWorkspace {
     pub(crate) layout: DiffLayout,
     /// Number of rows available to the rendered full-screen diff body.
     pub(crate) diff_viewport_rows: usize,
+    /// The diff window the last frame drew, kept apart from the cursor so a line move can move the
+    /// cursor on the screen. Interior mutability because the window is settled at draw time.
+    pub(crate) diff_window: std::cell::Cell<window::DiffWindow>,
     /// Terminal-cell offset for horizontally clipped source lines.
     pub(crate) diff_column_offset: usize,
     /// Number of terminal cells available to a full-screen diff line.
@@ -215,6 +221,7 @@ impl Default for GuidedReviewWorkspace {
             finish_offers_stack: false,
             layout: DiffLayout::Auto,
             diff_viewport_rows: 1,
+            diff_window: std::cell::Cell::default(),
             diff_column_offset: 0,
             diff_viewport_columns: 1,
             terminal_columns: 0,

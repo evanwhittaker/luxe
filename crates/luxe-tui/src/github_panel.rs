@@ -218,7 +218,8 @@ impl GithubPanel {
         self.rows().get(self.selected).and_then(|item| self.details.get(&item.url))
     }
 
-    fn detail_mut(&mut self) -> Option<&mut GithubDetail> {
+    /// The detail of the row under the cursor, to scroll or answer a key.
+    pub(crate) fn detail_mut(&mut self) -> Option<&mut GithubDetail> {
         let url = self.rows().get(self.selected).map(|item| item.url.clone())?;
         self.details.get_mut(&url)
     }
@@ -229,6 +230,33 @@ impl GithubPanel {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_or(0, |since| since.as_secs())
         })
+    }
+
+    /// Opens tab `section`, for a click on it: a search being typed is put away and the cursor
+    /// goes to the top, as Tab does. A click on the tab already open keeps the reader's place.
+    pub fn open_section(&mut self, section: usize) {
+        let count = self.sections.as_ref().map_or(0, Vec::len);
+        if section >= count || (section == self.section && self.editing.is_none()) {
+            return;
+        }
+        self.editing = None;
+        self.section = section;
+        self.selected = 0;
+        self.focus = Focus::List;
+    }
+
+    /// Gives the detail the keys for a click on its tab `tab`, and answers whether that tab still
+    /// has to be switched to. A detail with a dialog open over it takes no click from underneath.
+    pub fn focus_detail_tab(&mut self, tab: crate::github_detail::DetailTab) -> bool {
+        let Some(detail) = self.detail() else {
+            return false;
+        };
+        if detail.merging.is_some() || detail.composing.is_some() {
+            return false;
+        }
+        let switch = detail.tab != tab;
+        self.focus = Focus::Detail;
+        switch
     }
 
     /// What `key` does. Every key is the panel's while it is open.

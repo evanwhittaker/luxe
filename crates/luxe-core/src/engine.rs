@@ -222,7 +222,11 @@ mod settings;
 pub use settings::Carryover;
 mod startup;
 
-pub use drafting::{DraftRequest, DraftTarget, FindingEvidence, ReviewDraft};
+pub(crate) use drafting::PULL_REQUEST_OPENER;
+pub use drafting::{
+    split_pull_request_draft, DraftRequest, DraftTarget, FindingEvidence, PullRequestAsk,
+    ReviewDraft,
+};
 pub use github_change::{PullRequestChange, PullRequestWrite};
 pub use github_post::GithubPost;
 pub use review_desk::{CommentDraft, ReviewEdit};

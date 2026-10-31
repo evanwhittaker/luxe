@@ -133,7 +133,7 @@ pub(crate) fn summary(app: &App) -> Option<&luxe_core::guided_review::ReviewFind
 }
 
 /// The guide's account of the change: what it sets out to do, what it does, and its chapters.
-fn guide(review: &GuidedReview) -> Option<String> {
+pub(super) fn guide(review: &GuidedReview) -> Option<String> {
     let mut lines = Vec::new();
     if let Some(brief) = review.brief.as_ref() {
         lines.push(brief.intent.clone());

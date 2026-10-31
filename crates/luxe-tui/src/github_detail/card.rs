@@ -100,13 +100,14 @@ impl PullRequestCard {
 
 /// Draws the card centered over `area`, most of the screen, the conversation dimmed behind it.
 ///
-/// Args: `(frame, area, card, spinner frame, styles)`.
+/// Args: `(frame, area, card, spinner frame, styles, hit)`.
 pub fn render_card(
     f: &mut Frame,
     area: Rect,
     card: &PullRequestCard,
     frame: usize,
     styles: &ThemeStyles,
+    hit: &std::cell::RefCell<crate::mouse::HitRegions>,
 ) {
     let width = area.width.saturating_sub(8).clamp(40, 120).min(area.width);
     let height = area.height.saturating_sub(4).max(12).min(area.height);
@@ -137,7 +138,7 @@ pub fn render_card(
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_or(0, |since| since.as_secs());
-            render(f, body, detail, true, detail.clock.unwrap_or(now), styles);
+            render(f, body, detail, true, detail.clock.unwrap_or(now), styles, hit);
             super::render_overlays(f, popup, detail, frame, styles);
         }
     }

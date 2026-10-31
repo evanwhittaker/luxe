@@ -197,3 +197,32 @@ fn test_position_percent_at_top() {
     assert_eq!(state.offset, 0);
     assert_eq!(state.position_percent(), 0);
 }
+
+/// A line already on screen leaves the scroll alone.
+#[test]
+fn reveal_leaves_a_visible_line_alone() {
+    let mut state = ScrollState::new(10, 100);
+    state.up_by(40);
+    state.reveal(55);
+    assert_eq!((state.offset, state.follow), (50, false));
+}
+
+/// A line above the window brings it to the top; one below brings it to the bottom.
+#[test]
+fn reveal_scrolls_the_least_either_way() {
+    let mut state = ScrollState::new(10, 100);
+    state.up_by(40);
+    state.reveal(45);
+    assert_eq!(state.offset, 45, "to the top");
+    state.reveal(60);
+    assert_eq!(state.offset, 51, "to the bottom row");
+}
+
+/// Revealing the last line is reaching the bottom, so following resumes.
+#[test]
+fn reveal_down_to_the_last_line_resumes_following() {
+    let mut state = ScrollState::new(10, 100);
+    state.up_by(40);
+    state.reveal(99);
+    assert_eq!((state.offset, state.follow), (90, true));
+}

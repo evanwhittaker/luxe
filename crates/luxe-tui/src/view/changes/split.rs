@@ -25,6 +25,7 @@ pub(super) fn split_lines(
 
     let groups: Vec<VisibleGroup<'_>> = file.hunks.iter().map(VisibleGroup::Hunk).collect();
     let rows = visible_split_rows(&groups, offset, viewport);
+    let cursor = view.diff_cursor.filter(|_| view.focused);
     let mut drawn: DrawnRows = (Vec::with_capacity(viewport), Vec::with_capacity(viewport));
     for row in &rows {
         if drawn.0.len() >= viewport {
@@ -33,21 +34,19 @@ pub(super) fn split_lines(
         match row {
             // A collapsed run cannot happen here: the pane folds nothing.
             SplitRow::Folded { .. } => {}
-            SplitRow::Header { old_range, new_range, heading, .. } => {
-                if !drawn.0.is_empty() {
-                    drawn.0.push(Line::default());
-                    drawn.1.push(Vec::new());
-                }
+            SplitRow::Header { old_range, new_range, heading, unified_index, .. } => {
                 let header =
                     hunk_header_line(*old_range, *new_range, *heading, layout.styles, None);
-                drawn.0.push(header);
-                drawn.1.push(Vec::new());
+                let standing = cursor == Some(*unified_index);
+                push_header(&mut drawn, header, standing, layout);
             }
             SplitRow::Pair { old, new, unified_index, last_index, .. } => {
                 // A pair's first row is its old line and its last the new one; a context line, or
                 // a line with nothing beside it, is one row and both
                 let rows = (*unified_index, *last_index);
-                let pair = SplitPair { old: *old, new: *new, rows, wrap: view.word_wrap };
+                // Either half standing under the cursor makes the whole pair its row
+                let standing = cursor.is_some_and(|row| row == rows.0 || row == rows.1);
+                let pair = SplitPair { old: *old, new: *new, rows, wrap: view.word_wrap, standing };
                 push_pair(&mut drawn, layout, &pair);
             }
         }
@@ -64,11 +63,54 @@ struct SplitPair<'a> {
     /// The old and the new line's rows in the pane's row space
     rows: (usize, usize),
     wrap: bool,
+    /// Whether the keyboard's cursor is on it
+    standing: bool,
+}
+
+/// A hunk header under a blank when it is not the first, across both columns in the cursor's band
+/// when the cursor stands on it.
+fn push_header(
+    drawn: &mut DrawnRows,
+    header: Line<'static>,
+    standing: bool,
+    layout: &SplitLayout<'_>,
+) {
+    if !drawn.0.is_empty() {
+        drawn.0.push(Line::default());
+        drawn.1.push(Vec::new());
+    }
+    let width = u16::try_from(layout.side * 2 + crate::view::diff_lines::SPLIT_DIVIDER_CELLS)
+        .unwrap_or(u16::MAX);
+    let band = layout.styles.cursor_line_bg();
+    drawn.0.push(match standing {
+        true => Line::from(crate::view::diff_lines::tint_row(header.spans, band, width)),
+        false => header,
+    });
+    drawn.1.push(Vec::new());
+}
+
+/// How one side of a pair is drawn: plainly, or in the cursor's band over its own tint.
+fn side_style(
+    cell: SplitDiffCell<'_>,
+    standing: bool,
+    layout: &SplitLayout<'_>,
+) -> crate::view::diff_lines::SplitCellStyle {
+    let plain = crate::view::diff_lines::SplitCellStyle::default();
+    let SplitDiffCell::Source(line) = cell else { return plain };
+    if !standing {
+        return plain;
+    }
+    let tint = crate::view::diff_lines::diff_line_background(line.kind, layout.styles);
+    crate::view::diff_lines::SplitCellStyle {
+        background: Some(layout.styles.cursor_line_over(tint)),
+        ..plain
+    }
 }
 
 /// Draws one side-by-side pair, wrapped or clipped, with where each side's code sits.
 fn push_pair(drawn: &mut DrawnRows, layout: &SplitLayout<'_>, pair: &SplitPair<'_>) {
-    let plain = crate::view::diff_lines::SplitCellStyle::default();
+    let old_style = side_style(pair.old, pair.standing, layout);
+    let new_style = side_style(pair.new, pair.standing, layout);
     // Pairing is exact here, so the marks are too — no run-matching heuristic.
     let changed = match (pair.old, pair.new) {
         (SplitDiffCell::Source(old), SplitDiffCell::Source(new)) if old.kind != new.kind => {
@@ -82,12 +124,15 @@ fn push_pair(drawn: &mut DrawnRows, layout: &SplitLayout<'_>, pair: &SplitPair<'
     let old = side_pieces(pair.old, (SplitSide::Old, pair.rows.0), layout, pair.wrap);
     let new = side_pieces(pair.new, (SplitSide::New, pair.rows.1), layout, pair.wrap);
     let lines = match pair.wrap {
-        true => layout
-            .wrapped_pair((pair.old, &changed.removed, &plain), (pair.new, &changed.added, &plain)),
+        true => layout.wrapped_pair(
+            (pair.old, &changed.removed, &old_style),
+            (pair.new, &changed.added, &new_style),
+        ),
         false => {
-            let mut spans = layout.cell_spans(SplitSide::Old, pair.old, &changed.removed, &plain);
+            let mut spans =
+                layout.cell_spans(SplitSide::Old, pair.old, &changed.removed, &old_style);
             spans.push(layout.divider());
-            spans.extend(layout.cell_spans(SplitSide::New, pair.new, &changed.added, &plain));
+            spans.extend(layout.cell_spans(SplitSide::New, pair.new, &changed.added, &new_style));
             vec![Line::from(spans)]
         }
     };

@@ -77,6 +77,24 @@ pub(crate) fn item_count(app: &App) -> usize {
     }
 }
 
+/// The reason Approve and Request changes are dimmed on the reader's own pull request.
+const OWN_PULL_REQUEST_VERDICTS: &str =
+    "GitHub doesn't let you approve or request changes on your own pull request";
+
+/// Steps the verdict, unless a post is on its way. On the reader's own pull request there is only
+/// Comment, so the key says why rather than doing nothing.
+pub(super) fn move_verdict(app: &mut App, forward: bool) {
+    let Some(post) = app.guided_review_workspace.github_post.as_mut() else { return };
+    if post.posting {
+        return;
+    }
+    if post.verdicts().len() == 1 {
+        app.status.flash_toast(OWN_PULL_REQUEST_VERDICTS);
+        return;
+    }
+    post.move_verdict(forward);
+}
+
 /// Posts what the preview shows, or asks GitHub again when reading the pull request failed.
 pub(super) fn confirm(app: &mut App) {
     let Some(post) = app.guided_review_workspace.github_post.as_ref() else {

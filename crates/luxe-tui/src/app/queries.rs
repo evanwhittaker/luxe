@@ -155,6 +155,12 @@ impl App {
         selection::is_active(self)
     }
 
+    /// Whether the transcript holds a selection of at least one cell, which a right-click there
+    /// offers to copy.
+    pub fn transcript_selection_covers_cells(&self) -> bool {
+        selection::covers_cells(self)
+    }
+
     /// Whether an overlay is drawn over the chat surface.
     ///
     /// The transcript keeps its wheel region underneath one — scrolling the thing you are reading is

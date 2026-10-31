@@ -64,6 +64,8 @@ pub fn label(text: &str) -> Option<&'static str> {
         Some("Drafted a reply")
     } else if text.starts_with(DRAFT_REVIEW_SUMMARY) {
         Some("Drafted the review summary")
+    } else if text.starts_with(crate::engine::PULL_REQUEST_OPENER) {
+        Some("Drafted the pull request")
     } else if text.starts_with(REPORT_REQUEST) {
         Some("Asked the agent for its report")
     } else if text.starts_with(REVIEW_FEEDBACK) {

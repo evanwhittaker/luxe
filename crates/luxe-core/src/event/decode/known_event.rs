@@ -118,6 +118,9 @@ pub(super) enum KnownEvent {
     },
     SessionUsage(crate::usage::SessionUsage),
     PlanUsage(crate::provider::PlanUsage),
+    DockSection(crate::custom_dock::DockAnswer),
+    StatuslineModule(crate::custom_dock::DockAnswer),
+    CustomRowWidths(crate::custom_dock::RowWidths),
     ContextComposition(Box<crate::context_report::ContextComposition>),
     ImageAttached {
         mime: String,

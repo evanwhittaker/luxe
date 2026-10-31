@@ -6,8 +6,6 @@
 use crate::guided_review::FinishReviewChoice as FinishChoice;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use luxe_core::keymap::UiAction;
-
 use super::super::{App, ConvoBlock, Msg, ViewMode};
 use super::{
     has_actionable_findings, queued_submission_for_selected_finding,
@@ -138,9 +136,8 @@ fn stack_opening_key(app: &mut App, key: KeyEvent) -> bool {
     }
     match key.code {
         KeyCode::Esc => app.update(Msg::GuidedReviewCancelStack),
-        KeyCode::Char('d') if key.modifiers.is_empty() => {
-            app.update(Msg::GuidedReviewToggleStackDraft);
-        }
+        // Shifted, as in the single pull request's preview, where `d` has the agent draft it
+        KeyCode::Char('D') => app.update(Msg::GuidedReviewToggleStackDraft),
         KeyCode::Enter => app.update(Msg::GuidedReviewConfirmStack),
         _ => {}
     }
@@ -191,7 +188,9 @@ fn pull_request_opening_key(app: &mut App, key: KeyEvent) -> bool {
         KeyCode::Char('e' | 'c') if plain => {
             app.update(Msg::GuidedReviewEditPullRequest(OpeningField::Body));
         }
-        KeyCode::Char('d') if plain => app.update(Msg::GuidedReviewTogglePullRequestDraft),
+        // `d` is the agent drafting, as in every composer; `D` is GitHub's own sense of a draft
+        KeyCode::Char('d') if plain => app.update(Msg::GuidedReviewDraftPullRequest),
+        KeyCode::Char('D') => app.update(Msg::GuidedReviewTogglePullRequestDraft),
         KeyCode::Char('E') => app.update(Msg::GuidedReviewEditPullRequestExternally),
         KeyCode::Up => app.update(Msg::GuidedReviewScrollPullRequest(-1)),
         KeyCode::Down => app.update(Msg::GuidedReviewScrollPullRequest(1)),
@@ -252,7 +251,6 @@ fn github_post_key(app: &mut App, key: KeyEvent) -> bool {
         }
         KeyCode::Char('d') if plain => Msg::GuidedReviewDraftPostSummary,
         KeyCode::Char('e') if plain => Msg::GuidedReviewEditPostSummary,
-        KeyCode::Char('w') if plain => Msg::GuidedReviewOpenPullRequestFix,
         // Tab, the way the @ picker moves between its tabs
         KeyCode::BackTab => Msg::GuidedReviewMoveGithubVerdict(false),
         KeyCode::Tab => Msg::GuidedReviewMoveGithubVerdict(true),
@@ -329,8 +327,11 @@ fn findings_window_key(app: &mut App, key: KeyEvent) -> bool {
     if key.modifiers.is_empty() && finding_action_key(app, key.code) {
         return true;
     }
-    if key.code == KeyCode::Char('r') && key.modifiers == KeyModifiers::ALT {
-        app.dispatch_action(UiAction::ReviewReanchorFinding);
+    // The send preview opens over the list, and Esc there comes back to it; the keymap's
+    // `alt+u` would close the list on its way
+    if key.code == KeyCode::Char('u') && key.modifiers == KeyModifiers::ALT {
+        app.update(Msg::GuidedReviewOpenSendPreview);
+        app.guided_review_workspace.findings_visible = true;
         return true;
     }
     if key.code == KeyCode::Esc && key.modifiers.is_empty() {
@@ -378,12 +379,6 @@ fn finding_action_key(app: &mut App, code: KeyCode) -> bool {
         },
         KeyCode::Char('c') => app.update(Msg::GuidedReviewBeginReply),
         KeyCode::Char('a') => app.update(Msg::GuidedReviewBeginFollowUp),
-        // Sending lives with the comments it sends; the preview opens over the list, and Esc
-        // there comes back to it
-        KeyCode::Char('u') if crate::app::window_sends(app).is_some() => {
-            app.update(Msg::GuidedReviewOpenSendPreview);
-            app.guided_review_workspace.findings_visible = true;
-        }
         KeyCode::Enter => {
             if let Some(finding) = app.selected_finding().cloned() {
                 app.with_review(|workspace, review| {
@@ -398,6 +393,8 @@ fn finding_action_key(app: &mut App, code: KeyCode) -> bool {
     true
 }
 
+#[cfg(test)]
+mod cursor_comment_keys;
 #[cfg(test)]
 mod modal_keys;
 #[cfg(test)]

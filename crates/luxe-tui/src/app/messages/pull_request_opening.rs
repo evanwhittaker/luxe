@@ -4,7 +4,7 @@
 //! to write first, a branch to push. The reader edits the title and the description here, and what
 //! opens is exactly what the preview shows.
 
-use luxe_core::engine::Action;
+use luxe_core::engine::{Action, DraftRequest, DraftTarget, PullRequestAsk};
 use luxe_core::github::PullRequestState;
 use luxe_core::guided_review::{PullRequestOpenId, ReviewOutcome};
 use luxe_core::workspace::PullRequestPresence;
@@ -48,7 +48,85 @@ pub(super) fn open(app: &mut App) {
         body_room: std::cell::Cell::new(0),
         opening: false,
         error: None,
+        drafting: None,
+        draft_note: None,
     });
+}
+
+/// Asks the session's agent to write the title and description, carrying what the reader has
+/// written so a redraft keeps it. The issue it closes is the engine's to add: the session knows it.
+pub(super) fn draft(app: &mut App) {
+    let guide = app.guided_review.as_deref().and_then(super::review_draft::guide);
+    let Some(prepared) = idle(app).and_then(|opening| opening.prepared.as_ref()) else {
+        return;
+    };
+    let request = draft_request(&prepared.pull_request, guide);
+    let request_id = request.request_id.clone();
+    if !app.send_action(Action::DraftGithubReply(request), "draft the pull request") {
+        return;
+    }
+    let now = app.frame_now();
+    app.status.hold_review_cost();
+    if let Some(opening) = app.guided_review_workspace.pull_request_opening.as_mut() {
+        opening.drafting = Some((request_id, now));
+        opening.draft_note = None;
+        opening.error = None;
+    }
+}
+
+/// The drafting turn's request for `pull_request` as the preview holds it.
+fn draft_request(
+    pull_request: &luxe_core::github::NewPullRequest,
+    guide: Option<String>,
+) -> DraftRequest {
+    let millis = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+    let written = format!("{}\n\n{}", pull_request.title, pull_request.body);
+    DraftRequest {
+        request_id: format!("draft:pull-request:{}", millis.unwrap_or_default().as_millis()),
+        repository: None,
+        // Not opened yet, so it has no number
+        number: 0,
+        pull_request: true,
+        target: DraftTarget::PullRequest(PullRequestAsk {
+            base: pull_request.base.clone(),
+            head: pull_request.head.clone(),
+            closes: None,
+            guide,
+        }),
+        conversation: Vec::new(),
+        finding: None,
+        note: None,
+        current: Some(written.trim().to_string()).filter(|written| !written.is_empty()),
+    }
+}
+
+/// Makes a landed draft the title and description, answering whether it was this preview's.
+///
+/// Args: `(app, request_id, body, error, note)`.
+pub(crate) fn drafted(
+    app: &mut App,
+    request_id: &str,
+    body: Option<String>,
+    error: Option<String>,
+    note: Option<String>,
+) -> bool {
+    let Some(opening) =
+        app.guided_review_workspace.pull_request_opening.as_mut().filter(|opening| {
+            opening.drafting.as_ref().is_some_and(|(asked, _)| asked == request_id)
+        })
+    else {
+        return false;
+    };
+    opening.drafting = None;
+    let (Some(body), Some(prepared)) = (body, opening.prepared.as_mut()) else {
+        let reason = error.unwrap_or_else(|| "The agent wrote no draft.".to_string());
+        app.status.flash_toast(reason);
+        return true;
+    };
+    (prepared.pull_request.title, prepared.pull_request.body) =
+        luxe_core::engine::split_pull_request_draft(&body);
+    (opening.body_scroll, opening.draft_note) = (0, note);
+    true
 }
 
 /// Opens an editor on the title or the description, holding what is there.
@@ -65,6 +143,13 @@ pub(super) fn begin_edit(app: &mut App, field: OpeningField) {
         OpeningField::Body => &prepared.pull_request.body,
     });
     opening.editing = Some((field, editor));
+}
+
+/// Drops the field being edited, keeping what was there before.
+pub(super) fn cancel_edit(app: &mut App) {
+    if let Some(opening) = app.guided_review_workspace.pull_request_opening.as_mut() {
+        opening.editing = None;
+    }
 }
 
 /// Keeps what was written in the field being edited.
@@ -207,12 +292,12 @@ pub(crate) fn failed(app: &mut App, request_id: &PullRequestOpenId, message: Str
     }
 }
 
-/// The open preview when nothing is in flight, for a change the reader makes.
+/// The open preview when nothing is in flight, for a change the reader makes: not while it opens,
+/// while a field is open, or while the agent is drafting what an edit would change.
 fn idle(app: &mut App) -> Option<&mut PullRequestOpening> {
-    app.guided_review_workspace
-        .pull_request_opening
-        .as_mut()
-        .filter(|opening| !opening.opening && opening.editing.is_none())
+    app.guided_review_workspace.pull_request_opening.as_mut().filter(|opening| {
+        !opening.opening && opening.editing.is_none() && opening.drafting.is_none()
+    })
 }
 
 /// The open preview, when the answer is for the attempt it is waiting on.

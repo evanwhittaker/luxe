@@ -210,7 +210,7 @@ fn feedback_row(
     let glyph_style = match finding.state {
         _ if finding.posted.is_some() => styles.dim,
         FindingState::Draft => styles.warning,
-        FindingState::Open | FindingState::NeedsVerification => styles.info,
+        FindingState::Open => styles.info,
         FindingState::Resolved => styles.success,
         FindingState::Stale => styles.dim,
     };

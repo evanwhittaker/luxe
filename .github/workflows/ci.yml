@@ -84,7 +84,10 @@ jobs:
     name: build · test · clippy · fmt
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    # Pinned, not `ubuntu-latest`: the phone app step runs the `luxe` this job builds inside
+    # Playwright's image, so the runner's Ubuntu and the image's must match or the binary asks for a
+    # newer glibc than the image has. Move this and the `-resolute` tag below together.
+    runs-on: ubuntu-26.04
     # A bound, because the absence of one cost real money. This job's test step has been hanging on
     # `ubuntu-latest` — the same `cargo nextest run` that takes ~11s locally and passes on the macOS
     # and Windows runners — and without a timeout it burned 50 minutes before the runner was lost, on
@@ -193,7 +196,7 @@ jobs:
           df -h / | tail -1
           docker run --rm --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp/home \
             -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE/crates/luxe-remote/app-tests" \
-            "mcr.microsoft.com/playwright:v$PLAYWRIGHT-noble" sh -c 'npm ci && npm run e2e'
+            "mcr.microsoft.com/playwright:v$PLAYWRIGHT-resolute" sh -c 'npm ci && npm run e2e'
         env:
           PLAYWRIGHT: ${{ needs.changes.outputs.app_playwright }}
 

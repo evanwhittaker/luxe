@@ -17,7 +17,7 @@ pub(super) fn click(app: &mut App, col: u16, row: u16) -> RouteAction {
     let target = app.hit.borrow().at(col, row).cloned();
     // The scope switch is a menu, and a menu opens where it was asked for
     if target == Some(crate::mouse::MouseTarget::DockFilesScope)
-        && app.current_view != crate::app::ViewMode::GuidedReview
+        && app.current_view != ViewMode::GuidedReview
     {
         app.overlays.context_menu = Some(crate::context_menu::ContextMenu::for_scope(
             (col, row),
@@ -48,19 +48,18 @@ pub(super) fn clicked_target(app: &mut App, target: MouseTarget) -> RouteAction 
         // Same rule for the Configuration menu: a click moves the cursor and then runs the row it
         // moved to, so pointer and keyboard reach identical state.
         MouseTarget::ConfigRow(index)
-            if app.current_view == crate::app::ViewMode::Configuration
+            if app.current_view == ViewMode::Configuration
                 && app.overlays.auth_wizard.is_none() =>
         {
             configuration_row(app, index)
         }
-        MouseTarget::ConfigPage(index)
-            if app.current_view == crate::app::ViewMode::Configuration =>
-        {
+        MouseTarget::ConfigPage(index) if app.current_view == ViewMode::Configuration => {
             configuration_page(app, index)
         }
         MouseTarget::ReviewFindingRow(finding_id) => {
             RouteAction::msg(Msg::GuidedReviewSelectFinding(finding_id))
         }
+        MouseTarget::Tab { strip, index } => RouteAction::msg(Msg::OpenTab { strip, index }),
         // Clicking a level the model can't honor is a no-op rather than a silent clamp.
         MouseTarget::ThinkingRow(index)
             if app.overlays.thinking_picker.as_mut().is_some_and(|p| p.select(index)) =>
@@ -71,52 +70,38 @@ pub(super) fn clicked_target(app: &mut App, target: MouseTarget) -> RouteAction 
         MouseTarget::AuthCopyCode => copy_device_code(app),
         // Session/project pickers are route_key-owned (dashboard flow), so a click resolves
         // straight to the selection RouteAction rather than a synthetic key.
-        MouseTarget::SessionRow(index)
-            if app.current_view == crate::app::ViewMode::SessionPicker =>
-        {
+        MouseTarget::SessionRow(index) if app.current_view == ViewMode::SessionPicker => {
             session_row(app, index)
         }
-        MouseTarget::ReviewDiffRow(row)
-            if app.current_view == crate::app::ViewMode::GuidedReview =>
-        {
+        MouseTarget::ReviewDiffRow(row) if app.current_view == ViewMode::GuidedReview => {
             RouteAction::msg(Msg::GuidedReviewSelectDiffRow(row))
         }
-        MouseTarget::ReviewFoldedRun(file_id)
-            if app.current_view == crate::app::ViewMode::GuidedReview =>
-        {
+        MouseTarget::ReviewFoldedRun(file_id) if app.current_view == ViewMode::GuidedReview => {
             RouteAction::msg(Msg::GuidedReviewToggleFileFold(file_id))
         }
-        MouseTarget::ReviewGuideFile(file_id)
-            if app.current_view == crate::app::ViewMode::GuidedReview =>
-        {
+        MouseTarget::ReviewGuideFile(file_id) if app.current_view == ViewMode::GuidedReview => {
             RouteAction::msg(Msg::GuidedReviewSelectFile(file_id))
         }
         MouseTarget::ReviewGuideChapter(chapter_id)
-            if app.current_view == crate::app::ViewMode::GuidedReview =>
+            if app.current_view == ViewMode::GuidedReview =>
         {
             RouteAction::msg(Msg::GuidedReviewOpenChapter(chapter_id))
         }
         // The other half of the same hint row: a glance rather than a review.
-        MouseTarget::DockPeekChanges if app.current_view != crate::app::ViewMode::GuidedReview => {
+        MouseTarget::DockPeekChanges if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::DispatchUiAction(luxe_core::keymap::UiAction::ToggleChanges))
         }
         // The dock is drawn in Chat's wide layout; the affordance opens review from there.
-        MouseTarget::DockReviewChanges
-            if app.current_view != crate::app::ViewMode::GuidedReview =>
-        {
+        MouseTarget::DockReviewChanges if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::DispatchUiAction(luxe_core::keymap::UiAction::ReviewOpen))
         }
         // A file row under ELSEWHERE: show that file's diff. Clicking the one already open closes it,
         // so the same gesture that opened the pane puts it away.
-        MouseTarget::DockChangeFile(path)
-            if app.current_view != crate::app::ViewMode::GuidedReview =>
-        {
+        MouseTarget::DockChangeFile(path) if app.current_view != ViewMode::GuidedReview => {
             toggle_file(app, &path, Msg::OpenChanges)
         }
         // A place under ELSEWHERE: fold what has been dealt with, unfold what has not.
-        MouseTarget::DockExternalPlace(place)
-            if app.current_view != crate::app::ViewMode::GuidedReview =>
-        {
+        MouseTarget::DockExternalPlace(place) if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::ToggleExternalPlace(place.clone()))
         }
         // The start screen has no preview to open the changes in, so the bar's changes open the
@@ -124,22 +109,20 @@ pub(super) fn clicked_target(app: &mut App, target: MouseTarget) -> RouteAction 
         MouseTarget::StatuslineChanges if app.dashboard_owns_input() => {
             RouteAction::Dashboard(crate::dashboard::DashOutcome::ReviewChanges)
         }
-        MouseTarget::StatuslineChanges
-            if app.current_view != crate::app::ViewMode::GuidedReview =>
-        {
+        MouseTarget::StatuslineChanges if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::DispatchUiAction(luxe_core::keymap::UiAction::ToggleChanges))
         }
         MouseTarget::ChangesFooter(action) if app.changes.is_some() => {
             changes_footer_message(action).map_or(RouteAction::None, RouteAction::msg)
         }
         // A file in the tree: show it, or put it away when it is the one showing
-        MouseTarget::DockFile(path) if app.current_view != crate::app::ViewMode::GuidedReview => {
-            toggle_file(app, &path, Msg::OpenProjectFile)
+        MouseTarget::DockFile(path) if app.current_view != ViewMode::GuidedReview => {
+            toggle_file(app, &path, Msg::PreviewProjectFile)
         }
-        MouseTarget::DockFolder(path) if app.current_view != crate::app::ViewMode::GuidedReview => {
+        MouseTarget::DockFolder(path) if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::ToggleFolder(path.clone()))
         }
-        MouseTarget::DockFilesScope if app.current_view != crate::app::ViewMode::GuidedReview => {
+        MouseTarget::DockFilesScope if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::ToggleFilesScope)
         }
         // Every place the mode is shown switches it, the start screen's composer included
@@ -148,7 +131,7 @@ pub(super) fn clicked_target(app: &mut App, target: MouseTarget) -> RouteAction 
         {
             RouteAction::msg(Msg::DispatchUiAction(luxe_core::keymap::UiAction::CycleMode))
         }
-        MouseTarget::DockFocusFiles if app.current_view != crate::app::ViewMode::GuidedReview => {
+        MouseTarget::DockFocusFiles if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::FocusFiles)
         }
         // A press on a line of the File view starts picking lines; the drag that follows extends it
@@ -165,18 +148,16 @@ pub(super) fn clicked_target(app: &mut App, target: MouseTarget) -> RouteAction 
         // A click on a message opens whatever it is holding back — a card's output, a collapsed run
         // of calls, a previewed paste, a reasoning block — and does nothing at all on plain prose,
         // which is there to be read and selected rather than clicked.
-        MouseTarget::ConversationBlock(index) if app.current_view == crate::app::ViewMode::Chat => {
+        MouseTarget::ConversationBlock(index) if app.current_view == ViewMode::Chat => {
             RouteAction::msg(Msg::ToggleConversationBlockDetails(index))
         }
-        MouseTarget::CodeBlockCopy(code) if app.current_view == crate::app::ViewMode::Chat => {
+        MouseTarget::CodeBlockCopy(code) if app.current_view == ViewMode::Chat => {
             RouteAction::msg(Msg::CopyText(code))
         }
-        MouseTarget::OpenImage(key) if app.current_view == crate::app::ViewMode::Chat => {
+        MouseTarget::OpenImage(key) if app.current_view == ViewMode::Chat => {
             RouteAction::msg(Msg::OpenImageExternally(key))
         }
-        MouseTarget::ReviewFooter(action)
-            if app.current_view == crate::app::ViewMode::GuidedReview =>
-        {
+        MouseTarget::ReviewFooter(action) if app.current_view == ViewMode::GuidedReview => {
             RouteAction::msg(review_footer_message(action))
         }
         _ => RouteAction::None,
@@ -291,19 +272,21 @@ fn review_footer_message(action: crate::mouse::ReviewFooterAction) -> Msg {
 pub(super) fn wheel(app: &App, col: u16, row: u16, up: bool) -> RouteAction {
     use crate::mouse::ScrollRegionId;
     // The open description is what is being read, wherever the pointer happens to be
-    if app.current_view == crate::app::ViewMode::GuidedReview
+    if app.current_view == ViewMode::GuidedReview
         && app.guided_review_workspace.description_scroll.is_some()
     {
         let step = crate::app::DescriptionStep::Scroll(if up { -3 } else { 3 });
         return RouteAction::msg(Msg::GuidedReviewDescription(step));
     }
-    match app.hit.borrow().scroll_at(col, row) {
+    let region = app.hit.borrow().scroll_at(col, row);
+    if github_covers(app) {
+        return github_wheel(region, up);
+    }
+    match region {
         Some(ScrollRegionId::Conversation) => conversation_wheel(app, up),
-        Some(ScrollRegionId::ReviewDiff) => RouteAction::msg(if up {
-            Msg::GuidedReviewLinePrevious
-        } else {
-            Msg::GuidedReviewLineNext
-        }),
+        Some(ScrollRegionId::ReviewDiff) => {
+            RouteAction::msg(Msg::GuidedReviewWheel { forward: !up })
+        }
         // Scrolls the prose rather than moving the cursor, so a reader can read the section they
         // are *not* standing in without every notch dragging the review's position along
         Some(ScrollRegionId::ReviewGuide) => RouteAction::msg(Msg::GuidedReviewScrollGuide { up }),
@@ -320,6 +303,28 @@ pub(super) fn wheel(app: &App, col: u16, row: u16, up: bool) -> RouteAction {
         Some(ScrollRegionId::ReviewFeedback | ScrollRegionId::PullRequestBody) | None => {
             scroll_for_view(app, up)
         }
+        Some(ScrollRegionId::GithubList | ScrollRegionId::GithubDetail) => RouteAction::None,
+    }
+}
+
+/// Whether `/github` or `/pr` covers the screen, so the wheel is theirs alone.
+fn github_covers(app: &App) -> bool {
+    app.overlays.github.is_some() || app.overlays.pull_request_card.is_some()
+}
+
+/// A wheel notch while `/github` or `/pr` is open. Anywhere but its list or the open tab it does
+/// nothing, rather than scrolling the conversation hidden behind it.
+fn github_wheel(region: Option<crate::mouse::ScrollRegionId>, up: bool) -> RouteAction {
+    use crate::mouse::ScrollRegionId;
+    match region {
+        Some(ScrollRegionId::GithubList) => RouteAction::msg(Msg::GithubWheel { list: true, up }),
+        Some(ScrollRegionId::GithubDetail) => {
+            RouteAction::msg(Msg::GithubWheel { list: false, up })
+        }
+        Some(ScrollRegionId::OverlayList(list)) => {
+            RouteAction::msg(Msg::ScrollOverlayList { list, up })
+        }
+        _ => RouteAction::None,
     }
 }
 
@@ -327,15 +332,11 @@ pub(super) fn wheel(app: &App, col: u16, row: u16, up: bool) -> RouteAction {
 /// primary surface.
 pub(super) fn scroll_for_view(app: &App, up: bool) -> RouteAction {
     match app.current_view {
-        crate::app::ViewMode::Chat if app.changes.is_some() => {
+        ViewMode::Chat if app.changes.is_some() => {
             RouteAction::msg(Msg::ScrollChanges { up, lines: crate::changes::SCROLL_STEP })
         }
-        crate::app::ViewMode::Chat => conversation_wheel(app, up),
-        crate::app::ViewMode::GuidedReview => RouteAction::msg(if up {
-            Msg::GuidedReviewLinePrevious
-        } else {
-            Msg::GuidedReviewLineNext
-        }),
+        ViewMode::Chat => conversation_wheel(app, up),
+        ViewMode::GuidedReview => RouteAction::msg(Msg::GuidedReviewWheel { forward: !up }),
         _ => RouteAction::None,
     }
 }

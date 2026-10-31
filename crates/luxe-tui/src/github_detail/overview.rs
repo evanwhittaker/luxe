@@ -12,11 +12,7 @@ use super::parts::{
     action_hint, heading, indented, key_spans, label_cell, mark, prose, row, LABEL_CELLS,
 };
 use super::{GithubDetail, Subject};
-use crate::glyphs::Mark;
 use crate::theme::styles::ThemeStyles;
-
-/// Lines of the description the Overview quotes before pointing at Conversation.
-const EXCERPT_LINES: usize = 5;
 
 /// The Overview's lines, and which one the cursor is on.
 pub(super) fn overview(
@@ -173,7 +169,7 @@ fn pull_request_overview(
 
     reviewers_section(&mut lines, pr, width, now, styles);
 
-    lines.extend(excerpt("Description", &pr.body, width, styles));
+    lines.extend(description(&pr.body, width, styles));
     (lines, cursor_line)
 }
 
@@ -273,7 +269,7 @@ fn issue_overview(
         ));
     }
     lines.push(Line::default());
-    lines.extend(excerpt("Description", &issue.body, width, styles));
+    lines.extend(description(&issue.body, width, styles));
     (lines, cursor_line)
 }
 
@@ -285,38 +281,19 @@ pub(super) fn closing_pull_requests(
     issue.linked.iter().filter(|linked| linked.closes).collect()
 }
 
-/// A heading and the first lines of `body`, pointing at Conversation for the rest.
-fn excerpt(title: &str, body: &str, width: usize, styles: &ThemeStyles) -> Vec<Line<'static>> {
-    let mut lines = vec![heading(title, None, width, styles)];
-    let rendered = prose(body, width, styles);
+/// The Description heading and the whole of `body`. It is the last thing in the Overview, so a
+/// long one costs no other row its place, and `↓` past the last row reads on to its end.
+fn description(body: &str, width: usize, styles: &ThemeStyles) -> Vec<Line<'static>> {
+    let mut lines = vec![heading("Description", None, width, styles)];
+    let mut rendered = prose(body, width, styles);
+    let blank = |line: &Line| line.spans.iter().all(|span| span.content.trim().is_empty());
+    while rendered.last().is_some_and(blank) {
+        rendered.pop();
+    }
     if rendered.is_empty() {
         lines.push(indented(Line::from(Span::styled("No description", styles.muted))));
-        return lines;
     }
-    // Lines of text, not rows: a paragraph break is not worth one of the five
-    let blank = |line: &Line| line.spans.iter().all(|span| span.content.trim().is_empty());
-    let mut said = 0;
-    let mut kept = 0;
-    for line in &rendered {
-        if !blank(line) {
-            if said == EXCERPT_LINES {
-                break;
-            }
-            said += 1;
-        }
-        kept += 1;
-    }
-    let hidden = rendered[kept..].iter().filter(|line| !blank(line)).count();
-    lines.extend(rendered.into_iter().take(kept));
-    if lines.last().is_some_and(blank) {
-        lines.pop();
-    }
-    if hidden > 0 {
-        lines.push(indented(Line::from(Span::styled(
-            format!("{} {hidden} more lines in Conversation", Mark::Elision.glyph()),
-            styles.muted,
-        ))));
-    }
+    lines.extend(rendered);
     lines
 }
 
@@ -356,5 +333,55 @@ mod tests {
         assert_eq!(cursor, None);
         let shown = crate::github_detail::test_support::text(&lines);
         assert!(!shown[1].contains("fix with agent") && !shown[2].contains("resolve threads"));
+    }
+
+    /// The break this catches: the Overview quoting only the description's first lines, so the
+    /// rest of a long one is a tab away.
+    #[test]
+    fn the_overview_shows_the_whole_description() {
+        let mut long = pr();
+        long.body = (1..=12).map(|n| format!("Line {n} of the description.\n\n")).collect();
+        let detail = GithubDetail::new(Subject::PullRequest(Box::new(long)));
+        let (lines, _) = overview(&detail, 80, false, 4_600, &styles());
+        let text = text(&lines);
+        assert!(text.iter().any(|line| line.contains("Line 12 of the description.")), "{text:?}");
+        assert!(!text.iter().any(|line| line.contains("more lines")), "{text:?}");
+    }
+
+    /// The break this catches: a description longer than the pane being cut off at its edge,
+    /// because the view only ever followed the cursor and the last row that acts sits above it.
+    #[test]
+    fn down_past_the_last_row_reads_on_and_up_reads_back() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut detail = GithubDetail::new(Subject::PullRequest(Box::new(pr())));
+        let press = |detail: &mut GithubDetail, code| {
+            detail.on_key(&KeyEvent::new(code, KeyModifiers::NONE));
+        };
+        let stops = detail.overview_stops().len();
+        assert_eq!(super::super::first_shown_line(&detail, Some(0), 60, 20), 0);
+        assert_eq!(detail.scroll_room.get(), 40, "what the frame measured");
+        assert!(detail.hint("esc close").contains("pgup/pgdn scroll"), "named once it can");
+
+        for _ in 0..stops + 2 {
+            press(&mut detail, KeyCode::Down);
+        }
+        assert_eq!(detail.cursor, stops.saturating_sub(1), "the cursor stops at the last row");
+        assert!(detail.scroll > 0, "and Down reads on");
+        let scrolled = detail.scroll;
+        assert_eq!(super::super::first_shown_line(&detail, Some(0), 60, 20), scrolled);
+
+        press(&mut detail, KeyCode::PageDown);
+        press(&mut detail, KeyCode::PageDown);
+        press(&mut detail, KeyCode::PageDown);
+        press(&mut detail, KeyCode::PageDown);
+        assert_eq!(detail.scroll, 40, "never past the end");
+
+        detail.scroll = 1;
+        press(&mut detail, KeyCode::Up);
+        assert_eq!(
+            (detail.scroll, detail.cursor),
+            (0, stops.saturating_sub(1)),
+            "reads back first"
+        );
     }
 }

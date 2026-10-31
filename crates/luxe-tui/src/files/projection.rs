@@ -43,11 +43,12 @@ impl FilesTree {
                     let (path, name, open) =
                         self.compacted(path, name, from_changes, changed, ancestors);
                     rows.push(TreeRow::Folder {
+                        holds_change: ancestors.contains(&path),
+                        untracked: untracked_folder(&path, changed),
                         path: path.clone(),
                         name,
                         depth,
                         open,
-                        holds_change: ancestors.contains(&path),
                         ignored,
                     });
                     if open {
@@ -93,6 +94,10 @@ impl FilesTree {
         let prefix = if folder.is_empty() { String::new() } else { format!("{folder}/") };
         for path in changed.keys() {
             let Some(rest) = path.strip_prefix(prefix.as_str()) else { continue };
+            // An untracked folder's own `dir/` entry, seen from inside it: the folder, not a file
+            if rest.is_empty() {
+                continue;
+            }
             match rest.split_once('/') {
                 Some((name, _)) => insert(name, Child::Folder, false),
                 None => insert(rest, Child::File, false),
@@ -124,16 +129,22 @@ impl FilesTree {
         changed: &HashMap<&str, &DockChangeItem>,
         ancestors: &HashSet<String>,
     ) -> (String, String, bool) {
-        let mut open = self.is_open(&path, ancestors, from_changes);
+        let untracked = untracked_folder(&path, changed);
+        let mut open = self.is_open(&path, ancestors, from_changes, untracked);
         loop {
-            if !open {
-                return (path, name, false);
+            // An untracked folder keeps its own row, so the mark saying so has somewhere to sit
+            if !open || untracked_folder(&path, changed) {
+                return (path, name, open);
             }
             let (children, listing) = self.children(&path, from_changes, changed);
             let known = from_changes || listing.is_some_and(|listing| listing.omitted == 0);
             match children.as_slice() {
                 [(only, Child::Folder, _)] if known => {
-                    path = format!("{path}/{only}");
+                    let next = format!("{path}/{only}");
+                    if untracked_folder(&next, changed) {
+                        return (path, name, true);
+                    }
+                    path = next;
                     name = format!("{name}/{only}");
                     open = !self.closed.contains(&path);
                 }

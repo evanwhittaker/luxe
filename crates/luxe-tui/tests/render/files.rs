@@ -249,9 +249,31 @@ fn the_keyboard_walks_the_tree() {
         other => panic!("expected the diff to load, got {other:?}"),
     }
     assert_eq!(app.editor.current_input(), "", "the keys moved the tree, not the draft");
+    assert!(app.files.focused, "Enter leaves the keyboard in the tree to browse on");
 
     app.update(key(KeyCode::Esc));
     assert!(!app.files.focused, "Esc gives the keyboard back");
+}
+
+/// A click on a file in the tree is a reader picking something to read, so the pane takes the
+/// keyboard with its line cursor out, and its keys stop landing in the composer.
+#[test]
+fn a_click_on_a_file_in_the_tree_gives_the_pane_the_keyboard() {
+    let (width, height) = (160, 40);
+    let backend = test_backend(width, height);
+    let mut app = create_app();
+    app.update(Msg::TerminalResized { width, height });
+    app.workspace = Some(changed_workspace("file-click", 2));
+    let buffer = render_app(&mut app, &backend);
+    let row = dock_row_containing(&buffer, "file00.rs", height);
+
+    let action = left_click(&mut app, column_of(&row_text(&buffer, row, width), "file00.rs"), row);
+    apply(&mut app, action);
+    let content = buffer_to_string(&render_app(&mut app, &backend));
+    assert!(content.contains("tab files"), "the pane shows the keys it now has: {content}");
+    assert!(!app.files.focused, "and the tree let go of the keyboard");
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE)));
+    assert_eq!(app.editor.current_input(), "", "j moved the pane, not the draft");
 }
 
 /// The peek's FILE / DIFF switch: both faces in capitals, both slabs, neither moving when the

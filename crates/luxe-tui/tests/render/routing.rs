@@ -369,9 +369,9 @@ fn wheel_over_review_panes_scrolls_the_surface_under_the_cursor() {
         route_mouse(&mut app, &wheel(MouseEventKind::ScrollDown, 5)),
         RouteAction::Msg(message) if matches!(*message, Msg::GuidedReviewScrollGuide { up: false })
     ));
-    // Right pane (diff) -> line scroll.
+    // Right pane (diff) -> the code scrolls, the cursor riding along.
     assert!(matches!(
         route_mouse(&mut app, &wheel(MouseEventKind::ScrollUp, 90)),
-        RouteAction::Msg(message) if matches!(*message, Msg::GuidedReviewLinePrevious)
+        RouteAction::Msg(message) if matches!(*message, Msg::GuidedReviewWheel { forward: false })
     ));
 }

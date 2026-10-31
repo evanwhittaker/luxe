@@ -141,10 +141,9 @@ In a session, the app can:
 - Comment on a review chapter: pick a line, or a run of lines, and tap **Comment**, or tap
   **Comment on the chapter** with nothing picked. Make it a question if you want an answer rather
   than a fix, then **Save** it to send later or **Send** it now. Each comment shows under what it's
-  about with the agent's replies, and can be replied to, resolved, or, unsent, sent or deleted.
-  The guide counts what's unsent and sends it all. Comments made in the interface show up too.
-  Editing a comment, re-anchoring one the code moved away from, and commenting on a removed line
-  are the interface's.
+  about with the agent's replies, and can be replied to, resolved, or, not yet sent, sent or
+  deleted. The guide counts what's not sent and sends it all. Comments made in the interface show
+  up too. Editing a comment and commenting on a removed line are the interface's.
 
 The interface says which device joined, "iPhone joined this session", and which one answered a
 prompt, "Approved from iPhone". A session with [`joinable`](configuration.md#joining-a-session) set

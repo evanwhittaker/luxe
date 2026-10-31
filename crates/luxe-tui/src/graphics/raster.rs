@@ -65,6 +65,34 @@ pub(super) fn scale_to_png(
     Some(png)
 }
 
+/// Scales `image` to fit the pixels `fit` occupies and lays it on a page of exactly that size.
+///
+/// The page is `canvas`-colored, so the sliver an aspect ratio leaves around the picture is the
+/// transcript's own background; a Sixel image is opaque, and a transparent edge would show
+/// whatever was under it. Scaled here for the reason [`scale_to_png`] is: the terminal's own
+/// filter turns a screenshot full of text to mush.
+pub(super) fn composite_on_canvas(
+    image: &image::DynamicImage,
+    fit: Fit,
+    cell: CellSize,
+    canvas: [u8; 3],
+) -> Option<image::RgbaImage> {
+    let width = u32::from(fit.cols) * u32::from(cell.width);
+    let height = u32::from(fit.rows) * u32::from(cell.height);
+    if width == 0 || height == 0 {
+        return None;
+    }
+    let scaled = image.resize(width, height, image::imageops::FilterType::Lanczos3).to_rgba8();
+    let mut page = image::RgbaImage::from_pixel(
+        width,
+        height,
+        image::Rgba([canvas[0], canvas[1], canvas[2], 255]),
+    );
+    let (left, top) = ((width - scaled.width()) / 2, (height - scaled.height()) / 2);
+    image::imageops::overlay(&mut page, &scaled, i64::from(left), i64::from(top));
+    Some(page)
+}
+
 /// The image's dimensions, from its header alone.
 pub(super) fn probe_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     image::ImageReader::new(std::io::Cursor::new(bytes))

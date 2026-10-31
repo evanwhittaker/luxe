@@ -59,6 +59,7 @@ impl Action {
             Self::ListDirectory { .. } => "list_directory",
             Self::ReadProjectFile { .. } => "read_project_file",
             Self::SetFocus { .. } => "set_focus",
+            Self::SetRowWidths(_) => "set_row_widths",
             Self::LinkPullRequest { .. } => "link_pull_request",
             Self::PostGithubComment(_) => "post_github_comment",
             Self::ChangePullRequest { .. } => "change_pull_request",
@@ -125,6 +126,7 @@ impl Action {
         "list_directory",
         "read_project_file",
         "set_focus",
+        "set_row_widths",
         "link_pull_request",
         "post_github_comment",
         "change_pull_request",
@@ -201,6 +203,7 @@ impl Action {
             | Self::ListDirectory { .. }
             | Self::ReadProjectFile { .. }
             | Self::SetFocus { .. }
+            | Self::SetRowWidths(_)
             | Self::LinkPullRequest { .. }
             | Self::Introduce { .. }
             | Self::Close

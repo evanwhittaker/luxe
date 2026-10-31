@@ -213,6 +213,11 @@ fn each_github_action_arrives_as_the_engine_action_it_names() {
         translate(WireAction::SetFocus { focused: false }),
         Ok(Action::FocusChanged { focused: false })
     ));
+    let widths = luxe_core::custom_dock::RowWidths { dock: 40, dock_label: 15, statusline: 32 };
+    assert!(matches!(
+        translate(WireAction::SetRowWidths(widths)),
+        Ok(Action::CustomRowWidths(sent)) if sent == widths
+    ));
     assert!(matches!(
         translate(WireAction::LinkPullRequest { number: 142, url: "u".into() }),
         Ok(Action::LinkPullRequest { number: 142, url }) if url == "u"
@@ -577,7 +582,7 @@ fn the_real_resolver_answers_about_the_model_it_was_asked() {
 fn the_translator_covers_the_whole_published_vocabulary() {
     assert_eq!(
         WireAction::KINDS.len(),
-        54,
+        55,
         "a wire action was published without a translator arm: {:?}",
         WireAction::KINDS
     );
