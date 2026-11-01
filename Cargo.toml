@@ -6,7 +6,7 @@ members = ["crates/*"]
 # Every crate here releases together from one workspace, so the versions move in lockstep and each
 # crate inherits this one. The internal `path` dependencies carry the same number explicitly — cargo
 # uses the path locally and the version on crates.io, and refuses to publish a path dep without one.
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/evanwhittaker/luxe"
@@ -101,6 +101,14 @@ image = { version = "0.25", default-features = false, features = [
   "jpeg",
   "webp",
   "gif",
+] }
+# SVG to pixels for the file preview. Pure Rust, so it draws on every OS with nothing to install.
+# `raster-images` draws the PNG or JPEG an exported SVG embeds, with the decoders `image` already
+# brings; `memmap-fonts` is declined, since mapping every system font file is not worth an icon.
+resvg = { version = "0.49", default-features = false, features = [
+  "text",
+  "system-fonts",
+  "raster-images",
 ] }
 
 [workspace.lints.rust]

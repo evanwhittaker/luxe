@@ -206,7 +206,7 @@ async fn drain(held: &mut Held) -> (usize, Vec<usize>) {
 async fn an_idle_steer_with_a_full_inbox_does_not_deadlock() {
     let mut held = spawn_held_at(HookPoint::SessionStart);
     tokio::time::timeout(std::time::Duration::from_secs(5), held.entered.notified()).await.unwrap();
-    let steer = Action::SteerTurn { content: "do it".to_string() };
+    let steer = Action::SteerTurn { text: "do it".to_string(), images: Vec::new() };
     let refreshes = flood(&held.action_tx, Some(steer)).await;
     held.release.notify_one();
 

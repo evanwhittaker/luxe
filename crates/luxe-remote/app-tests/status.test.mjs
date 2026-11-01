@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createStatus, nextModeFrame } from "../app/status.js";
+import { activityLabel, createStatus, nextModeFrame } from "../app/status.js";
 
 const frame = (kind, content) => ({ kind, content });
 const model = { provider: "github-copilot", model: "claude-haiku-4.5", display_name: "Claude Haiku 4.5 (latest)" };
@@ -30,6 +30,35 @@ test("the plan and the spend are kept for the cost slot", () => {
   status.apply(frame("plan_usage", plan));
   status.apply(frame("session_usage", { total, by_source: [{ source: "agent", totals: total }] }));
   assert.deepEqual(status.facts.value, { plan, session: { total } });
+});
+
+/** A transcript item as transcript.js keeps one, with plain objects for its signals. @returns {any} */
+const said = (kind) => ({ key: kind, kind, text: { value: "" } });
+/** @returns {any} */
+const tool = (name, state) => ({ key: name, kind: "tool", card: { value: { name, state } } });
+
+// The break this catches: a spinner left in the status line between turns
+test("between turns the status line says nothing is working", () => {
+  assert.equal(activityLabel(false, [said("user"), tool("bash", "running")]), null);
+});
+
+// The break this catches: the running tool not named, or a finished one named as still running
+test("a turn names the tool running, and says working once it lands", () => {
+  assert.equal(activityLabel(true, [said("user"), tool("read", "succeeded"), tool("bash", "running")]), "bash");
+  assert.equal(activityLabel(true, [said("user"), tool("bash", "succeeded"), said("assistant")]), "working");
+});
+
+// The break this catches: a card an earlier turn left running (one replayed from a dropped link)
+// named as this turn's work
+test("only the turn's own items name its tool", () => {
+  assert.equal(activityLabel(true, [tool("bash", "running"), said("user")]), "working");
+});
+
+// The break this catches: a `/compact` between turns, a minute with nothing streaming, showing no
+// sign anything is happening; or a mid-turn one named as the tool that was running before it
+test("a summary being written says compacting, in a turn or between them", () => {
+  assert.equal(activityLabel(false, [], true), "compacting");
+  assert.equal(activityLabel(true, [said("user"), tool("bash", "running")], true), "compacting");
 });
 
 // The break this catches: the mode switch sending the mode already on, so a tap does nothing

@@ -5,7 +5,7 @@
 
 import { html } from "./html.js";
 
-/** @typedef {"send" | "stop" | "attach" | "close" | "dock" | "menu"} IconName */
+/** @typedef {"send" | "stop" | "attach" | "close" | "dock" | "menu" | "back"} IconName */
 
 const STROKE = { fill: "none", stroke: "currentColor", "stroke-width": "2.2", "stroke-linecap": "round", "stroke-linejoin": "round" };
 
@@ -19,6 +19,7 @@ const DRAWINGS = {
   close: () => html`<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" ...${STROKE} />`,
   dock: () => html`<rect x="3.5" y="4.5" width="17" height="15" rx="2" ...${STROKE} /><path d="M9.5 4.5v15" ...${STROKE} />`,
   menu: () => html`<path d="M4.5 7h15M4.5 12h15M4.5 17h15" ...${STROKE} />`,
+  back: () => html`<path d="M15 5l-7 7 7 7" ...${STROKE} />`,
 };
 
 /** One icon, sized to the line it sits in. @param {{ name: IconName }} props */

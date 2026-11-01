@@ -9,6 +9,38 @@ The version on `main` is always the next release. The first change to what ships
 `Cargo.toml`, `Cargo.lock`) after a release bumps it one step and opens its section here, and later
 changes add to that section until it ships; `scripts/version-check.py` holds them to it.
 
+## [0.1.8]
+
+### Added
+
+- The File view shows an image as its picture, and an SVG drawn as one, where your terminal can
+  draw pictures. `s` switches an SVG to its source. A changed image opens on FILE.
+- Steer a running turn with photos from your phone. What you've steered waits in a tray over the
+  composer, as it does in the interface, and **Withdraw** or **Stop** puts it back in the box.
+  `--rpc` clients can send `images` with `steer_turn` too; older clients still work without it.
+- The remote app shows the photos you sent under your message, and images and SVGs as pictures
+  in its file viewer.
+- The remote app shows when the conversation is being compacted, with the spinner, even if you
+  join partway through.
+- A **Text size** setting in the remote app, small, medium or large, kept per device.
+
+### Changed
+
+- The remote app keeps the dock and the project in one sidebar: the dock at the top, then the
+  file tree, GitHub and Review, with links along its top to jump to each. On an iPad it's the rail
+  beside the conversation; on a phone the header's one button opens it.
+- The remote app's tool cards use the interface's working colors and braille spinner, and the
+  status line names what's running.
+- The remote app's text is a little larger by default, and its back button is bigger.
+
+### Fixed
+
+- On an iPhone the conversation could scroll past the composer around the keyboard, its cards
+  drawn blank. Now only the conversation scrolls, and the composer stays at the foot of the
+  screen.
+- The remote app no longer leaves a gap under the composer when opened from the Home Screen.
+- Clicking the File view's footer lands on the control under the pointer.
+
 ## [0.1.7]
 
 ### Added

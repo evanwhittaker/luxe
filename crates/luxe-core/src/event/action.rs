@@ -37,6 +37,9 @@ pub enum Action {
     SteerTurn {
         /// Message text to deliver mid-turn.
         text: String,
+        /// Base64-encoded attachments that go with it, as a submission's do.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        images: Vec<crate::engine::ImageAttachment>,
     },
     /// Drop every steer admitted but not yet delivered, so the front-end can hand the text back to
     /// the user to edit. A steer the model already has stays delivered.

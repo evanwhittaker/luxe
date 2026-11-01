@@ -21,6 +21,8 @@ pub(super) enum KnownAction {
     },
     SteerTurn {
         text: String,
+        #[serde(default)]
+        images: Vec<crate::engine::ImageAttachment>,
     },
     WithdrawSteering,
     Cancel,

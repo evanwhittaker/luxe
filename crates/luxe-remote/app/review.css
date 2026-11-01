@@ -220,7 +220,7 @@
 
 /* The composer holds the foot of the chapter while it's open, above the keyboard */
 .rv-compose {
-  padding: 0 1.5ch calc(0.5lh + env(safe-area-inset-bottom));
+  padding: 0 1.5ch calc(0.5lh + var(--bottom-inset));
   border-top: 1px solid var(--luxe-border-muted, #2e2b27);
   background: var(--luxe-background, #12100e);
 }

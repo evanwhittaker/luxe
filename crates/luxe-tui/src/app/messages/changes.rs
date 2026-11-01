@@ -20,6 +20,7 @@ const FILE_LIST_MAX: usize = 500;
 pub(super) fn open(app: &mut App, path: String) {
     let files = changed_files(app);
     mark_seen(app, &files, &path);
+    let face = opening_view(&path);
     match app.changes.as_mut() {
         Some(view) if view.path == path => {}
         Some(view) => {
@@ -30,10 +31,31 @@ pub(super) fn open(app: &mut App, path: String) {
             app.changes = Some(ChangesView::new(path, files));
         }
     }
-    if let Some(view) = app.changes.as_mut() {
-        view.view = crate::changes::PeekView::Diff;
-    }
+    load_face(app, face);
+}
+
+/// Shows `face` of the file, asking for its diff and, when the File view has no text yet, its text.
+///
+/// The diff is asked for either way: it says whether the file changed, and so whether the header
+/// offers a DIFF to switch to.
+fn load_face(app: &mut App, face: crate::changes::PeekView) {
+    let Some(view) = app.changes.as_mut() else { return };
+    view.view = face;
+    let wants_text =
+        face == crate::changes::PeekView::File && view.text == crate::changes::TextLoad::Idle;
     request_capture(app);
+    if wants_text {
+        request_text(app);
+    }
+}
+
+/// The view a changed file opens on: its diff, except a picture's, which is bytes nobody can read.
+/// The diff is still a toggle away.
+fn opening_view(path: &str) -> crate::changes::PeekView {
+    match luxe_core::project_files::names_picture(path) {
+        true => crate::changes::PeekView::File,
+        false => crate::changes::PeekView::Diff,
+    }
 }
 
 /// Records a look at a file outside the project, with the ± it carried when it was looked at.
@@ -64,9 +86,6 @@ pub(super) fn open_project_file(app: &mut App, path: String) {
     app.files.cursor = Some(path.clone());
     if files.iter().any(|file| file.path == path) {
         open(app, path);
-        if let Some(view) = app.changes.as_mut() {
-            view.view = crate::changes::PeekView::Diff;
-        }
         super::files::sync(app);
         return;
     }
@@ -190,14 +209,22 @@ pub(super) fn step_file(app: &mut App, forward: bool) {
     let Some(next) = view.step(forward) else {
         return;
     };
+    let face = stepped_view(view, &next);
     view.show(next.clone());
-    let reading = view.view == crate::changes::PeekView::File;
     // Stepping onto a file is looking at it, the same as clicking it was.
     mark_seen(app, &files, &next);
     app.files.cursor = Some(next);
-    request_capture(app);
-    if reading {
-        request_text(app);
+    load_face(app, face);
+}
+
+/// The view a step lands on: the one the reader chose carries on, but a picture always shows as
+/// one, and a picture's File view was its own rather than a choice to carry to the next file.
+fn stepped_view(view: &ChangesView, next: &str) -> crate::changes::PeekView {
+    use crate::changes::PeekView;
+    let chose_file = view.view == PeekView::File && opening_view(&view.path) == PeekView::Diff;
+    match chose_file {
+        true => PeekView::File,
+        false => opening_view(next),
     }
 }
 
@@ -279,6 +306,9 @@ pub(crate) fn changed_files(app: &App) -> Vec<ChangedFile> {
 /// Applies a landed capture, or the failure that replaced it.
 pub(crate) fn apply_capture(app: &mut App, event: &luxe_core::event::Event) -> bool {
     use luxe_core::event::Event;
+    if let Event::ProjectFileRead { request_id, file } = event {
+        return accept_read(app, request_id, file);
+    }
     let Some(view) = app.changes.as_mut() else {
         return false;
     };
@@ -287,14 +317,31 @@ pub(crate) fn apply_capture(app: &mut App, event: &luxe_core::event::Event) -> b
         Event::FileDiffFailed { request_id, path, error } => {
             view.fail(request_id, path, error.clone())
         }
-        Event::ProjectFileRead { request_id, file } => {
-            view.accept_text(request_id, (**file).clone())
-        }
         Event::ProjectFileReadFailed { request_id, path, error } => {
             view.fail_text(request_id, path, error.clone())
         }
         _ => false,
     }
+}
+
+/// Takes a read file into the pane. A picture goes to the image store, leaving the pane a key
+/// rather than megabytes of base64, and only once the read is known to be current, so a superseded
+/// one is never decoded.
+fn accept_read(
+    app: &mut App,
+    request_id: &luxe_core::project_files::FileReadRequestId,
+    file: &luxe_core::project_files::ProjectFile,
+) -> bool {
+    if !app.changes.as_ref().is_some_and(|view| view.awaits_text(request_id, &file.path)) {
+        return false;
+    }
+    let picture = file.image.as_ref().and_then(|image| {
+        let key = app.intern_preview_image(&file.path, image)?;
+        Some(crate::changes::PeekPicture { key, declared_size: image.declared_size })
+    });
+    let (path, text) = (file.path.clone(), file.text.clone());
+    let file = luxe_core::project_files::ProjectFile { path, text, image: None, ..*file };
+    app.changes.as_mut().is_some_and(|view| view.accept_text(request_id, file, picture))
 }
 
 /// Keeps an open pane's file list in step with a refreshed workspace snapshot.
@@ -327,6 +374,12 @@ pub(super) fn reduce(app: &mut App, msg: Msg) {
             app.update(Msg::FocusPeek);
         }
         Msg::TogglePeekView => toggle_view(app),
+        Msg::TogglePeekSource => {
+            if let Some(view) = app.changes.as_mut().filter(|view| view.has_source()) {
+                view.source = !view.source;
+                view.scroll = 0;
+            }
+        }
         Msg::StartPeekPick(line) => {
             if let Some(view) = app.changes.as_mut() {
                 view.selection = match view.selection {

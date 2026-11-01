@@ -99,8 +99,9 @@ In a session, the app can:
 - Show the conversation as the interface draws it: markdown, highlighted code, tool cards. A long
   one opens on its latest 300 items, and **Show earlier** at the top brings 300 more at a time.
 - Send a message, with photos from the camera or library, and steer or stop a running turn. While
-  one runs, a line over the message box says what sending will do: steer it at the next step, or
-  wait for the turn to end when a photo is attached.
+  one runs, what you send steers it at the next step, photos and all, and waits above the message
+  box, marked `steering`, until it's delivered. **Withdraw**, or stopping the turn, puts it back
+  in the box to change. A photo you sent shows under your message.
 - Run `/compact`, `/cost`, `/dock`, `/mode`, `/model` and `/thinking`, offered as you type a `/`. The
   interface's other commands work its own screen, so a message that starts with one goes to the
   agent as written.
@@ -110,30 +111,34 @@ In a session, the app can:
   moment after a prompt appears, so a stray tap can't grant anything.
 - Switch the mode with a tap on the status line, which also shows the context, thinking level and
   model. Tap those for the session's details: switch the mode, the thinking level or the model
-  (from the same list as `/model`, with the levels each model honors), and see the cost.
-- Show [the dock](interface.md#the-dock), with the plan and the changed files. On an iPad or an
-  open iPhone Duo it's a rail beside the conversation: the header's dock button or `/dock` shows
-  and hides it, `/dock left` or `/dock right` moves it, and it starts from your `dock.mode` and
-  `dock.position` [settings](configuration.md), as the interface does. On a phone the header has
-  one menu button, and the dock is the first tab of the panel it opens; `/dock` opens it there
-  too. A long plan scrolls in a box of its own that keeps the work in hand in view, until you
-  scroll it yourself. Tap a file for its diff.
-- Browse the project's files from the header's menu button, in the interface's FILES tree, and
-  read a file highlighted as the interface shows it. **Mention** adds its path to your message.
-  On an iPad or an open iPhone Duo the tree is a rail and a file opens beside it; on a screen wide
-  enough the conversation stays in view too.
+  (from the same list as `/model`, with the levels each model honors), and see the cost. The
+  details also set the **Text size**, small, medium or large, for this device alone; the session
+  list has the same setting.
+- Keep everything about the project in one sidebar: [the dock](interface.md#the-dock) at the top,
+  then Project (the file tree), GitHub and Review, each under a heading you tap to show or hide
+  it. The links along its top jump to each one. On an iPad or an open iPhone Duo it's a rail
+  beside the conversation: the header's dock button or `/dock` shows and hides it, `/dock left` or
+  `/dock right` moves it, and it starts from your `dock.mode` and `dock.position`
+  [settings](configuration.md), as the interface does. On a phone the header's one menu button
+  opens it over the page, and `/dock` opens it at the dock.
+- See the plan and the changed files in the dock. A long plan scrolls in a box of its own that
+  keeps the work in hand in view, until you scroll it yourself. Tap a file for its diff.
+- Browse the project's files under the Project heading, in the interface's FILES tree, and read a
+  file highlighted as the interface shows it. An image or an SVG shows as its picture, an SVG's
+  source under it. **Mention** adds its path to your message. On an iPad or an open iPhone Duo a
+  file opens beside the rail; on a screen wide enough the conversation stays in view too.
 - Ask about particular lines of a file, a diff or a review chapter, as you would in the interface's
   File view: tap a line's number to pick it and another to stretch the pick, or select text the
   phone's usual way, down to part of a line, and tap **Ask** for the lines it covers. Your message
   gets the path and lines the interface would send. Tap anywhere else to let a pick go, and copy a
   selection with the phone's own menu. In a diff, a removed line can't be picked, since the file
   no longer has it.
-- Read the project's pull requests and issues in the same panel's GitHub tab, by the sections
+- Read the project's pull requests and issues under the sidebar's GitHub heading, by the sections
   [`/github`](github.md) shows. Tap one for its overview (what stands between it and merged, or
   who's on an issue) and its conversation. **Mention** adds it to your message. It only reads: a
   joined session runs with GitHub writes off, so merging, replying and resolving stay in the
   interface.
-- Walk the open [Guided Review](guided-review.md) in the Review tab: the guide's summary and
+- Walk the open [Guided Review](guided-review.md) under the sidebar's Review heading: the guide's summary and
   chapters, each one opened beside it with the guide's notes over its diffs. **Reviewed** marks a
   chapter read, the same progress `/review` keeps, and **Next** opens the one after. The phone
   joins the review the interface has open rather than starting its own, since a session holds one;

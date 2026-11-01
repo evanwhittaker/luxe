@@ -236,6 +236,9 @@ pub enum MouseTarget {
     OpenImage(crate::graphics::ImageKey),
     /// A row of an inline image. A double-click on one opens it full-window.
     ConversationImage(crate::graphics::ImageKey),
+    /// The picture the File view shows for an image file. It holds no text, so a single click
+    /// opens it full-window.
+    PreviewImage(crate::graphics::ImageKey),
     /// A scrollbar track. Carries the surface it steers and the track's own geometry, so a press
     /// or drag maps the pointer row to a scroll position without the router knowing how any of it
     /// was laid out.
@@ -313,7 +316,25 @@ pub enum ChangesFooterAction {
     ToggleView,
     /// Put the keyboard in the pane.
     Focus,
-    /// A key the focused pane answers to, named for the reader; a click on it does nothing.
+    /// Open the File view's picture full-window.
+    Enlarge,
+    /// Switch an SVG between its picture and its source (`s`).
+    ToggleSource,
+    /// Start or stop growing a pick line by line (`v`).
+    Select,
+    /// Ask about the picked lines, or the cursor's line (`enter`).
+    Ask,
+    /// Copy the picked lines, or the cursor's line (`y`).
+    Copy,
+    /// Move the cursor to the pick's other end (`o` while picking).
+    OtherEnd,
+    /// Move the cursor down a page (`space`).
+    Page,
+    /// Hand the keyboard to the FILES tree (`tab`).
+    Files,
+    /// Drop the pick, or give the keyboard back when there is none (`esc`).
+    Escape,
+    /// Keys named as a pair, like `j k`; a hint rather than a button, so it has no click region.
     Hint,
 }
 

@@ -24,6 +24,12 @@ pub(in crate::app) fn open_peeked_file(app: &mut App) {
     let Some(view) = app.changes.as_ref() else {
         return;
     };
+    // A picture is for the desktop's image viewer; an editor would show its bytes
+    let picture = crate::view::changes::showing_picture(view).cloned();
+    if let Some(key) = picture.filter(|key| app.image_path(key).is_some()) {
+        app.open_image_externally(&key);
+        return;
+    }
     let line = crate::view::changes::line_in_view(view);
     let path = Path::new(&view.path);
     let path = match path.is_absolute() {

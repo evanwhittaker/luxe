@@ -90,6 +90,11 @@ fn loaded_text_or_notice<'a>(
             return None;
         }
     };
+    // A picture, an SVG's included, is painted over this area once the pane is drawn
+    if super::picture::showing(view).is_some() {
+        view.scroll_max.set(0);
+        return None;
+    }
     if file.binary {
         view.scroll_max.set(0);
         frame.render_widget(

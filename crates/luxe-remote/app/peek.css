@@ -1,14 +1,15 @@
-/* Where the project panel and the peek (a file or a diff) sit. On a phone each covers the page,
-   a peek over the panel. On a wide screen the panel is a rail in the dock's place, since the TUI
-   keeps FILES in its dock, and a peek opens between the rail and the conversation, as the TUI
-   peeks beside the dock: "click a name, see the file". The conversation keeps its column only
+/* Where the sidebar and the peek (a file or a diff) sit. On a phone each covers the page, a peek
+   over the sidebar. On a wide screen the sidebar is a rail beside the conversation, on the side
+   the TUI's config puts its dock, and a peek opens between the rail and the conversation, as the
+   TUI peeks beside the dock: "click a name, see the file". The conversation keeps its column only
    where the TUI's own minimums fit, so on an iPad the peek takes the main column until it closes */
 
 .peek {
   z-index: 5;
 }
 
-/* layout.js's WIDE, as in dock.css */
+/* Wide enough for a rail: an open iPhone Duo (951 by 669 points) and an iPad qualify; a phone on
+   its side is too short. layout.js's WIDE is this same query */
 @media (min-width: 50rem) and (min-height: 30rem) {
   :root {
     --rail: 24rem;
@@ -22,17 +23,17 @@
     border-right: 1px solid var(--luxe-border-muted, #2e2b27);
   }
 
+  /* no bar over the rail, so its jumps clear the status bar themselves */
+  .panel-top {
+    padding-top: var(--top-inset);
+  }
+
   :root[data-dock-side="right"] .panel {
     inset: 0 0 0 auto;
     width: calc(var(--rail) + env(safe-area-inset-right));
     padding-left: 0;
     border-right: none;
     border-left: 1px solid var(--luxe-border-muted, #2e2b27);
-  }
-
-  /* the panel stands in for the dock's rail while it's open */
-  #app:has(> .panel) > .dock {
-    display: none;
   }
 
   #app:has(> .panel) {
@@ -44,12 +45,12 @@
     padding-right: var(--rail);
   }
 
-  #app:has(> .panel, > .dock.shown) > .peek {
+  #app:has(> .panel) > .peek {
     inset: 0 0 0 calc(var(--rail) + env(safe-area-inset-left));
     padding-left: 0;
   }
 
-  :root[data-dock-side="right"] #app:has(> .panel, > .dock.shown) > .peek {
+  :root[data-dock-side="right"] #app:has(> .panel) > .peek {
     inset: 0 calc(var(--rail) + env(safe-area-inset-right)) 0 0;
     padding-right: 0;
   }
@@ -63,23 +64,23 @@
     --peek: min(100vw - var(--rail) - 57ch, 134ch);
   }
 
-  #app:has(> .panel, > .dock.shown) > .peek {
+  #app:has(> .panel) > .peek {
     right: auto;
     width: var(--peek);
     border-right: 1px solid var(--luxe-border-muted, #2e2b27);
   }
 
-  :root[data-dock-side="right"] #app:has(> .panel, > .dock.shown) > .peek {
+  :root[data-dock-side="right"] #app:has(> .panel) > .peek {
     left: auto;
     border-right: none;
     border-left: 1px solid var(--luxe-border-muted, #2e2b27);
   }
 
-  #app:has(> .peek):has(> .panel, > .dock.shown) {
+  #app:has(> .peek):has(> .panel) {
     padding-left: calc(var(--rail) + var(--peek));
   }
 
-  :root[data-dock-side="right"] #app:has(> .peek):has(> .panel, > .dock.shown) {
+  :root[data-dock-side="right"] #app:has(> .peek):has(> .panel) {
     padding-left: 0;
     padding-right: calc(var(--rail) + var(--peek));
   }

@@ -356,7 +356,10 @@ async fn a_steer_sent_during_compaction_on_request_runs_as_a_turn_after_it() {
 
     action_tx.send(Action::CompactNow { focus: None }).await.unwrap();
     summarizer_asked(&script).await;
-    action_tx.send(Action::SteerTurn { content: "STEERED-WHILE-COMPACTING".into() }).await.unwrap();
+    action_tx
+        .send(Action::SteerTurn { text: "STEERED-WHILE-COMPACTING".into(), images: Vec::new() })
+        .await
+        .unwrap();
     buffered_mid_work(&action_tx, &mut event_rx).await;
     script.release.notify_one();
     let seen = events_until(&mut event_rx, "the steer's turn", |event| {
@@ -396,7 +399,10 @@ async fn a_cancelled_compaction_runs_no_turn_for_steers_sent_during_it() {
 
     action_tx.send(Action::CompactNow { focus: None }).await.unwrap();
     summarizer_asked(&script).await;
-    action_tx.send(Action::SteerTurn { content: "STEERED-THEN-CANCELLED".into() }).await.unwrap();
+    action_tx
+        .send(Action::SteerTurn { text: "STEERED-THEN-CANCELLED".into(), images: Vec::new() })
+        .await
+        .unwrap();
     buffered_mid_work(&action_tx, &mut event_rx).await;
     action_tx.send(Action::Cancel).await.unwrap();
     action_tx.send(Action::RefreshWorkspace).await.unwrap();

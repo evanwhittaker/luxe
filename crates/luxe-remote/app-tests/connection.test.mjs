@@ -17,7 +17,7 @@ class FakeSocket {
 
 const page = /** @type {EventTarget & { visibilityState: string }} */ (Object.assign(new EventTarget(), { visibilityState: "visible" }));
 Object.assign(globalThis, { document: page, WebSocket: FakeSocket, location: { protocol: "http:", host: "bridge" } });
-const { connect } = await import("../app/connection.js");
+const { connect, statusWord } = await import("../app/connection.js");
 
 function show(state) {
   page.visibilityState = state;
@@ -45,6 +45,13 @@ test("the socket closes while the app is hidden and opens again on return", () =
   assert.equal(FakeSocket.made.length, 2, "a new socket on return");
   assert.deepEqual(statuses, ["connecting", "live", "connecting"]);
   link.close();
+});
+
+// The break this catches: "live" taking the top bar's room when it's how the link nearly always
+// is, "connecting" flashing there on every return to the app, or a dropped link not said at all
+test("the top bar speaks up only for a dropped link", () => {
+  assert.equal(statusWord("reconnecting"), "reconnecting");
+  for (const quiet of /** @type {const} */ (["live", "connecting", "ended", "unpaired"])) assert.equal(statusWord(quiet), null, quiet);
 });
 
 // The break this catches: a session opened while the app is out of sight (a retry coming due, or

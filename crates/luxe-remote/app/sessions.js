@@ -6,6 +6,7 @@ import { useEffect } from "preact/hooks";
 import { offered, refreshFolders } from "./folders.js";
 import { html } from "./html.js";
 import { NotificationSwitch, refreshNotifications } from "./notifications.js";
+import { TextSizeSetting } from "./text-size.js";
 import { PairWithLink } from "./pairing.js";
 import { loadWordmark, Wordmark } from "./wordmark.js";
 
@@ -69,7 +70,8 @@ export function SessionList() {
       ${unpaired.value ? html`<${PairWithLink} />` : html`
         <h2>Running</h2>
         <${Rows} sessions=${sessions.value} />
-        <${NotificationSwitch} />`}
+        <${NotificationSwitch} />
+        <${TextSizeSetting} />`}
     </main>
   `;
 }

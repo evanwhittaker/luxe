@@ -88,6 +88,18 @@ export function applyRead(open, { kind, content }) {
   return open;
 }
 
+/**
+ * What a read file shows: its picture as a `data:` URL, which the page's policy allows, and the
+ * text for the host to render, sent without the picture so its megabytes don't go back up through
+ * `/api/render`. An SVG has both, its source being text; an image file has only the picture.
+ * @param {any} file @returns {{ picture: string | null, text: any }}
+ */
+export function readFaces(file) {
+  const { image, ...text } = file;
+  const picture = image ? `data:${image.mime};base64,${image.data}` : null;
+  return { picture, text: picture && file.binary ? null : text };
+}
+
 /** `name` inside `folder`, as the protocol writes a project path. @param {string} folder @param {string} name */
 export function childPath(folder, name) {
   return folder ? `${folder}/${name}` : name;

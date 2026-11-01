@@ -187,7 +187,7 @@ pub(crate) fn to_engine_action(
         WireAction::SubmitUserMessage { text, images } => {
             Action::SubmitUserMessage { content: text, images, remediation: None }
         }
-        WireAction::SteerTurn { text } => Action::SteerTurn { content: text },
+        WireAction::SteerTurn { text, images } => Action::SteerTurn { text, images },
         WireAction::WithdrawSteering => Action::WithdrawSteering,
         WireAction::Cancel => Action::Cancel,
         WireAction::EditResend { text } => Action::EditResend { content: text },

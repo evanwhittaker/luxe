@@ -116,7 +116,7 @@ To stop sessions being joined, set [`joinable`](configuration.md#joining-a-sessi
 | `kind` | `content` | Does |
 | --- | --- | --- |
 | `submit_user_message` | `{"text": "…", "images": [{"data": "<base64>", "mime": "image/png", "name": null}]}` | Start a turn. `images` is optional. |
-| `steer_turn` | `{"text": "…"}` | Reach the running turn between tool calls, without ending it. With no turn running, starts one. |
+| `steer_turn` | `{"text": "…", "images": […]}` | Reach the running turn between tool calls, without ending it. With no turn running, starts one. `images` is optional, as for `submit_user_message`. |
 | `withdraw_steering` | | Drop steering messages not yet delivered |
 | `cancel` | | Stop the turn |
 | `edit_resend` | `{"text": "…"}` | Replace the last message and send it again |
@@ -139,7 +139,7 @@ To stop sessions being joined, set [`joinable`](configuration.md#joining-a-sessi
 | `load_guided_review` | `{"request_id": "…", "target": {"kind": "working_tree"}}` | Capture a Guided Review; see [below](#guided-review) |
 | `load_file_diff` | `{"request_id": "…", "path": "src/main.rs"}` | One file's change, outside any review; answered by `file_diff_loaded` |
 | `list_directory` | `{"request_id": "…", "path": "src"}` | One project folder's entries, without what `.gitignore` ignores unless `"include_ignored": true`, which marks each such entry `"ignored": true`; answered by `directory_listed` |
-| `read_project_file` | `{"request_id": "…", "path": "src/main.rs"}` | One project file's text, up to 2 MB; answered by `project_file_read` |
+| `read_project_file` | `{"request_id": "…", "path": "src/main.rs"}` | One project file's text, up to 2 MB; answered by `project_file_read`. A PNG, JPEG, GIF or WebP up to 24 MB also carries `image`, with its `mime` and base64 `data`. An SVG carries its source as `text` and an `image` drawn as a PNG, with the `declared_size` the SVG gives as `[width, height]` |
 | `introduce` | `{"name": "iPhone"}` | A joined client's name, which the interface uses when it says who joined or answered. Add `"watch_only": true` as your first line to read without being announced; luxe then drops everything else you send. `"yours": true` says the person at the terminal paired it, so it's listed without a line in the conversation. Refused from the client that started the session. |
 | `close` | | Shut down, stopping a turn in flight the way `cancel` does. The stream ends after it. |
 

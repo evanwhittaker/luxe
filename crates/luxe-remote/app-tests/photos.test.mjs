@@ -1,8 +1,7 @@
-// Photos in the composer: their size, the frame that carries them, and the button's word.
+// Photos in the composer: their size, and the frame that carries them.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { sendLabel } from "../app/composer.js";
 import { messageFrame } from "../app/pending.js";
 import { LONGEST_EDGE, dataOf, fitWithin, forTheWire } from "../app/photos.js";
 
@@ -23,18 +22,11 @@ test("on the wire a photo is its base64, its type and its name", () => {
   assert.deepEqual(forTheWire([photo]), [{ data: "QUJD", mime: "image/jpeg", name: "IMG_1.HEIC" }]);
 });
 
-// The break this catches: photos sent as steering, which carries only words, so they're dropped;
-// a message with photos starts a turn, waiting for a running one to end
-test("a message with photos is always a new turn", () => {
+// The break this catches: photos held back for a turn of their own while words steer the running
+// one, or steered without the photos, which the model then never sees
+test("photos steer a running turn with the words, and start one otherwise", () => {
   const images = [{ data: "QUJD", mime: "image/jpeg", name: null }];
-  const frame = { kind: "submit_user_message", content: { text: "what's this?", images } };
-  assert.deepEqual(messageFrame("what's this?", true, images), frame);
-  assert.deepEqual(messageFrame("what's this?", false, images), frame);
-});
-
-// The break this catches: the button saying Steer for a message that will wait for the next turn
-test("the send button says what will happen", () => {
-  assert.equal(sendLabel(false, true), "Send");
-  assert.equal(sendLabel(true, false), "Steer");
-  assert.equal(sendLabel(true, true), "Queue");
+  const content = { text: "what's this?", images };
+  assert.deepEqual(messageFrame("what's this?", true, images), { kind: "steer_turn", content });
+  assert.deepEqual(messageFrame("what's this?", false, images), { kind: "submit_user_message", content });
 });

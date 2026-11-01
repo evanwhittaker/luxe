@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyRead, childPath, createFiles, entriesNote, fileMention, toggled, treeRows, withMention } from "../app/files.js";
+import { applyRead, childPath, createFiles, entriesNote, fileMention, readFaces, toggled, treeRows, withMention } from "../app/files.js";
 import { createGithub } from "../app/github.js";
 import { createReview } from "../app/review.js";
 import { tapRow } from "../app/files-view.js";
@@ -168,6 +168,31 @@ test("a mention goes at the end of the draft, spaced from what's there", () => {
   assert.deepEqual(withMention("look at", fileMention("a.rs")), { text: "look at `a.rs` ", caret: 15, placed: true });
   assert.deepEqual(withMention("look at ", "#7").text, "look at #7 ");
   assert.deepEqual(withMention("", "#7").text, "#7 ");
+});
+
+/** A picture as `project_file_read` carries one: an image file's bytes, or an SVG drawn as a PNG. */
+const PNG = { mime: "image/png", data: "iVBORw0KGgo=" };
+
+// The break this catches: a text file given a picture, or its text not sent to be rendered
+test("a text file shows its lines and no picture", () => {
+  assert.deepEqual(readFaces(FILE), { picture: null, text: FILE });
+});
+
+// The break this catches: an image file's empty text rendered as "Binary file" under its picture,
+// or the picture's URL not the data: one the page's policy allows
+test("an image file shows its picture alone", () => {
+  const logo = { path: "logo.png", text: "", bytes: 8, truncated: false, binary: true, image: PNG };
+  assert.deepEqual(readFaces(logo), { picture: "data:image/png;base64,iVBORw0KGgo=", text: null });
+});
+
+// The break this catches: an SVG's source hidden behind its picture, or the picture's megabytes
+// sent back up to the host along with the source to render
+test("an SVG shows its picture, then its source without the picture in it", () => {
+  const image = { ...PNG, declared_size: [24, 12] };
+  const source = { path: "icon.svg", text: "<svg/>\n", bytes: 7, truncated: false, binary: false };
+  const { picture, text } = readFaces({ ...source, image });
+  assert.equal(picture, "data:image/png;base64,iVBORw0KGgo=");
+  assert.deepEqual(text, source);
 });
 
 // The break this catches: an empty folder shown as loading, a failure as empty, or a folder being

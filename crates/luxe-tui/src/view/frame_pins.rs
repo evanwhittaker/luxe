@@ -202,6 +202,7 @@ fn changes_views() -> Vec<Pin> {
                 bytes,
                 truncated: false,
                 binary: false,
+                image: None,
             };
             view.view = crate::changes::PeekView::File;
             view.text = crate::changes::TextLoad::Ready(Box::new(file));

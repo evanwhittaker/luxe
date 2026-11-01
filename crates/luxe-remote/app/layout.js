@@ -1,52 +1,38 @@
 // @ts-check
-// Whether the dock shows, and on which side: started from your config, which the bridge writes on
-// the page, as the TUI starts from it. `/dock` and the header's button change them while the app
-// is open, as `/dock` does in the TUI. On a wide screen the dock is a rail beside the conversation;
-// on a phone it's the project panel's first tab, behind the header's one button.
+// Whether the sidebar shows, and on which side: started from your config's dock, which the bridge
+// writes on the page, as the TUI starts from it. `/dock` and the header's button change them while
+// the app is open, as `/dock` does in the TUI. The sidebar is the dock's plan and changes with the
+// project's views under them: a rail beside the conversation on a wide screen, a sheet over it on a
+// phone, behind the header's one button either way.
 
 import { signal } from "@preact/signals";
 import { useEffect, useState } from "preact/hooks";
 
 /**
  * @typedef {"auto" | "shown" | "hidden"} DockMode
- * @typedef {"dock" | "files" | "github" | "review"} Tab
+ * @typedef {"dock" | "files" | "github" | "review"} Part
  */
 
-/** The dock, plan and changes both as on the rail, as a tab of the project panel on a phone. */
-const DOCK_TABS = /** @type {{ id: Tab, title: string }[]} */ ([{ id: "dock", title: "Dock" }]);
-
-/** The project's views, the panel's tabs on every screen. */
-const PROJECT_TABS = /** @type {{ id: Tab, title: string }[]} */ ([
-  { id: "files", title: "Files" }, { id: "github", title: "GitHub" }, { id: "review", title: "Review" },
+/**
+ * The sidebar's parts, top to bottom, and whether each starts unfolded. GitHub and Review start
+ * folded: unfolding one asks the host for it, and GitHub's listing goes out to GitHub, which a
+ * rail showing on every iPad session shouldn't do unasked.
+ */
+export const SIDEBAR_PARTS = /** @type {{ id: Part, title: string, unfolded: boolean }[]} */ ([
+  { id: "dock", title: "Dock", unfolded: true },
+  { id: "files", title: "Project", unfolded: true },
+  { id: "github", title: "GitHub", unfolded: false },
+  { id: "review", title: "Review", unfolded: false },
 ]);
 
 /**
- * The project panel's tabs. A phone has one header button for everything, so the dock comes first
- * there; a wide screen keeps the dock as its own rail.
- * @param {boolean} wide
- */
-export function panelTabs(wide) {
-  return wide ? PROJECT_TABS : [...DOCK_TABS, ...PROJECT_TABS];
-}
-
-/**
- * The tab the panel shows: `tab` when this screen has it, else the screen's first. `tab` can be
- * one the screen lacks after an iPad turns or a Duo opens with the panel on the dock.
- * @param {Tab | null} tab @param {boolean} wide @returns {Tab}
- */
-export function shownTab(tab, wide) {
-  const tabs = panelTabs(wide);
-  return tabs.find(({ id }) => id === tab)?.id ?? tabs[0].id;
-}
-
-/**
- * What a `/dock` verb does on a phone, where the dock is the panel's Dock tab: open the panel on
- * it, close it, or null for the verbs that set the dock's own mode or side.
- * @param {string} verb @param {Tab | null} tab The panel's tab, null when it's closed
+ * What a `/dock` verb does on a phone, where the sidebar is a sheet: open it, close it, or null
+ * for the verbs that set the rail's own mode or side.
+ * @param {string} verb @param {boolean} open Whether the sheet is open
  * @returns {"open" | "close" | null}
  */
-export function phoneDock(verb, tab) {
-  if (verb === "hide" || (verb === "toggle" && tab === "dock")) return "close";
+export function phoneDock(verb, open) {
+  if (verb === "hide" || (verb === "toggle" && open)) return "close";
   return verb === "show" || verb === "toggle" ? "open" : null;
 }
 

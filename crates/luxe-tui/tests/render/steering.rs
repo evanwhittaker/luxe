@@ -27,8 +27,8 @@ fn a_message_sent_mid_turn_steers_instead_of_starting_a_turn() {
     app.update(Msg::Key(key(KeyCode::Enter)));
 
     match rx.try_recv().expect("a steer action reaches the engine") {
-        luxe_core::engine::Action::SteerTurn { content } => {
-            assert_eq!(content, "actually, check the tests too");
+        luxe_core::engine::Action::SteerTurn { text, .. } => {
+            assert_eq!(text, "actually, check the tests too");
         }
         other => panic!("expected SteerTurn, got {other:?}"),
     }

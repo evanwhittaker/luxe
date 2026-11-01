@@ -83,22 +83,41 @@ test("the model saw the message and the tool's result", () => {
   assert.equal(turns[1].messages.at(-1).role, "tool");
 });
 
-// The break this catches: the Files tab's chain (the header's button, `list_directory` and
+// The break this catches: the page scrolling as a whole under a pinned bar and composer, which on
+// iOS shows the transcript past the composer once the visible area drifts from the page's, as it
+// does around the keyboard; or the transcript no longer following its end once it's what scrolls
+test("only the transcript scrolls, and it follows new output", async () => {
+  await page.keyboard.press("Escape");
+  const filler = await page.evaluateHandle(() => {
+    const tall = Object.assign(document.createElement("div"), { style: "height: 300vh" });
+    return document.querySelector(".transcript")?.appendChild(tall);
+  });
+  await page.waitForFunction(() => {
+    const main = /** @type {HTMLElement} */ (document.querySelector("main"));
+    return main.scrollTop + main.clientHeight >= main.scrollHeight - 48;
+  });
+  const page_ = await page.evaluate(() => ({
+    height: document.scrollingElement?.scrollHeight ?? 0,
+    foot: document.querySelector(".controls")?.getBoundingClientRect().bottom ?? Infinity,
+    screen: innerHeight,
+  }));
+  await filler.evaluate((tall) => tall?.remove());
+  assert.ok(page_.height <= page_.screen, `the page is one screen: ${JSON.stringify(page_)}`);
+  assert.ok(page_.foot <= page_.screen, `the composer is the screen's foot: ${JSON.stringify(page_)}`);
+});
+
+// The break this catches: the Files part's chain (the rail, `list_directory` and
 // `read_project_file` through the bridge, the file piece's rendering, Mention into the composer)
-// broken in Safari's engine
-test("the project panel lists the project, shows a file and mentions it", async () => {
+// broken in Safari's engine, or the iPad's header keeping a second button for the project
+test("the rail lists the project, shows a file and mentions it", async () => {
   await page.keyboard.press("Escape");
   // The break this catches: the session's header naming its folder bare, without the branch it's on
   const header = page.locator("header.bar:has(.back) .title .project-name");
   await header.locator(".project-branch").waitFor();
   assert.match((await header.textContent()) ?? "", new RegExp(`${basename(host.project)}.*\\S+ \\*$`));
-  await page.locator(".panel-button").click();
-  const named = page.locator(".panel .bar .project-name");
-  await named.waitFor();
-  assert.ok((await named.textContent())?.includes(basename(host.project)), "the bar names the project");
-  assert.ok(await named.locator(".project-mark").first().textContent(), "behind the tree's folder mark");
-  // the project is a git repository the turn just wrote into, so its branch shows, starred
-  assert.match((await named.locator(".project-branch").textContent()) ?? "", /\S+ \*$/);
+  assert.equal(await page.locator(".panel-button").count(), 0, "one header button on a wide screen");
+  const parts = await page.$$eval(".panel .part", (all) => all.map((part) => part.getAttribute("data-part")));
+  assert.deepEqual(parts, ["dock", "files", "github", "review"], "the dock, then the project, in one rail");
   // the file the turn wrote wears its change, as it does in the TUI's tree
   await page.locator(`button.tree-row[data-file="${WRITTEN.path}"] .tree-name[class*="change-"]`).waitFor();
   await page.locator("button.tree-row", { hasText: "README.md" }).click();
@@ -109,46 +128,46 @@ test("the project panel lists the project, shows a file and mentions it", async 
   await page.locator("button.tree-row", { hasText: "README.md" }).click();
   await page.locator(".peek .mention").click();
   await page.waitForFunction(() => document.querySelector("textarea")?.value === "`README.md` ");
-  assert.equal(await page.locator(".panel, .peek").count(), 0, "Mention leaves the composer in view");
-  await page.locator(".panel-button").click();
-  await page.locator("button.tree-row").first().waitFor();
-  assert.equal(await page.locator(".peek").count(), 0, "the mentioned file isn't waiting in the panel");
-  // straight away: Escape is armed as soon as the panel is on screen, not a frame later
+  assert.equal(await page.locator(".peek").count(), 0, "Mention leaves the composer in view");
+  assert.equal(await page.locator(".panel").count(), 1, "and the rail beside it");
+  // Escape is for what opens over the conversation; the rail beside it stays
   await page.keyboard.press("Escape");
-  await page.locator(".panel").waitFor({ state: "detached", timeout: 2000 });
+  assert.equal(await page.locator(".panel").count(), 1, "Escape leaves the rail");
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });
 
-// The break this catches: the Review tab's chain (`show_open_review` through the engine to the
-// review desk, `load_guided_review` of the working changes, the guide and chapter pieces, and
-// `record_review_progress` kept in the session the next ask reads) broken in Safari's engine
-test("the review tab reviews the changes and keeps a chapter marked", async () => {
-  await page.locator(".panel-button").click();
-  await page.locator('button.tab:has-text("Review")').click();
+/** Unfolds the rail's Review part by its jump, as a reader reaches it. */
+async function jumpToReview() {
+  await page.locator('.jumps button:has-text("Review")').click();
+  await page.locator('.part[data-part="review"] .part-head button[aria-expanded="true"]').waitFor();
+}
+
+// The break this catches: the Review part's chain (its jump, `show_open_review` through the engine
+// to the review desk, `load_guided_review` of the working changes, the guide and chapter pieces,
+// and `record_review_progress` kept in the session the next ask reads) broken in Safari's engine
+test("the review part reviews the changes and keeps a chapter marked", async () => {
+  const head = page.locator('.part[data-part="review"] .part-head button');
+  assert.equal(await head.getAttribute("aria-expanded"), "false", "Review starts folded, unasked");
+  await jumpToReview();
   await page.locator('.panel button.retry:has-text("Review changes")').click();
   await page.locator(".rv-target", { hasText: "Working changes" }).waitFor();
   await page.locator(".rv-chapter .rv-title").first().click();
   await page.locator(".peek .rv-chapter-view .rv-file", { hasText: WRITTEN.path }).waitFor();
   await page.locator('.peek button.mention:has-text("Reviewed")').click();
   await page.locator('.peek button.mention[aria-pressed="true"]').waitFor();
-  // Escape closes the chapter, then the panel, as it closes a file and then the panel
+  // Escape closes the chapter, as it closes a file
   await page.keyboard.press("Escape");
   await page.locator(".peek").waitFor({ state: "detached" });
-  await page.keyboard.press("Escape");
-  await page.locator(".panel").waitFor({ state: "detached", timeout: 2000 });
-  await page.locator(".panel-button").click();
-  await page.locator('button.tab:has-text("Review")').click();
-  // asked afresh, the host's session says which chapter was walked
+  // folded and unfolded, the part asks afresh, and the host's session says which chapter was walked
+  await head.click();
+  await head.click();
   await page.locator(".rv-chapter .rv-walked").first().waitFor();
   await page.keyboard.press("Escape");
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });
 
-/** Opens README.md from the Files tab, its lines drawn. */
+/** Opens README.md from the rail's Files part, its lines drawn. */
 async function openReadme() {
-  await page.locator(".panel").waitFor({ state: "detached" });
-  await page.locator(".panel-button").click();
-  await page.locator('button.tab:has-text("Files")').click();
   await page.locator("button.tree-row", { hasText: "README.md" }).click();
   await page.locator('.peek .fl[data-line="4"]').waitFor();
 }
@@ -185,7 +204,7 @@ test("lines picked by number, or selected in part, are asked about in the TUI's 
   assert.equal(await page.locator(".peek .fl.picked").count(), 2, "the picked rows are marked");
   await page.locator(".line-ask button").click();
   await page.waitForFunction(() => document.querySelector("textarea")?.value.includes("`README.md` lines 3–4"));
-  assert.equal(await page.locator(".panel, .peek").count(), 0, "Ask leaves the composer in view");
+  assert.equal(await page.locator(".peek").count(), 0, "Ask leaves the composer in view");
   await openReadme();
   await selectWithin(3, "4519");
   await page.locator(".line-ask button", { hasText: "Ask about line 3" }).click();
@@ -205,9 +224,7 @@ async function saveComment(/** @type {string} */ words, question = false) {
 // session not redrawn as cards, a card's Delete not reaching the desk, or the guide not counting
 // what's unsent)
 test("a review chapter takes comments on its lines and on itself, kept by the host", async () => {
-  await page.locator(".panel").waitFor({ state: "detached" });
-  await page.locator(".panel-button").click();
-  await page.locator('button.tab:has-text("Review")').click();
+  await jumpToReview();
   await page.locator(".rv-chapter .rv-title").first().click();
   await page.locator('.peek .dl[data-line="1"] .ln').first().click();
   await page.locator(".line-ask button", { hasText: /^Comment$/ }).click();
@@ -234,22 +251,29 @@ async function runCommand(/** @type {string} */ command) {
   await page.locator(".send").click();
 }
 
-/** The label of the panel tab showing. */
-const shownTab = () => page.locator('.panel button.tab[aria-selected="true"]').textContent();
-
-// The break this catches: a phone keeping two header buttons, the panel's button not reaching the
-// dock, its tabs wrapping to a second row on the narrowest iPhone, a diff opened from the dock
-// drawn under the panel, Escape closing the panel with the diff, or `/dock` on a phone doing
-// nothing now the dock lives in the panel
-test("on a phone one header button opens the dock and the project", async () => {
-  await page.locator(".panel").waitFor({ state: "detached" });
-  await page.setViewportSize({ width: 375, height: 812 });
-  // no dock button beside the panel's, once the app sees the narrow screen
-  await page.locator(".dock-toggle").waitFor({ state: "detached", timeout: 2000 });
+/** Opens the phone's sidebar sheet by the header's one button. */
+async function openSheet() {
   await page.locator(".panel-button").click();
-  assert.equal(await shownTab(), "Dock");
-  const rows = await page.$$eval(".panel button.tab", (tabs) => new Set(tabs.map((tab) => tab.getBoundingClientRect().top)).size);
-  assert.equal(rows, 1, "the tabs fit one row");
+  await page.locator('.panel[role="dialog"]').waitFor();
+}
+
+// The break this catches: a phone keeping two header buttons, the button not reaching the dock,
+// the sheet's bar not naming the project and its branch, its jumps wrapping to a second row on the
+// narrowest iPhone, a diff opened from the dock drawn under the sheet, Escape closing the sheet
+// with the diff or not armed the moment the sheet shows, or `/dock` on a phone doing nothing
+test("on a phone one header button opens the dock and the project", async () => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  // no rail and no rail button, once the app sees the narrow screen
+  await page.locator(".dock-toggle").waitFor({ state: "detached", timeout: 2000 });
+  await page.locator(".panel").waitFor({ state: "detached", timeout: 2000 });
+  await openSheet();
+  const named = page.locator(".panel .bar .project-name");
+  assert.ok((await named.textContent())?.includes(basename(host.project)), "the bar names the project");
+  assert.ok(await named.locator(".project-mark").first().textContent(), "behind the tree's folder mark");
+  // the project is a git repository the turn wrote into, so its branch shows, starred
+  assert.match((await named.locator(".project-branch").textContent()) ?? "", /\S+ \*$/);
+  const rows = await page.$$eval(".jumps button", (jumps) => new Set(jumps.map((jump) => jump.getBoundingClientRect().top)).size);
+  assert.equal(rows, 1, "the jumps fit one row");
   await page.locator(`.panel button.change[data-path="${WRITTEN.path}"]`).click();
   await page.locator(".peek .dl-addition").waitFor();
   const onTop = await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest(".peek") !== null);
@@ -259,8 +283,12 @@ test("on a phone one header button opens the dock and the project", async () => 
   assert.equal(await page.locator(".panel").count(), 1, "the diff took the Escape, not the panel");
   await page.keyboard.press("Escape");
   await page.locator(".panel").waitFor({ state: "detached", timeout: 2000 });
+  // straight away: Escape is armed as soon as the sheet is on screen, not a frame later
+  await openSheet();
+  await page.keyboard.press("Escape");
+  await page.locator(".panel").waitFor({ state: "detached", timeout: 2000 });
   await runCommand("/dock");
-  assert.equal(await shownTab(), "Dock");
+  await page.locator('.panel[role="dialog"]').waitFor();
   await page.locator(".panel .close").click();
   await page.setViewportSize(playwright.devices["iPad Pro 11 landscape"].viewport);
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");

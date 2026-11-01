@@ -9,6 +9,7 @@ import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { Answers, questionOutcome } from "./answers.js";
 import { html, landedIn } from "./html.js";
 import { useRendered } from "./render.js";
+import { Spinner } from "./spinner.js";
 
 /** @import { Signal } from "@preact/signals" */
 /** @import { Card, Item as TranscriptItem, TextItem } from "./transcript.js" */
@@ -45,8 +46,8 @@ export function windowStart(start, length, shown, following) {
   return following || start === null ? latest : Math.min(start, latest);
 }
 
-/** @param {{ items: TranscriptItem[], following: boolean }} props */
-export function Transcript({ items, following }) {
+/** @param {{ items: TranscriptItem[], following: boolean, waiting: boolean }} props `waiting`: on a prompt you answer */
+export function Transcript({ items, following, waiting }) {
   const [shown, setShown] = useState(WINDOW);
   const list = useRef(/** @type {HTMLDivElement | null} */ (null));
   const start = useRef(/** @type {number | null} */ (null));
@@ -57,7 +58,7 @@ export function Transcript({ items, following }) {
   const count = html`<span class="dim">${hidden.toLocaleString()} more</span>`;
   return html`<div class="transcript" ref=${list} onClick=${copyCode}>
     ${hidden ? html`<button type="button" class="earlier" onClick=${more}>Show earlier ${count}</button>` : null}
-    ${drawn.map((item) => html`<${Item} key=${item.key} item=${item} />`)}
+    ${drawn.map((item) => html`<${Item} key=${item.key} item=${item} waiting=${waiting} />`)}
   </div>`;
 }
 
@@ -101,13 +102,13 @@ function holdInPlace(item, top) {
   step();
 }
 
-/** @param {{ item: TranscriptItem }} props */
-function Item({ item }) {
+/** @param {{ item: TranscriptItem, waiting: boolean }} props */
+function Item({ item, waiting }) {
   switch (item.kind) {
     case "user": return html`<${UserMessage} item=${item} />`;
     case "assistant": return html`<${Reply} item=${item} />`;
     case "thinking": return html`<${Thinking} item=${item} />`;
-    case "tool": return html`<${ToolCard} card=${item.card} />`;
+    case "tool": return html`<${ToolCard} card=${item.card} waiting=${waiting} />`;
     case "error": return html`<div class="item problem">${item.text}</div>`;
     default: return html`<div class="item notice">${item.text}</div>`;
   }
@@ -122,10 +123,17 @@ function Rendered({ className, rendered, text }) {
   return html`<div class=${className} dangerouslySetInnerHTML=${{ __html: rendered }} />`;
 }
 
-/** @param {{ item: TextItem }} props */
+/**
+ * Your message as the host renders it, then the photos it carried, which the host only counts.
+ * @param {{ item: TextItem }} props
+ */
 function UserMessage({ item }) {
   const rendered = useRendered({ kind: "user", content: item.content ?? [] }, false);
-  return html`<${Rendered} className="item user-message" rendered=${rendered} text=${item.text.value} />`;
+  const message = html`<${Rendered} className="item user-message" rendered=${rendered} text=${item.text.value} />`;
+  if (!item.photos?.length) return message;
+  return html`${message}<div class="sent-photos">
+    ${item.photos.map((photo, index) => html`<img key=${index} src=${photo} alt=${`photo ${index + 1}`} />`)}
+  </div>`;
 }
 
 /** @param {{ item: TextItem }} props */
@@ -142,22 +150,33 @@ function Thinking({ item }) {
   </div>`;
 }
 
-/** @param {{ card: Signal<Card> }} props */
-function ToolCard({ card }) {
+/** @param {{ card: Signal<Card>, waiting: boolean }} props */
+function ToolCard({ card, waiting }) {
   const call = card.value;
   const output = call.output_preview;
-  const head = html`<${ToolGlyph} name=${call.name} />
+  const head = html`${spins(call, waiting) ? html`<${Spinner} />` : html`<${ToolGlyph} name=${call.name} />`}
     <span class="tool-name">${call.name}</span>
     <span class="tool-label">${call.label}</span>
     <span class="tool-time">${standing(call)}</span>
     ${body(call)}`;
   const outcome = call.name === "question" && output ? questionOutcome(output) : null;
-  if (outcome) return html`<div class=${`item tool ${call.state}`}><div class="tool-head">${head}</div><${Answers} outcome=${outcome} /></div>`;
-  if (!output) return html`<div class=${`item tool ${call.state}`}><div class="tool-head">${head}</div></div>`;
-  return html`<details class=${`item tool ${call.state}`}>
+  const className = `item tool ${call.state}${call.name === "skill" ? " skill" : ""}`;
+  if (outcome) return html`<div class=${className}><div class="tool-head">${head}</div><${Answers} outcome=${outcome} /></div>`;
+  if (!output) return html`<div class=${className}><div class="tool-head">${head}</div></div>`;
+  return html`<details class=${className}>
     <summary class="tool-head">${head}</summary>
     <pre class="tool-output">${output}</pre>
   </details>`;
+}
+
+/**
+ * Whether the card spins, as the TUI's does while the call is being written or runs. While the turn
+ * waits on you to answer a question or allow a call, a running card keeps its own mark in the same
+ * color: a spinner there says the agent is busy, and only hurries you.
+ * @param {Card} call @param {boolean} waiting
+ */
+export function spins(call, waiting) {
+  return call.state === "composing" || (call.state === "running" && !waiting);
 }
 
 /** The mark the TUI's card wears for this tool, which the host knows. @param {{ name: string }} props */

@@ -245,15 +245,17 @@ fn send_user_turn(
 /// of its own. Either way it is pinned above the composer rather than dropped into the
 /// transcript, so the UI never claims a message started work it hasn't started.
 ///
-/// A message with images always waits: steering carries text alone, so steering one would deliver
-/// its words and drop its images.
+/// A message with images always waits: the transcript draws a steer the engine delivers from its
+/// words alone (see `events::transcript::message_committed`), so a steered image would vanish from
+/// view the moment it reached the model.
 fn deliver_mid_turn(app: &mut App, mut submission: PendingSubmission) {
     if !submission.images.is_empty() {
         submission.delivery = MidTurnDelivery::Queue;
     }
     if submission.delivery == MidTurnDelivery::Steer {
-        let content = submission.content.clone();
-        if !app.send_action(Action::SteerTurn { content }, "steer the turn") {
+        let text = submission.content.clone();
+        let steer = Action::SteerTurn { text, images: Vec::new() };
+        if !app.send_action(steer, "steer the turn") {
             // Nothing the user typed may disappear, least of all when the engine is gone: record
             // it in the transcript as never sent rather than holding it for a delivery that can
             // no longer happen.

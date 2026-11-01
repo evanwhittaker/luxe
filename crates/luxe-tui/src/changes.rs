@@ -74,6 +74,16 @@ pub(crate) struct ChangedFile {
     pub(crate) deletions: Option<u64>,
 }
 
+/// The picture the File view shows for an image file or an SVG.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PeekPicture {
+    /// Where the image store holds it
+    pub(crate) key: crate::graphics::ImageKey,
+    /// The size an SVG declares, which its picture was drawn larger than; `None` for an image
+    /// file, whose pixels are its size
+    pub(crate) declared_size: Option<(u32, u32)>,
+}
+
 /// The Changes pane, while it is open.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ChangesView {
@@ -111,6 +121,10 @@ pub(crate) struct ChangesView {
     pub(crate) text: TextLoad,
     /// In-flight read, so a superseded one is discarded
     pub(crate) text_request: Option<FileReadRequestId>,
+    /// The File view's picture, when the file read is an image or an SVG
+    pub(crate) picture: Option<PeekPicture>,
+    /// Whether an SVG's File view shows its source rather than its picture
+    pub(crate) source: bool,
     /// Lines picked in the File view, as `(anchor, head)` 1-based line numbers in pick order
     pub(crate) selection: Option<(u32, u32)>,
     /// Whether the keyboard is in the pane rather than the composer or the tree
@@ -146,6 +160,8 @@ impl ChangesView {
             view: PeekView::Diff,
             text: TextLoad::Idle,
             text_request: None,
+            picture: None,
+            source: false,
             selection: None,
             focused: false,
             cursor: None,
@@ -191,15 +207,33 @@ impl ChangesView {
         self.current().is_some()
     }
 
-    /// Takes a file's text, under the same staleness guard as a diff.
-    pub(crate) fn accept_text(&mut self, request: &FileReadRequestId, file: ProjectFile) -> bool {
-        if self.text_request.as_ref() != Some(request) || file.path != self.path {
+    /// Whether the file is a picture with source to show instead, as an SVG is.
+    pub(crate) fn has_source(&self) -> bool {
+        let text = matches!(&self.text, TextLoad::Ready(file) if !file.binary);
+        self.picture.is_some() && text
+    }
+
+    /// Takes a file's text, and its picture when it is an image or an SVG, under the same
+    /// staleness guard as a diff.
+    pub(crate) fn accept_text(
+        &mut self,
+        request: &FileReadRequestId,
+        file: ProjectFile,
+        picture: Option<PeekPicture>,
+    ) -> bool {
+        if !self.awaits_text(request, &file.path) {
             return false;
         }
         self.text_request = None;
         self.text = TextLoad::Ready(Box::new(file));
+        self.picture = picture;
         self.cells = None;
         true
+    }
+
+    /// Whether `request` is the read in flight for `path`, the file showing.
+    pub(crate) fn awaits_text(&self, request: &FileReadRequestId, path: &str) -> bool {
+        self.text_request.as_ref() == Some(request) && path == self.path
     }
 
     /// Takes a failed read under the same guard.
@@ -264,6 +298,8 @@ impl ChangesView {
         self.request = None;
         self.text = TextLoad::Idle;
         self.text_request = None;
+        self.picture = None;
+        self.source = false;
         self.selection = None;
         self.cursor = None;
         self.diff_cursor = None;

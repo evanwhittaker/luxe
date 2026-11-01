@@ -1,8 +1,7 @@
 // @ts-check
-// The dock: the plan and the changed files, as the host renders them. A rail beside the transcript
-// on a wide screen, shown and hidden by the header's button and `/dock` (layout.js); the project
-// panel's Dock tab on a phone. A long plan scrolls in its own box, and a changed file opens its
-// diff.
+// The dock: the plan and the changed files, as the host renders them, at the top of the sidebar
+// (panel.js), which the header's button and `/dock` show and hide (layout.js). A long plan scrolls
+// in its own box, and a changed file opens its diff.
 
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { html, landedIn } from "./html.js";
@@ -14,30 +13,16 @@ import { useWide } from "./layout.js";
 
 /** @import { Changes, OpenDiff, Todos } from "./workspace.js" */
 
-/** @param {{ todos: Todos | null, changes: Changes | null, shown: boolean, open: (path: string) => void }} props */
-export function Dock({ todos, changes, shown, open }) {
-  return html`<aside class=${shown ? "dock shown" : "dock"} aria-label="Context Dock"
-      onClick=${(/** @type {Event} */ event) => pickChange(event, open)}>
-    <${DockSections} todos=${todos} changes=${changes} />
-  </aside>`;
-}
-
 /**
- * The dock as the project panel's Dock tab, on a phone, where the panel is the one way in.
+ * The dock as the sidebar's first part.
  * @param {{ hooks: { todos: Todos | null, changes: Changes | null, openDiff: (path: string) => void } }} props
  */
-export function DockTab({ hooks: { todos, changes, openDiff } }) {
-  return html`<div class="dock-tab" onClick=${(/** @type {Event} */ event) => pickChange(event, openDiff)}>
-    <${DockSections} todos=${todos} changes=${changes} />
-  </div>`;
-}
-
-/** @param {{ todos: Todos | null, changes: Changes | null }} props */
-function DockSections({ todos, changes }) {
-  return html`
+export function DockPart({ hooks: { todos, changes, openDiff } }) {
+  return html`<div class="dock-part" onClick=${(/** @type {Event} */ event) => pickChange(event, openDiff)}>
     ${hasDock(todos, changes) ? null : html`<p class="dim dock-empty">No plan or changes yet.</p>`}
     ${todos?.total ? html`<${Section} piece=${{ kind: "plan", todos }} />` : null}
-    ${changes?.total_files ? html`<${Section} piece=${{ kind: "changes", changes }} />` : null}`;
+    ${changes?.total_files ? html`<${Section} piece=${{ kind: "changes", changes }} />` : null}
+  </div>`;
 }
 
 /**
@@ -77,15 +62,15 @@ function usePlanFollow(section, rendered) {
   return () => (moved.current = true);
 }
 
-/** The header's button that shows and hides the dock. @param {{ shown: boolean, toggle: () => void }} props */
+/** The wide header's button that shows and hides the sidebar's rail. @param {{ shown: boolean, toggle: () => void }} props */
 export function DockToggle({ shown, toggle }) {
   return html`<button type="button" class=${shown ? "dock-toggle on" : "dock-toggle"}
-    aria-label=${shown ? "Hide the Context Dock" : "Show the Context Dock"} aria-expanded=${shown}
+    aria-label=${shown ? "Hide the sidebar" : "Show the sidebar"} aria-expanded=${shown}
     onClick=${toggle}><${Icon} name="dock" /></button>`;
 }
 
 /**
- * One file's diff until it's closed: over the page on a phone, beside the dock on a wide screen.
+ * One file's diff until it's closed: over the page on a phone, beside the rail on a wide screen.
  * @param {{ open: OpenDiff | null, close: () => void, retry: () => void, ask: (words: string) => void }} props
  */
 export function DiffSheet({ open, close, retry, ask }) {

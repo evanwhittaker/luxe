@@ -42,6 +42,20 @@ fn an_image_is_judged_on_its_header() {
     assert!(!store.contains(&ImageKey::new("garbage")));
 }
 
+/// The preview's fit grows no larger than the image's own pixels, and a big image still shrinks
+/// into the room it has. With 10×20 cells: a 30×40 icon covers 3×2 cells wherever it is drawn.
+#[test]
+fn an_unstretched_fit_keeps_a_small_image_small_and_a_big_one_inside() {
+    let (store, icon) = seeded(ImageTier::Pixels, 30, 40);
+    assert_eq!(store.fit_unstretched(&icon, 80, 40), Some(Fit { cols: 3, rows: 2 }));
+    assert_eq!(store.fit(&icon, 80, 40).map(|fit| fit.cols), Some(60), "where `fit` fills");
+
+    let (store, big) = seeded(ImageTier::Pixels, 2000, 1000);
+    let fit = store.fit_unstretched(&big, 60, 40).expect("a known image fits");
+    assert!(fit.cols <= 60 && fit.rows <= 40, "inside the room: {fit:?}");
+    assert_eq!(fit.cols, 60, "and as wide as it allows");
+}
+
 /// Re-inserting a known key is free, which is what makes replaying a session's transcript on
 /// resume cost nothing.
 #[test]

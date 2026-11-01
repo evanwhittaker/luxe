@@ -10,6 +10,8 @@ const asked = (id) => frame("permission_requested", {
   id, session_id: "s", tool: "bash", permission: "bash", summary: "Run: rm -rf build", always_patterns: ["rm *"],
 });
 const ids = (pending) => pending.prompts.value.map((prompt) => prompt.id);
+const steer = (text) => ({ text, photos: [] });
+const words = (pending) => pending.steering.value.map((held) => held.text);
 
 function fold(frames) {
   const pending = createPending();
@@ -43,31 +45,31 @@ test("a prompt already open isn't opened twice", () => {
 // sends again if they're still open, so one answered meanwhile lingers on the phone
 test("a new connection starts with nothing waiting", () => {
   const pending = fold([asked("perm:1"), frame("ready", {})]);
-  pending.steered();
+  pending.steered(steer("also"));
   pending.apply(frame("ready", {}));
   assert.deepEqual(ids(pending), []);
-  assert.equal(pending.steering.value, 0);
+  assert.deepEqual(words(pending), []);
 });
 
 // The break this catches: a delivery clearing only some of the tray, or a turn ending clearing
 // steering the engine holds for the next turn, as the TUI's tray keeps it
 test("steering waits through a turn's end, and a checkpoint delivers all of it", () => {
   const pending = createPending();
-  pending.steered();
-  pending.steered();
+  pending.steered(steer("first"));
+  pending.steered(steer("second"));
   pending.apply(frame("turn_ended", { reason: "end_turn" }));
-  assert.equal(pending.steering.value, 2);
+  assert.deepEqual(words(pending), ["first", "second"]);
   pending.apply(frame("steering_delivered", { count: 1 }));
-  assert.equal(pending.steering.value, 0);
+  assert.deepEqual(words(pending), []);
 });
 
 // The break this catches: Stop or withdraw leaving the tray saying messages wait that the engine
 // has thrown away
 test("dropping steering empties the tray", () => {
   const pending = createPending();
-  pending.steered();
+  pending.steered(steer("also"));
   pending.dropSteering();
-  assert.equal(pending.steering.value, 0);
+  assert.deepEqual(words(pending), []);
 });
 
 // The break this catches: a reply frame the host's decoder doesn't know, which it rejects, so a

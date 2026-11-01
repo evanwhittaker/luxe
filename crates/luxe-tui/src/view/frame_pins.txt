@@ -227,8 +227,8 @@ ChatWideProse copied: frame=b3533a5d15c5aa11 hits=3ed3f6a36fc4b70e
 ChangesWide@180x44: frame=a5e06566681b21b4 hits=6810988e01cba555
 ChangesNarrow unwrapped: frame=97b96119f8d3d5c7 hits=20f33e57e8b00a6f
 ChangesWide file: frame=ec5d04bac7bb817b hits=152575cc3b47cd82
-ChangesWide file cursor: frame=a06c4eac26101e50 hits=c0e6055bc8b14958
-ChangesWide file unwrapped: frame=6cfad6da5c59de50 hits=437c276dea601cfa
+ChangesWide file cursor: frame=a06c4eac26101e50 hits=45d1b349b90fb9d7
+ChangesWide file unwrapped: frame=6cfad6da5c59de50 hits=d0dc352f6aa98221
 review help@140x44: frame=428617f227d49508 hits=363734d0f1e4973a
 review help@100x30: frame=898d94b7806693c4 hits=e4ef9f77a3045de7
 review details@140x44: frame=a4fa909249cbb0ec hits=5c309ee031fdabbc

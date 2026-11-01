@@ -433,6 +433,7 @@ pub(super) fn every_event() -> Vec<Event> {
                 bytes: 1,
                 truncated: true,
                 binary: false,
+                image: None,
             }),
         },
         Event::ProjectFileReadFailed {

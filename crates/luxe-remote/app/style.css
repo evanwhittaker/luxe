@@ -46,6 +46,18 @@
   --tap: 2.4lh;
   /* where a top edge's content starts: under the status bar */
   --top-inset: env(safe-area-inset-top);
+  /* where a bottom edge's content ends: above the home indicator, in a Safari tab */
+  --bottom-inset: env(safe-area-inset-bottom);
+  /* text-size.js's choice; medium until it has made one */
+  --text-size: 15px;
+}
+
+:root[data-text-size="small"] {
+  --text-size: 13px;
+}
+
+:root[data-text-size="large"] {
+  --text-size: 17px;
 }
 
 /* From the Home Screen, iOS blurs a strip of the page under the status bar unless a fixed element
@@ -58,8 +70,10 @@
 }
 
 @media (display-mode: standalone) {
+  /* From the Home Screen iOS keeps the home indicator out of the way, so the page runs to the edge */
   :root {
     --top-inset: calc(env(safe-area-inset-top) + 0.75lh);
+    --bottom-inset: 0px;
   }
 
   .status-backdrop {
@@ -75,10 +89,10 @@
 
 body {
   margin: 0;
-  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: 0 env(safe-area-inset-right) var(--bottom-inset) env(safe-area-inset-left);
   background: var(--luxe-background, #12100e);
   color: var(--luxe-text, #e4dfd6);
-  font: 13px / var(--cell) "luxe Mono", "luxe Mono Marks", ui-monospace, monospace;
+  font: var(--text-size) / var(--cell) "luxe Mono", "luxe Mono Marks", ui-monospace, monospace;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -105,7 +119,7 @@ a {
 
 /* An icon on its own is a square a finger can hit, drawn into the bar without making it taller.
    A press fills a smaller square inside it, so the fill stays within the bar */
-:is(.close, .panel-button, .dock-toggle) {
+:is(.close, .panel-button, .dock-toggle, .back) {
   display: grid;
   place-items: center;
   box-sizing: border-box;
@@ -117,7 +131,7 @@ a {
   border-radius: var(--corner);
 }
 
-:is(.close, .panel-button, .dock-toggle):active {
+:is(.close, .panel-button, .dock-toggle, .back):active {
   background-color: var(--luxe-selected-bg, #2c2925);
 }
 
@@ -132,15 +146,26 @@ a {
   text-decoration: none;
 }
 
-/* At least a screen tall, so the composer sits at the foot of a session with nothing in it yet */
+/* The page is one screen and never scrolls; only `main` does, between the bar and the composer.
+   A page that scrolled under a pinned bar and composer showed what lay past the composer whenever
+   iOS's visible area drifted from the one the page was laid out in, as it does around the
+   keyboard; with nothing past the composer there's nothing to show */
+:root {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 #app {
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - env(safe-area-inset-bottom));
+  height: calc(100dvh - var(--bottom-inset));
 }
 
 main {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1lh 1ch;
 }
 
@@ -178,9 +203,19 @@ main {
   color: var(--luxe-muted, #97938c);
 }
 
+/* The way out of a session, so it's drawn larger than the bar's other icons and starts at the
+   bar's edge, where a thumb reaches for it */
 .back {
+  flex: none;
+  align-self: center;
+  margin-inline-start: -0.5ch;
+  padding: 0.25lh;
   color: var(--luxe-accent, #ddc084);
-  padding-inline-end: 1ch;
+}
+
+.back .icon {
+  width: 1.6lh;
+  height: 1.6lh;
 }
 
 .bar .new {
@@ -352,26 +387,15 @@ h2 {
   color: var(--luxe-muted, #97938c);
 }
 
-/* How the connection stands; the word says it, the color only helps */
+/* A dropped link, being retried; the word says it, the color only helps */
 
 .connection {
-  color: var(--luxe-muted, #97938c);
+  align-self: center;
+  color: var(--luxe-warning, #faaa51);
 }
 
 .connection::before {
   content: "● ";
-}
-
-.connection.live {
-  color: var(--luxe-success, #81caa0);
-}
-
-.connection.reconnecting {
-  color: var(--luxe-warning, #faaa51);
-}
-
-.connection.unpaired {
-  color: var(--luxe-error, #e68485);
 }
 
 /* The transcript: one blank row between items, as in the terminal */
@@ -422,6 +446,20 @@ h2 {
   color: var(--luxe-info, #85c7d7);
 }
 
+/* Small enough that a few sit side by side and the conversation stays the subject */
+.sent-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1ch;
+  padding-inline: 1ch;
+}
+
+.sent-photos img {
+  max-block-size: 8lh;
+  max-inline-size: 100%;
+  border-radius: 4px;
+}
+
 .reply {
   padding-inline: 1ch;
 }
@@ -453,7 +491,7 @@ h2 {
   color: var(--luxe-muted, #97938c);
 }
 
-.tool-glyph {
+.tool-head > :is(.tool-glyph, .spinner) {
   margin-inline-end: 1ch;
 }
 
@@ -504,8 +542,42 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-.running :is(.tool-glyph, .tool-name) {
-  color: var(--luxe-accent, #ddc084);
+/* The TUI's braille spinner: ten frames stacked in a window one cell tall, stepped past it at the
+   TUI's pace of one frame per 33ms tick */
+.spinner {
+  display: inline-block;
+  inline-size: 1ch;
+  block-size: 1lh;
+  overflow: hidden;
+  vertical-align: top;
+  font-weight: bold;
+}
+
+.spinner-frames {
+  display: block;
+  white-space: pre;
+  animation: spinner-sweep 0.333s steps(10) infinite;
+}
+
+@keyframes spinner-sweep {
+  to {
+    transform: translateY(-100%);
+  }
+}
+
+/* Held on one frame, beside the words that say what's working */
+@media (prefers-reduced-motion: reduce) {
+  .spinner-frames {
+    animation-play-state: paused;
+  }
+}
+
+/* A call's color is the TUI's card's: the warning color for work in flight (and for one cut off
+   mid-flight), success and error once it lands. One queued or cancelled stays muted, since the
+   warning color belongs to the card that is actually moving. A skill wears the secondary accent
+   until it fails or is cancelled */
+:is(.running, .composing, .interrupted) :is(.tool-glyph, .tool-name, .spinner) {
+  color: var(--luxe-warning, #faaa51);
 }
 
 .succeeded :is(.tool-glyph, .tool-name) {
@@ -516,7 +588,6 @@ h2 {
   color: var(--luxe-error, #e68485);
 }
 
-.interrupted :is(.tool-glyph, .tool-name),
-.cancelled :is(.tool-glyph, .tool-name) {
-  color: var(--luxe-warning, #faaa51);
+.tool.skill:not(.failed, .cancelled) :is(.tool-glyph, .tool-name, .spinner) {
+  color: var(--luxe-accent-secondary, #d2a5cd);
 }

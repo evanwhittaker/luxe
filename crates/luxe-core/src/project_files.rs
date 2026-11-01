@@ -16,6 +16,11 @@ use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
 use uuid::Uuid;
 
+mod picture;
+mod vector;
+
+pub use picture::names_picture;
+
 /// Most entries one folder's listing carries.
 ///
 /// A folder past this is a generated one (vendored dependencies, fixtures by the thousand), and the
@@ -98,7 +103,7 @@ pub struct DirectoryListing {
     pub omitted: usize,
 }
 
-/// One file's text, as the preview shows it.
+/// One file's text, or its picture, as the preview shows it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectFile {
     /// Project-relative path, with forward slashes.
@@ -113,6 +118,23 @@ pub struct ProjectFile {
     /// Whether the file is not text, and so has no lines to show.
     #[serde(default)]
     pub binary: bool,
+    /// The picture a front-end can draw for the file: an image file's own bytes (such a file is
+    /// `binary` too), or an SVG drawn as a PNG (which keeps its `text`, the SVG's source).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<PreviewImage>,
+}
+
+/// A picture's bytes, carried the way a tool result carries an image.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PreviewImage {
+    /// `image/png`, `image/jpeg`, `image/gif` or `image/webp`
+    pub mime: String,
+    /// The picture, base64
+    pub data: String,
+    /// The width and height an SVG declares, when the picture was drawn from one at a size of
+    /// luxe's choosing; `None` for an image file, whose pixels are its size.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub declared_size: Option<(u32, u32)>,
 }
 
 /// Why a folder or a file could not be read.
@@ -217,8 +239,6 @@ pub fn read_file(root: &Path, relative: &str) -> Result<ProjectFile, ProjectFile
 /// Reads the file at `path` for the preview, answered under `label`. Whether `path` may be read at
 /// all is the caller's question, already settled.
 pub(crate) fn read_at(path: &Path, label: String) -> Result<ProjectFile, ProjectFileFailure> {
-    use std::io::Read;
-
     let meta = std::fs::metadata(path).map_err(|error| match error.kind() {
         std::io::ErrorKind::NotFound => ProjectFileFailure::NotFound,
         _ => unreadable(error),
@@ -226,15 +246,32 @@ pub(crate) fn read_at(path: &Path, label: String) -> Result<ProjectFile, Project
     if !meta.is_file() {
         return Err(ProjectFileFailure::WrongKind);
     }
+    let bytes = meta.len();
+    if let Some(image) = picture::read(path, bytes)? {
+        let text = String::new();
+        let image = Some(image);
+        return Ok(ProjectFile { path: label, text, bytes, truncated: false, binary: true, image });
+    }
+    let (text, truncated, binary) = read_text(path, bytes)?;
+    // A cut-short SVG is a broken one, so it is not drawn
+    let drawable = !binary && !truncated && vector::names_svg(&label);
+    let image = drawable.then(|| vector::draw(&text)).flatten();
+    Ok(ProjectFile { path: label, text, bytes, truncated, binary, image })
+}
+
+/// The text of a `size`-byte file up to [`MAX_FILE_BYTES`], whether it was cut short, and whether
+/// it is binary instead.
+fn read_text(path: &Path, size: u64) -> Result<(String, bool, bool), ProjectFileFailure> {
+    use std::io::Read;
     let mut content = Vec::new();
     std::fs::File::open(path)
         .map_err(unreadable)?
         .take(MAX_FILE_BYTES as u64)
         .read_to_end(&mut content)
         .map_err(unreadable)?;
-    let truncated = meta.len() > content.len() as u64;
+    let truncated = size > content.len() as u64;
     let (text, binary) = decode(content);
-    Ok(ProjectFile { path: label, text, bytes: meta.len(), truncated, binary })
+    Ok((text, truncated, binary))
 }
 
 /// The text in `content` and whether it is binary instead, in which case the text is empty.
@@ -391,7 +428,30 @@ mod tests {
 
         std::fs::write(dir.path().join("blob.bin"), [0u8, 159, 146, 150]).unwrap();
         let blob = read_file(dir.path(), "blob.bin").unwrap();
-        assert!(blob.binary && blob.text.is_empty());
+        assert!(blob.binary && blob.text.is_empty() && blob.image.is_none());
+    }
+
+    /// An image comes back as itself, under any name, for a preview that can draw it; text never
+    /// carries one.
+    #[test]
+    fn an_image_file_reads_as_its_picture() {
+        let dir = project();
+        std::fs::write(dir.path().join("logo.dat"), b"GIF89a\x01\x00\x01\x00").unwrap();
+        let logo = read_file(dir.path(), "logo.dat").unwrap();
+        assert!(logo.binary && logo.text.is_empty(), "an image has no lines");
+        assert_eq!(logo.image.map(|image| image.mime), Some("image/gif".to_string()));
+        assert_eq!(read_file(dir.path(), "README.md").unwrap().image, None);
+    }
+
+    /// An SVG reads as both: its source, which is text like any, and the picture it draws.
+    #[test]
+    fn an_svg_reads_as_its_source_and_its_picture() {
+        let dir = project();
+        let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>"#;
+        std::fs::write(dir.path().join("icon.svg"), svg).unwrap();
+        let icon = read_file(dir.path(), "icon.svg").unwrap();
+        assert_eq!((icon.text.as_str(), icon.binary), (svg, false));
+        assert_eq!(icon.image.and_then(|image| image.declared_size), Some((8, 8)));
     }
 
     #[test]
