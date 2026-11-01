@@ -82,9 +82,14 @@ fn each_wire_action_arrives_as_the_engine_action_it_names() {
         Ok(Action::SubmitUserMessage { content, images, remediation: None })
             if content == "hello" && images.len() == 1
     ));
+    let photo = luxe_core::engine::ImageAttachment {
+        data: "aGk=".into(),
+        mime: "image/jpeg".into(),
+        name: None,
+    };
     assert!(matches!(
-        translate(WireAction::SteerTurn { text: "also windows".into() }),
-        Ok(Action::SteerTurn { content }) if content == "also windows"
+        translate(WireAction::SteerTurn { text: "also windows".into(), images: vec![photo] }),
+        Ok(Action::SteerTurn { text, images }) if text == "also windows" && images.len() == 1
     ));
     assert!(matches!(translate(WireAction::Cancel), Ok(Action::Cancel)));
     assert!(matches!(

@@ -49,7 +49,7 @@ impl Engine {
                 }
                 // A steer that lands with no turn in flight has nothing to steer, so it runs as an
                 // ordinary turn — the same thing the user would have gotten a moment later.
-                Action::SteerTurn { content } => self.steer_into_turn(Some(content)).await,
+                Action::SteerTurn { text, images } => self.steer_idle(text, images).await,
                 // With no turn in flight there is normally nothing to drop — a steer that arrives
                 // idle becomes a turn of its own — so this is here for the race where one is
                 // admitted just as the turn ends.

@@ -40,6 +40,7 @@ mod hints;
 mod images;
 mod layout;
 mod peek_cursor;
+mod peek_picture;
 mod peek_selection;
 mod pickers;
 mod reasoning;

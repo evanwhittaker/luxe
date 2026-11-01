@@ -4,11 +4,12 @@
 import { signal } from "@preact/signals";
 import { useEffect, useMemo, useRef } from "preact/hooks";
 import { commandAction, runCommand } from "./commands.js";
-import { connect } from "./connection.js";
+import { connect, statusWord } from "./connection.js";
 import { html } from "./html.js";
+import { Icon } from "./icons.js";
 import { Composer } from "./composer.js";
 import { DetailsSheet } from "./details.js";
-import { DiffSheet, Dock, DockToggle } from "./dock.js";
+import { DiffSheet, DockToggle } from "./dock.js";
 import { createFiles } from "./files.js";
 import { createGithub } from "./github.js";
 import { createReview } from "./review.js";
@@ -21,7 +22,7 @@ import { PairWithLink } from "./pairing.js";
 import { PanelButton, ProjectName, ProjectPanel, createPanel } from "./panel.js";
 import { PromptCard } from "./prompt.js";
 import { folderName } from "./sessions.js";
-import { StatusLine, createStatus } from "./status.js";
+import { StatusLine, activityLabel, createStatus } from "./status.js";
 import { createTranscript } from "./transcript.js";
 import { createWorkspace, diffRequest } from "./workspace.js";
 
@@ -41,7 +42,7 @@ export function SessionView({ sessionId }) {
   return html`
     <${Header} view=${view} sessionId=${sessionId} />
     <main ref=${transcriptRef}>
-      <${Transcript} items=${view.transcript.items.value} following=${following.value} />
+      <${Transcript} items=${view.transcript.items.value} following=${following.value} waiting=${view.pending.prompts.value.length > 0} />
       <${Ending} status=${view.status.value} problem=${view.problem.value} />
     </main>
     <${Footer} view=${view} />
@@ -54,21 +55,19 @@ function Header({ view, sessionId }) {
   const dock = theDock();
   const wide = useWide();
   return html`<header class="bar">
-    <a class="back" href="#/" aria-label="All sessions">‹</a>
+    <a class="back" href="#/" aria-label="All sessions"><${Icon} name="back" /></a>
     <span class="title">${view.title.value ? html`<${ProjectName} project=${projectOf(view)} />` : sessionId.slice(0, 8)}</span>
-    ${wide ? html`<${DockToggle} shown=${dockVisible(dock.mode.value, wide)} toggle=${() => dock.apply("toggle")} />` : null}
-    <${PanelButton} open=${() => view.panel.open()} />
+    ${wide ? html`<${DockToggle} shown=${dockVisible(dock.mode.value, wide)} toggle=${() => dock.apply("toggle")} />`
+      : html`<${PanelButton} open=${() => view.panel.open()} />`}
     <${Connection} status=${view.status.value} />
   </header>`;
 }
 
-/** The dock, the diff a tap in it opens, the project panel and the status line's details. @param {{ view: View }} props */
+/** The sidebar, the diff a tap in its dock opens, and the status line's details. @param {{ view: View }} props */
 function WorkspaceViews({ view }) {
   const { workspace } = view;
   const open = openDiff(view);
-  const wide = useWide();
   return html`
-    <${Dock} todos=${workspace.todos.value} changes=${workspace.changes.value} shown=${wide && dockVisible(theDock().mode.value, wide)} open=${open} />
     <${DiffSheet} open=${workspace.diff.value} close=${workspace.close} retry=${() => workspace.diff.value && open(workspace.diff.value.path)}
       ask=${(/** @type {string} */ words) => mentionIn(view, words)} />
     <${ProjectPanel} panel=${view.panel} hooks=${panelHooks(view)} />
@@ -87,12 +86,12 @@ function openDiff(view) {
 }
 
 /**
- * `/dock`'s verb: on a phone, where the dock is the panel's Dock tab, it opens or closes the
- * panel; the side and mode, and every verb on a wide screen, go to the dock.
+ * `/dock`'s verb: on a phone, where the sidebar is a sheet, it opens or closes it on the dock;
+ * the side and mode, and every verb on a wide screen, go to the rail.
  * @param {View} view @param {string} verb
  */
 function workDock(view, verb) {
-  const onPhone = matchMedia(WIDE).matches ? null : phoneDock(verb, view.panel.tab.value);
+  const onPhone = matchMedia(WIDE).matches ? null : phoneDock(verb, view.panel.shown.value);
   if (onPhone === "open") return view.panel.open("dock");
   if (onPhone === "close") return view.panel.close();
   theDock().apply(verb);
@@ -111,14 +110,15 @@ function mentionIn(view, words) {
   view.workspace.close();
 }
 
-/** What the project panel works the session with. @param {View} view @returns {import("./panel.js").PanelHooks} */
+/** What the sidebar works the session with. @param {View} view @returns {import("./panel.js").PanelHooks} */
 function panelHooks(view) {
   /** @param {string} words */
   const mention = (words) => mentionIn(view, words);
   const { listings, files, github, review, workspace } = view;
   const project = projectOf(view);
   const dock = { changes: workspace.changes.value, todos: workspace.todos.value, openDiff: openDiff(view), diffOpen: Boolean(workspace.diff.value) };
-  return { send: (frame) => view.send(frame), listings, files, github, review, mention, ...dock, project };
+  const live = view.status.value === "live";
+  return { send: (frame) => view.send(frame), listings, files, github, review, mention, ...dock, project, live };
 }
 
 /** The session's folder, its branch and whether the tree has changes. @param {View} view @returns {import("./panel.js").Project} */
@@ -145,7 +145,7 @@ function useLink(sessionId, view) {
   }, [sessionId]);
 }
 
-/** What the project panel's tabs keep: the files, GitHub and the review, each with its open pane. */
+/** What the sidebar's project views keep: the files, GitHub and the review, each with its open pane. */
 function panes() {
   return { files: createFiles(), github: createGithub(), review: createReview() };
 }
@@ -179,13 +179,15 @@ function Footer({ view }) {
   /** @param {string} text */
   const run = (text) => runCommand(commandAction(text, view.statusLine.mode.value), hooks);
   if (view.status.value === "ended" || view.status.value === "unpaired") return null;
+  const { busy, items, compacting } = view.transcript;
+  const activity = activityLabel(busy.value, items.value, compacting.value);
   return html`<footer class="controls">
     <${PromptCard} prompts=${pending.prompts.value} send=${send} />
     <${Composer} busy=${view.transcript.busy.value} live=${view.status.value === "live"} steering=${pending.steering.value}
       listings=${view.listings} send=${send} run=${run} onSteered=${pending.steered} onDropped=${pending.dropSteering}
       mention=${view.mentioned.value} taken=${() => (view.mentioned.value = null)} />
     <${StatusLine} facts=${view.statusLine.facts.value} mode=${view.statusLine.mode.value} send=${send}
-      details=${() => openDetails(view)} />
+      activity=${activity} details=${() => openDetails(view)} />
   </footer>`;
 }
 
@@ -209,11 +211,10 @@ function applyFrame(view, frame) {
   }
 }
 
-/** @param {{ status: string }} props */
+/** @param {{ status: Status }} props */
 function Connection({ status }) {
-  /** @type {Record<string, string>} */
-  const words = { connecting: "connecting", live: "live", reconnecting: "reconnecting", ended: "ended", unpaired: "unpaired" };
-  return html`<span class=${`connection ${status}`}>${words[status] ?? status}</span>`;
+  const word = statusWord(status);
+  return word ? html`<span class=${`connection ${status}`}>${word}</span>` : null;
 }
 
 /** @param {{ status: string, problem: string }} props */
@@ -235,23 +236,32 @@ function usePinnedScroll(ref, following) {
 }
 
 /**
- * Keeps the page at the bottom as `transcript` grows, until stopped.
- * @param {HTMLElement} transcript @param {Signal<boolean>} following
+ * Keeps `main`, the page's one scroller, at its bottom as the transcript in it grows or the
+ * composer under it does, until stopped.
+ * @param {HTMLElement} main @param {Signal<boolean>} following
  */
-function followGrowth(transcript, following) {
+function followGrowth(main, following) {
   following.value = true;
-  let lastY = scrollY;
-  const page = document.documentElement;
+  let lastY = main.scrollTop;
   const onScroll = () => {
-    if (innerHeight + scrollY >= page.scrollHeight - 48) following.value = true;
-    else if (scrollY < lastY) following.value = false;
-    lastY = scrollY;
+    if (atBottom(main)) following.value = true;
+    else if (main.scrollTop < lastY) following.value = false;
+    lastY = main.scrollTop;
   };
-  const follow = new ResizeObserver(() => following.value && scrollTo(0, page.scrollHeight));
-  addEventListener("scroll", onScroll, { passive: true });
-  follow.observe(transcript);
+  const follow = new ResizeObserver(() => following.value && (main.scrollTop = main.scrollHeight));
+  main.addEventListener("scroll", onScroll, { passive: true });
+  follow.observe(main);
+  if (main.firstElementChild) follow.observe(main.firstElementChild);
   return () => {
-    removeEventListener("scroll", onScroll);
+    main.removeEventListener("scroll", onScroll);
     follow.disconnect();
   };
+}
+
+/**
+ * Whether `scroller` shows its end, give or take a finger's slop.
+ * @param {{ scrollTop: number, clientHeight: number, scrollHeight: number }} scroller
+ */
+function atBottom({ scrollTop, clientHeight, scrollHeight }) {
+  return scrollTop + clientHeight >= scrollHeight - 48;
 }

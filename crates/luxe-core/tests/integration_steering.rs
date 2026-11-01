@@ -159,7 +159,7 @@ async fn a_steer_sent_mid_turn_reaches_the_model_in_that_same_turn() {
     // Steer while the tool is still running — the turn is genuinely in flight.
     tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified()).await.unwrap();
     action_tx
-        .send(Action::SteerTurn { content: "also check the tests".to_string() })
+        .send(Action::SteerTurn { text: "also check the tests".to_string(), images: Vec::new() })
         .await
         .unwrap();
     // Give the engine a moment to admit the steer, then let the tool finish.
@@ -222,7 +222,7 @@ async fn a_withdrawn_steer_never_reaches_the_model() {
 
     tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified()).await.unwrap();
     action_tx
-        .send(Action::SteerTurn { content: "also check the tests".to_string() })
+        .send(Action::SteerTurn { text: "also check the tests".to_string(), images: Vec::new() })
         .await
         .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -277,7 +277,10 @@ async fn a_steer_with_no_turn_running_just_starts_one() {
     });
 
     let (action_tx, mut event_rx) = Engine::spawn(engine_config(store, session_id, provider, gate));
-    action_tx.send(Action::SteerTurn { content: "just do it".to_string() }).await.unwrap();
+    action_tx
+        .send(Action::SteerTurn { text: "just do it".to_string(), images: Vec::new() })
+        .await
+        .unwrap();
 
     loop {
         match tokio::time::timeout(std::time::Duration::from_secs(5), event_rx.recv()).await {
@@ -378,7 +381,9 @@ async fn a_steer_that_lands_during_the_final_response_is_not_stranded() {
     // Steer while the first (and, without this fix, only) call is still in flight.
     tokio::time::timeout(std::time::Duration::from_secs(5), started.notified()).await.unwrap();
     action_tx
-        .send(Action::SteerTurn { content: "wait — check the tests".to_string() })
+        .send(Action::SteerTurn {
+            text: "wait — check the tests".to_string(), images: Vec::new()
+        })
         .await
         .unwrap();
     // Let the turn's action loop buffer it, then allow the response to complete.
@@ -436,7 +441,7 @@ async fn the_call_after_a_mid_task_steer_is_told_to_resume_the_work() {
 
     tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified()).await.unwrap();
     action_tx
-        .send(Action::SteerTurn { content: "also check the tests".to_string() })
+        .send(Action::SteerTurn { text: "also check the tests".to_string(), images: Vec::new() })
         .await
         .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -608,5 +613,7 @@ async fn a_review_edit_sent_mid_turn_is_answered_mid_turn() {
     let _ = action_tx.send(Action::Close).await;
 }
 
+#[path = "integration_steering/images.rs"]
+mod images;
 #[path = "integration_steering/prompt_hook.rs"]
 mod prompt_hook;

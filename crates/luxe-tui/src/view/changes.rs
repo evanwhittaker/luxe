@@ -12,6 +12,7 @@ mod cells;
 mod diff;
 mod footer;
 mod header;
+mod picture;
 mod split;
 mod text;
 
@@ -22,6 +23,7 @@ pub(crate) use diff::line_in_view;
 use diff::render_diff;
 use footer::render_footer;
 use header::{render_header, sentence};
+pub(crate) use picture::showing as showing_picture;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
@@ -31,12 +33,18 @@ use ratatui::{
 };
 
 /// Draws the pane into the column the conversation would have had.
-pub(super) fn render(frame: &mut Frame, area: Rect, app: &App) {
-    let Some(view) = app.changes.as_ref() else {
-        return;
-    };
+pub(super) fn render(frame: &mut Frame, area: Rect, app: &mut App) {
+    if let Some(body) = render_pane(frame, area, app) {
+        picture::render(frame, body, app);
+    }
+}
+
+/// Draws everything the pane draws from a shared `App`, returning the body's area for the picture
+/// to be painted into once that borrow is over.
+fn render_pane(frame: &mut Frame, area: Rect, app: &App) -> Option<Rect> {
+    let view = app.changes.as_ref()?;
     if area.width < 8 || area.height < 3 {
-        return;
+        return None;
     }
     // A rule over the footer, like the one under the header: straight after the last line of code
     // the keys read as one more line of it. And one under it, because the composer's own hints sit
@@ -77,6 +85,7 @@ pub(super) fn render(frame: &mut Frame, area: Rect, app: &App) {
     if let Some(file) = view.file() {
         view.two_sided.set(crate::guided_review::has_two_sides(file));
     }
+    picture::showing(view).map(|_| rows[1])
 }
 
 /// Whether the diff draws side by side in a body of this width.

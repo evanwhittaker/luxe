@@ -1,4 +1,5 @@
-/* The project panel: tabs under its bar, then the tab's view. Files is the TUI's dock tree, a
+/* The sidebar (panel.js): its jumps, under its bar on a phone, kept at the top as it scrolls; then
+   its parts, each project view under a heading that folds it. Files is the TUI's dock tree, a
    finger tall a row, and a file's lines are drawn as a diff's are */
 
 .panel-button {
@@ -13,9 +14,54 @@
   height: 1.1lh;
 }
 
-/* everything in the panel starts at the dock's indent */
+/* everything in the sidebar starts at the dock's indent */
 .panel .bar {
   padding-inline: 1.5ch;
+}
+
+.panel-top {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--luxe-background, #12100e);
+  border-bottom: 1px solid var(--luxe-border-muted, #2e2b27);
+}
+
+.panel-top .bar {
+  position: static;
+  border-bottom: none;
+}
+
+/* a finger tall, and plain words, so the four fit one row on the narrowest iPhone at any size */
+.jumps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 2.5ch;
+  padding: 0 1.5ch;
+}
+
+.jumps button {
+  min-height: var(--tap);
+  color: var(--luxe-accent, #ddc084);
+}
+
+/* the heading is the fold's button, the word beside it saying what a tap does */
+.part-head {
+  margin: 1lh 0 0.5lh;
+  padding: 0 1.5ch;
+}
+
+.part-head button {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5ch;
+  width: 100%;
+  text-align: left;
+}
+
+.part-fold {
+  font-weight: normal;
+  color: var(--luxe-muted, #97938c);
 }
 
 /* the project's folder rides the heading's line, so the bar stays one row; plain text, glyph and
@@ -39,22 +85,13 @@
   color: var(--luxe-muted, #97938c);
 }
 
-/* The tabs are the TUI's switch: the one showing a lit badge, the others idle ones of the same
-   footprint, so the row never moves as the choice flips */
+/* Tabs, as GitHub's sections are, are the TUI's switch: the one showing a lit badge, the others
+   idle ones of the same footprint, so the row never moves as the choice flips */
 .tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 1ch;
   padding: 0 1.5ch;
-}
-
-/* A phone's panel has the dock's tab too: four badges are 45 cells of the 48 a 375-point iPhone
-   has, so they sit fade to slab, the fade being the gap, a cell in from the edges */
-@media not all and (min-width: 50rem) and (min-height: 30rem) {
-  .tabs {
-    gap: 0;
-    padding: 0 1ch;
-  }
 }
 
 .tab {
@@ -141,6 +178,15 @@
 /* A file's lines keep their columns and scroll sideways together, as a diff's do */
 .file {
   overflow-x: auto;
+}
+
+/* At its own size or smaller, never stretched, as the TUI draws it; an SVG's source follows it */
+.peek-picture {
+  display: block;
+  max-width: calc(100% - 2ch);
+  max-height: 70vh;
+  margin: 0 auto 1lh;
+  object-fit: contain;
 }
 
 .fl {

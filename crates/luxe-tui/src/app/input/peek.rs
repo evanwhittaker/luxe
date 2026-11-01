@@ -27,21 +27,8 @@ pub(super) fn peek_took(app: &mut App, key: KeyEvent) -> bool {
     }
     let Some(view) = app.changes.as_mut() else { return false };
     let page = i64::try_from(view.viewport_rows.get().saturating_sub(1).max(1)).unwrap_or(1);
-    if key.modifiers == KeyModifiers::CONTROL {
-        // vim's half-page moves, the one pair of chords the pane keeps for itself
-        let half = (page / 2).max(1);
-        let delta = match key.code {
-            KeyCode::Char('d') => half,
-            KeyCode::Char('u') => -half,
-            _ => 0,
-        };
-        if delta != 0 {
-            match view.view {
-                PeekView::File => view.move_cursor(delta, false),
-                PeekView::Diff => view.move_diff_cursor(delta),
-            }
-            return true;
-        }
+    if half_page_took(view, key, page) {
+        return true;
     }
     if key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) {
         // A chord is the app's, not the pane's; it passes through and the keyboard stays here
@@ -64,6 +51,10 @@ pub(super) fn peek_took(app: &mut App, key: KeyEvent) -> bool {
         KeyCode::Char('o') => {
             app.update(Msg::DispatchUiAction(luxe_core::keymap::UiAction::ChangesOpenInEditor));
         }
+        KeyCode::Char('s') if view.has_source() && view.view == PeekView::File => {
+            app.update(Msg::TogglePeekSource);
+        }
+        _ if crate::view::changes::showing_picture(view).is_some() => return picture_key(app, key),
         _ if view.view == PeekView::Diff => return diff_key(app, key, page),
         KeyCode::Down | KeyCode::Char('j') => view.move_cursor(1, shift),
         KeyCode::Up | KeyCode::Char('k') => view.move_cursor(-1, shift),
@@ -104,6 +95,21 @@ pub(super) fn peek_took(app: &mut App, key: KeyEvent) -> bool {
     true
 }
 
+/// vim's half-page moves, `Ctrl+D` and `Ctrl+U`: the one pair of chords the pane keeps for itself.
+fn half_page_took(view: &mut crate::changes::ChangesView, key: KeyEvent, page: i64) -> bool {
+    let half = (page / 2).max(1);
+    let delta = match (key.modifiers, key.code) {
+        (KeyModifiers::CONTROL, KeyCode::Char('d')) => half,
+        (KeyModifiers::CONTROL, KeyCode::Char('u')) => -half,
+        _ => return false,
+    };
+    match view.view {
+        PeekView::File => view.move_cursor(delta, false),
+        PeekView::Diff => view.move_diff_cursor(delta),
+    }
+    true
+}
+
 /// The diff's keys: its cursor moves through the rows, and the view follows it.
 fn diff_key(app: &mut App, key: KeyEvent, page: i64) -> bool {
     let Some(view) = app.changes.as_mut() else { return false };
@@ -121,6 +127,19 @@ fn diff_key(app: &mut App, key: KeyEvent, page: i64) -> bool {
     };
     view.move_diff_cursor(delta);
     true
+}
+
+/// The picture's one key of its own: `Enter` opens it full-window. It has no lines to move through
+/// or pick, so anything else is the composer's, and so is the keyboard.
+fn picture_key(app: &mut App, key: KeyEvent) -> bool {
+    if key.code == KeyCode::Enter {
+        app.update(Msg::DispatchUiAction(luxe_core::keymap::UiAction::OpenImage));
+        return true;
+    }
+    if let Some(view) = app.changes.as_mut() {
+        view.focused = false;
+    }
+    false
 }
 
 /// Makes the cursor's line the pick when nothing is picked, so a key that acts on a pick acts on

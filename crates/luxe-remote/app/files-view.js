@@ -1,11 +1,11 @@
 // @ts-check
-// The Files tab: the project as the TUI's FILES tree, drawn by the host so its guides, marks and
+// The Files part: the project as the TUI's FILES tree, drawn by the host so its guides, marks and
 // change counts are the TUI's, with folders unfolding in place, and a file read in place,
 // highlighted as the host renders it, with a way to mention it to the agent.
 
 import { useEffect } from "preact/hooks";
 import { useRendered } from "./render.js";
-import { fileMention, treeRows } from "./files.js";
+import { fileMention, readFaces, treeRows } from "./files.js";
 import { html, landedIn } from "./html.js";
 import { useEscape } from "./dock.js";
 import { Icon } from "./icons.js";
@@ -30,13 +30,14 @@ function TreeView({ hooks }) {
 }
 
 /**
- * Lists the root and every open folder afresh when the tree is shown, since the agent may have
- * changed them since. @param {PanelHooks} hooks
+ * Lists the root and every open folder afresh when the tree is shown, and again each time the
+ * session's changes move, since the rail keeps it on screen while the agent adds and removes files.
+ * @param {PanelHooks} hooks
  */
-function useFreshFolders({ files, listings, send }) {
+function useFreshFolders({ files, listings, send, changes }) {
   useEffect(() => {
     for (const folder of ["", ...files.unfolded.value]) listings.ask(folder, send, { fresh: true });
-  }, []);
+  }, [changes]);
 }
 
 /** A tap on a folder unfolds or folds it; one on a file opens it. @param {MouseEvent} event @param {PanelHooks} hooks */
@@ -81,5 +82,13 @@ function FileBody({ open, retry, ask }) {
   if (open.state === "lost") {
     return html`<p class="diff-note">Connection lost. <button type="button" class="retry" onClick=${retry}>Try again</button></p>`;
   }
-  return html`<${PickablePiece} piece=${open.state === "read" ? { kind: "file", file: open.file } : { kind: "file_failed", error: open.error }} ask=${ask} />`;
+  if (open.state === "read") return html`<${ReadFile} file=${open.file} ask=${ask} />`;
+  return html`<${PickablePiece} piece=${{ kind: "file_failed", error: open.error }} ask=${ask} />`;
+}
+
+/** A read file: its picture when it is one, then its lines when it has them. @param {{ file: any, ask: (words: string) => void }} props */
+function ReadFile({ file, ask }) {
+  const { picture, text } = readFaces(file);
+  return html`${picture ? html`<img class="peek-picture" src=${picture} alt=${file.path} />` : null}
+    ${text ? html`<${PickablePiece} piece=${{ kind: "file", file: text }} ask=${ask} />` : null}`;
 }

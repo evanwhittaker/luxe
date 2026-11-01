@@ -37,6 +37,7 @@ pub(super) fn open_file_view(
             bytes: text.len() as u64,
             truncated: false,
             binary: false,
+            image: None,
         }),
     }));
 }
@@ -274,6 +275,37 @@ fn a_click_on_a_file_in_the_tree_gives_the_pane_the_keyboard() {
     assert!(!app.files.focused, "and the tree let go of the keyboard");
     app.update(Msg::Key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE)));
     assert_eq!(app.editor.current_input(), "", "j moved the pane, not the draft");
+}
+
+/// The focused pane's footer keys are buttons, one each: a click does what the key does, and the
+/// pointer lights only the key it is over. A key that names a pair (`j k`) is no button at all.
+///
+/// The break this catches: every key sharing one target, so a hover lit them all and a click on
+/// `esc back` did nothing.
+#[test]
+fn the_focused_footer_keys_are_buttons_of_their_own() {
+    let (width, height) = (160, 40);
+    let backend = test_backend(width, height);
+    let (mut app, mut rx) = create_app_with_engine();
+    app.update(Msg::TerminalResized { width, height });
+    app.workspace = Some(changed_workspace("footer-keys", 1));
+    open_file_view(&mut app, &mut rx, "README.md", "one\ntwo\n");
+    app.update(Msg::FocusPeek);
+
+    let buffer = render_app(&mut app, &backend);
+    let footer = row_containing(&buffer, "esc back", width, height);
+    let text = row_text(&buffer, footer, width);
+    let target = |needle: &str| app.hit.borrow().at(column_of(&text, needle), footer).cloned();
+    assert_eq!(target("j k line"), None, "a pair of keys is a hint, not a button");
+    let (copy, back) = (target("y copy"), target("esc back"));
+    assert!(copy.is_some() && back.is_some(), "single keys are buttons: {copy:?} {back:?}");
+    assert_ne!(copy, back, "and each is its own, so a hover lights only one");
+
+    let action = left_click(&mut app, column_of(&text, "esc back"), footer);
+    apply(&mut app, action);
+    let content = buffer_to_string(&render_app(&mut app, &backend));
+    assert!(content.contains("esc close"), "the pane let go of the keyboard: {content}");
+    assert!(content.contains("README.md"), "and the preview is still open: {content}");
 }
 
 /// The peek's FILE / DIFF switch: both faces in capitals, both slabs, neither moving when the

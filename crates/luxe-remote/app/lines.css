@@ -22,7 +22,7 @@
   bottom: 0;
   display: flex;
   justify-content: flex-end;
-  padding: 0.5lh 1.5ch calc(0.5lh + env(safe-area-inset-bottom));
+  padding: 0.5lh 1.5ch calc(0.5lh + var(--bottom-inset));
   background: var(--luxe-background, #12100e);
   border-top: 1px solid var(--luxe-border-muted, #2e2b27);
 }

@@ -333,6 +333,15 @@ composer where they were, so you can reply about what you see. A changed file op
 Click another file under `FILES` to switch; click the open one, or press `esc`, to go back.
 `/preview src/app.rs` opens a given file.
 
+An image (PNG, JPEG, GIF or WebP, up to 24 MB) opens as its picture, drawn the way the conversation
+draws [images](appearance.md#images): at its own size, or shrunk to fit the preview. It opens on its
+picture even when it changed; **DIFF** is still there. Click it, or press `enter` with the keyboard
+in it, to see it full size. `o` opens it in your image viewer.
+
+An SVG opens as its picture too, drawn from the file alone: luxe follows no link in it to another
+file or the web, so a picture it points at is left out. `s` swaps between the picture and its
+source, and `o` opens the source in your editor.
+
 To ask about part of a file, drag across its lines (or click one) and choose **ask about lines**
 under them, or press `alt+l`. The composer gets `@[file:src/app.rs:40-52]`: the agent receives the
 path and the lines, and reads them itself. Right-click the lines to copy them instead.
@@ -350,7 +359,7 @@ The preview is not a review: looking at a file does not count it as reviewed.
 | Ask about the lines you picked | `alt+l` |
 | Side by side, or one column | `ctrl+b` |
 | Wrap long lines, or not | `alt+w` |
-| Open the file in your editor, at the top line shown | `alt+o` |
+| Open the file in your editor, at the top line shown, or an image in your image viewer | `alt+o` |
 | Open a [Guided Review](guided-review.md) of your changes, at this file | `ctrl+g` |
 | Back to the conversation | `esc` |
 
@@ -366,7 +375,9 @@ same way, row by row, and picks nothing.
 | Grow a pick by one line without the mode | `J` / `K`, or `shift` with the arrows |
 | Ask about the pick, or the cursor's line | `enter` |
 | Copy the pick, or the cursor's line | `y` |
-| Open in your editor at the cursor | `o` |
+| Open in your editor at the cursor, or an image in your image viewer | `o` |
+| See an image full size | `enter` |
+| An SVG's source, or its picture | `s` |
 | Back to the tree | `tab` or `h` |
 | Drop the pick or leave visual mode, then back to the composer | `esc` |
 

@@ -80,11 +80,11 @@ fn trace_png() -> AttachedImage {
     AttachedImage { data, mime, filename: "trace.png".into(), width: 4, height: 4 }
 }
 
-/// A message with an image, sent mid-turn, waits for a turn of its own: steering carries text
-/// alone, so steering it would deliver the words and drop the image.
+/// A message with an image, sent mid-turn, waits for a turn of its own: the transcript draws a
+/// delivered steer from its words alone, so a steered image would vanish from view.
 ///
-/// The break this catches: Enter mid-turn steering a message with a pasted screenshot, which the
-/// model never sees, and which leaves the tray when the words are delivered.
+/// The break this catches: Enter mid-turn steering a message with a pasted screenshot, which leaves
+/// the tray when it's delivered and never shows in the transcript.
 #[tokio::test]
 async fn a_message_with_an_image_waits_for_its_own_turn() {
     let (mut app, mut sent) = mid_turn();

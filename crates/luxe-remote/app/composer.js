@@ -1,7 +1,7 @@
 // @ts-check
 // Where you write to the agent. Idle, Send starts a turn; while one runs, what you send steers it
-// between tool calls, as typing into the TUI's composer does, and Stop ends it. Steering carries
-// only words, so a message with photos waits for the turn to end and starts the next one.
+// between tool calls, photos and all, as typing into the TUI's composer does, and Stop ends it.
+// What's steered waits in the tray over the box until it lands; Stop or withdraw brings it back.
 //
 // Return is a new line, since a phone's keyboard has no other way to make one; Command- or
 // Control-Return sends from a hardware keyboard. The line beside the buttons says what sending
@@ -19,8 +19,10 @@ import { Icon } from "./icons.js";
 import { messageFrame } from "./pending.js";
 import { forTheWire, usePhotos } from "./photos.js";
 import { Picker } from "./picker.js";
+import { SteeringTray, restoredDraft } from "./tray.js";
 
 /** @import { Frame } from "./connection.js" */
+/** @import { Steer } from "./pending.js" */
 /** @import { Draft, Listings } from "./picker.js" */
 /** @typedef {ReturnType<typeof usePhotos>} Photos */
 
@@ -32,11 +34,12 @@ const MOST_ROWS = 8;
 
 /**
  * `run` carries out a slash command: null when the text isn't one, else whether it went out.
- * `mention` is what a mention from elsewhere (the project panel) adds to the draft, added and
+ * `mention` is what a mention from elsewhere (the sidebar) adds to the draft, added and
  * then `taken`.
- * @param {{ busy: boolean, live: boolean, steering: number, listings: Listings,
- *   send: (frame: Frame) => boolean, run: (text: string) => boolean | null, onSteered: () => void,
- *   onDropped: () => void, mention: string | null, taken: () => void }} props
+ * @param {{ busy: boolean, live: boolean, steering: Steer[], listings: Listings,
+ *   send: (frame: Frame) => boolean, run: (text: string) => boolean | null,
+ *   onSteered: (steer: Steer) => void, onDropped: () => void, mention: string | null,
+ *   taken: () => void }} props
  */
 export function Composer({ busy, live, steering, listings, send, run, onSteered, onDropped, mention, taken }) {
   const [draft, setDraft] = useState(EMPTY);
@@ -44,30 +47,45 @@ export function Composer({ busy, live, steering, listings, send, run, onSteered,
   const photos = usePhotos();
   const clear = () => setDraft(EMPTY);
   const submit = useSubmit({ text: draft.text, photos, busy, send, run, onSent: clear, onSteered });
-  const withPhotos = photos.list.length > 0;
-  const ready = live && (draft.text.trim() !== "" || withPhotos);
+  const takeBack = useTakeBack({ steering, setDraft, photos, send, onDropped });
+  const ready = live && (draft.text.trim() !== "" || photos.list.length > 0);
   return html`<form class="composer" onSubmit=${submit}>
     <${Picker} draft=${draft} listings=${listings} send=${send} place=${setDraft} run=${(/** @type {string} */ text) => run(text) && clear()} />
+    <${SteeringTray} held=${steering} withdraw=${() => takeBack({ kind: "withdraw_steering" })} />
     <div class="composer-panel">
       <${PhotoStrip} photos=${photos} />
       <${MessageBox} draft=${draft} setDraft=${setDraft} busy=${busy} live=${live} submit=${submit} />
-      <${Tools} live=${live} busy=${busy} ready=${ready} steering=${steering} photos=${photos} send=${send} onDropped=${onDropped} />
+      <${Tools} live=${live} busy=${busy} ready=${ready} photos=${photos} stop=${() => takeBack({ kind: "cancel" })} />
     </div>
   </form>`;
 }
 
 /**
- * The panel's foot: a photo, the steering line, then Stop and Send.
- * @param {{ live: boolean, busy: boolean, ready: boolean, steering: number, photos: Photos,
+ * Sends `frame` (a withdrawal or a cancel, both of which empty the engine's steering buffer) and
+ * brings what was waiting back into the composer, as the TUI's recall does: a steer pulled back is
+ * usually pulled back to say better.
+ * @param {{ steering: Steer[], setDraft: (change: (draft: Draft) => Draft) => void, photos: Photos,
  *   send: (frame: Frame) => boolean, onDropped: () => void }} props
  */
-function Tools({ live, busy, ready, steering, photos, send, onDropped }) {
-  const withPhotos = photos.list.length > 0;
+function useTakeBack({ steering, setDraft, photos, send, onDropped }) {
+  return (/** @type {Frame} */ frame) => {
+    if (!send(frame)) return;
+    onDropped();
+    if (!steering.length) return;
+    setDraft((draft) => restoredDraft(steering, draft));
+    photos.restore(steering.flatMap((steer) => steer.photos));
+  };
+}
+
+/**
+ * The panel's foot: a photo, the steering line, then Stop and Send.
+ * @param {{ live: boolean, busy: boolean, ready: boolean, photos: Photos, stop: () => void }} props
+ */
+function Tools({ live, busy, ready, photos, stop }) {
   return html`<div class="composer-tools">
     <${Attach} live=${live} onPick=${photos.add} />
-    <${Steering} line=${steeringLine(busy, steering, withPhotos)} count=${steering}
-      withdraw=${() => send({ kind: "withdraw_steering" }) && onDropped()} />
-    <${Actions} label=${sendLabel(busy, withPhotos)} busy=${busy} ready=${ready} stop=${() => send({ kind: "cancel" }) && onDropped()} />
+    ${busy ? html`<p class="steering">Send steers the turn</p>` : null}
+    <${Actions} label=${busy ? "Steer" : "Send"} busy=${busy} ready=${ready} stop=${stop} />
   </div>`;
 }
 
@@ -120,7 +138,7 @@ function usePlacedCaret(box, draft) {
  * Sends what's written and attached, clearing both only once it went out. Words alone that make
  * one of the phone's commands carry it out instead.
  * @param {{ text: string, photos: Photos, busy: boolean, send: (frame: Frame) => boolean,
- *   run: (text: string) => boolean | null, onSent: () => void, onSteered: () => void }} props
+ *   run: (text: string) => boolean | null, onSent: () => void, onSteered: (steer: Steer) => void }} props
  */
 function useSubmit({ text, photos, busy, send, run, onSent, onSteered }) {
   return (/** @type {Event | undefined} */ event) => {
@@ -132,25 +150,8 @@ function useSubmit({ text, photos, busy, send, run, onSent, onSteered }) {
     if (!send(messageFrame(text, busy, forTheWire(attached)))) return;
     onSent();
     photos.clear();
-    if (busy && !attached.length) onSteered();
+    if (busy) onSteered({ text, photos: attached });
   };
-}
-
-/** What the send button says to a screen reader. @param {boolean} busy @param {boolean} withPhotos */
-export function sendLabel(busy, withPhotos) {
-  if (!busy) return "Send";
-  return withPhotos ? "Queue" : "Steer";
-}
-
-/**
- * The line over the box: steering this device sent that hasn't reached the agent yet, or else
- * what sending does while a turn runs. Empty when there's nothing to say.
- * @param {boolean} busy @param {number} count @param {boolean} withPhotos
- */
-export function steeringLine(busy, count, withPhotos) {
-  if (count) return count === 1 ? "1 message waiting to steer" : `${count} messages waiting to steer`;
-  if (!busy) return "";
-  return withPhotos ? "Photos wait for the turn" : "Send steers the turn";
 }
 
 /** @param {{ live: boolean, onPick: (files: FileList) => void }} props */
@@ -183,16 +184,6 @@ function PhotoStrip({ photos }) {
       <button type="button" class="unattach" aria-label="Remove photo" onClick=${() => photos.remove(index)}><${Icon} name="close" /></button>
     </figure>`)}
   </div>`;
-}
-
-/**
- * The steering line, with a way to take back what's waiting.
- * @param {{ line: string, count: number, withdraw: () => void }} props
- */
-function Steering({ line, count, withdraw }) {
-  if (!line) return null;
-  return html`<p class="steering">${line}
-    ${count ? html`<button type="button" class="withdraw" onClick=${withdraw}>withdraw</button>` : null}</p>`;
 }
 
 /**

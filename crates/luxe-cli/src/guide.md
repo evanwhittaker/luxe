@@ -2746,6 +2746,15 @@ composer where they were, so you can reply about what you see. A changed file op
 Click another file under `FILES` to switch; click the open one, or press `esc`, to go back.
 `/preview src/app.rs` opens a given file.
 
+An image (PNG, JPEG, GIF or WebP, up to 24 MB) opens as its picture, drawn the way the conversation
+draws [images](appearance.md#images): at its own size, or shrunk to fit the preview. It opens on its
+picture even when it changed; **DIFF** is still there. Click it, or press `enter` with the keyboard
+in it, to see it full size. `o` opens it in your image viewer.
+
+An SVG opens as its picture too, drawn from the file alone: luxe follows no link in it to another
+file or the web, so a picture it points at is left out. `s` swaps between the picture and its
+source, and `o` opens the source in your editor.
+
 To ask about part of a file, drag across its lines (or click one) and choose **ask about lines**
 under them, or press `alt+l`. The composer gets `@[file:src/app.rs:40-52]`: the agent receives the
 path and the lines, and reads them itself. Right-click the lines to copy them instead.
@@ -2763,7 +2772,7 @@ The preview is not a review: looking at a file does not count it as reviewed.
 | Ask about the lines you picked | `alt+l` |
 | Side by side, or one column | `ctrl+b` |
 | Wrap long lines, or not | `alt+w` |
-| Open the file in your editor, at the top line shown | `alt+o` |
+| Open the file in your editor, at the top line shown, or an image in your image viewer | `alt+o` |
 | Open a [Guided Review](guided-review.md) of your changes, at this file | `ctrl+g` |
 | Back to the conversation | `esc` |
 
@@ -2779,7 +2788,9 @@ same way, row by row, and picks nothing.
 | Grow a pick by one line without the mode | `J` / `K`, or `shift` with the arrows |
 | Ask about the pick, or the cursor's line | `enter` |
 | Copy the pick, or the cursor's line | `y` |
-| Open in your editor at the cursor | `o` |
+| Open in your editor at the cursor, or an image in your image viewer | `o` |
+| See an image full size | `enter` |
+| An SVG's source, or its picture | `s` |
 | Back to the tree | `tab` or `h` |
 | Drop the pick or leave visual mode, then back to the composer | `esc` |
 
@@ -4307,8 +4318,9 @@ In a session, the app can:
 - Show the conversation as the interface draws it: markdown, highlighted code, tool cards. A long
   one opens on its latest 300 items, and **Show earlier** at the top brings 300 more at a time.
 - Send a message, with photos from the camera or library, and steer or stop a running turn. While
-  one runs, a line over the message box says what sending will do: steer it at the next step, or
-  wait for the turn to end when a photo is attached.
+  one runs, what you send steers it at the next step, photos and all, and waits above the message
+  box, marked `steering`, until it's delivered. **Withdraw**, or stopping the turn, puts it back
+  in the box to change. A photo you sent shows under your message.
 - Run `/compact`, `/cost`, `/dock`, `/mode`, `/model` and `/thinking`, offered as you type a `/`. The
   interface's other commands work its own screen, so a message that starts with one goes to the
   agent as written.
@@ -4318,30 +4330,34 @@ In a session, the app can:
   moment after a prompt appears, so a stray tap can't grant anything.
 - Switch the mode with a tap on the status line, which also shows the context, thinking level and
   model. Tap those for the session's details: switch the mode, the thinking level or the model
-  (from the same list as `/model`, with the levels each model honors), and see the cost.
-- Show [the dock](interface.md#the-dock), with the plan and the changed files. On an iPad or an
-  open iPhone Duo it's a rail beside the conversation: the header's dock button or `/dock` shows
-  and hides it, `/dock left` or `/dock right` moves it, and it starts from your `dock.mode` and
-  `dock.position` [settings](configuration.md), as the interface does. On a phone the header has
-  one menu button, and the dock is the first tab of the panel it opens; `/dock` opens it there
-  too. A long plan scrolls in a box of its own that keeps the work in hand in view, until you
-  scroll it yourself. Tap a file for its diff.
-- Browse the project's files from the header's menu button, in the interface's FILES tree, and
-  read a file highlighted as the interface shows it. **Mention** adds its path to your message.
-  On an iPad or an open iPhone Duo the tree is a rail and a file opens beside it; on a screen wide
-  enough the conversation stays in view too.
+  (from the same list as `/model`, with the levels each model honors), and see the cost. The
+  details also set the **Text size**, small, medium or large, for this device alone; the session
+  list has the same setting.
+- Keep everything about the project in one sidebar: [the dock](interface.md#the-dock) at the top,
+  then Project (the file tree), GitHub and Review, each under a heading you tap to show or hide
+  it. The links along its top jump to each one. On an iPad or an open iPhone Duo it's a rail
+  beside the conversation: the header's dock button or `/dock` shows and hides it, `/dock left` or
+  `/dock right` moves it, and it starts from your `dock.mode` and `dock.position`
+  [settings](configuration.md), as the interface does. On a phone the header's one menu button
+  opens it over the page, and `/dock` opens it at the dock.
+- See the plan and the changed files in the dock. A long plan scrolls in a box of its own that
+  keeps the work in hand in view, until you scroll it yourself. Tap a file for its diff.
+- Browse the project's files under the Project heading, in the interface's FILES tree, and read a
+  file highlighted as the interface shows it. An image or an SVG shows as its picture, an SVG's
+  source under it. **Mention** adds its path to your message. On an iPad or an open iPhone Duo a
+  file opens beside the rail; on a screen wide enough the conversation stays in view too.
 - Ask about particular lines of a file, a diff or a review chapter, as you would in the interface's
   File view: tap a line's number to pick it and another to stretch the pick, or select text the
   phone's usual way, down to part of a line, and tap **Ask** for the lines it covers. Your message
   gets the path and lines the interface would send. Tap anywhere else to let a pick go, and copy a
   selection with the phone's own menu. In a diff, a removed line can't be picked, since the file
   no longer has it.
-- Read the project's pull requests and issues in the same panel's GitHub tab, by the sections
+- Read the project's pull requests and issues under the sidebar's GitHub heading, by the sections
   [`/github`](github.md) shows. Tap one for its overview (what stands between it and merged, or
   who's on an issue) and its conversation. **Mention** adds it to your message. It only reads: a
   joined session runs with GitHub writes off, so merging, replying and resolving stay in the
   interface.
-- Walk the open [Guided Review](guided-review.md) in the Review tab: the guide's summary and
+- Walk the open [Guided Review](guided-review.md) under the sidebar's Review heading: the guide's summary and
   chapters, each one opened beside it with the guide's notes over its diffs. **Reviewed** marks a
   chapter read, the same progress `/review` keeps, and **Next** opens the one after. The phone
   joins the review the interface has open rather than starting its own, since a session holds one;
@@ -4527,7 +4543,7 @@ To stop sessions being joined, set [`joinable`](configuration.md#joining-a-sessi
 | `kind` | `content` | Does |
 | --- | --- | --- |
 | `submit_user_message` | `{"text": "…", "images": [{"data": "<base64>", "mime": "image/png", "name": null}]}` | Start a turn. `images` is optional. |
-| `steer_turn` | `{"text": "…"}` | Reach the running turn between tool calls, without ending it. With no turn running, starts one. |
+| `steer_turn` | `{"text": "…", "images": […]}` | Reach the running turn between tool calls, without ending it. With no turn running, starts one. `images` is optional, as for `submit_user_message`. |
 | `withdraw_steering` | | Drop steering messages not yet delivered |
 | `cancel` | | Stop the turn |
 | `edit_resend` | `{"text": "…"}` | Replace the last message and send it again |
@@ -4550,7 +4566,7 @@ To stop sessions being joined, set [`joinable`](configuration.md#joining-a-sessi
 | `load_guided_review` | `{"request_id": "…", "target": {"kind": "working_tree"}}` | Capture a Guided Review; see [below](#guided-review) |
 | `load_file_diff` | `{"request_id": "…", "path": "src/main.rs"}` | One file's change, outside any review; answered by `file_diff_loaded` |
 | `list_directory` | `{"request_id": "…", "path": "src"}` | One project folder's entries, without what `.gitignore` ignores unless `"include_ignored": true`, which marks each such entry `"ignored": true`; answered by `directory_listed` |
-| `read_project_file` | `{"request_id": "…", "path": "src/main.rs"}` | One project file's text, up to 2 MB; answered by `project_file_read` |
+| `read_project_file` | `{"request_id": "…", "path": "src/main.rs"}` | One project file's text, up to 2 MB; answered by `project_file_read`. A PNG, JPEG, GIF or WebP up to 24 MB also carries `image`, with its `mime` and base64 `data`. An SVG carries its source as `text` and an `image` drawn as a PNG, with the `declared_size` the SVG gives as `[width, height]` |
 | `introduce` | `{"name": "iPhone"}` | A joined client's name, which the interface uses when it says who joined or answered. Add `"watch_only": true` as your first line to read without being announced; luxe then drops everything else you send. `"yours": true` says the person at the terminal paired it, so it's listed without a line in the conversation. Refused from the client that started the session. |
 | `close` | | Shut down, stopping a turn in flight the way `cancel` does. The stream ends after it. |
 

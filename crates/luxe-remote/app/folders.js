@@ -8,6 +8,7 @@
 import { signal } from "@preact/signals";
 import { useEffect, useState } from "preact/hooks";
 import { fieldOf, html } from "./html.js";
+import { Icon } from "./icons.js";
 
 /**
  * A place a session can start, as `GET /api/folders` lists it.
@@ -82,7 +83,7 @@ export function NewSession() {
     refreshFolders().catch((error) => (problem.value = `couldn't read the folders: ${error}`));
   }, []);
   return html`
-    <header class="bar"><a class="back" href="#/" aria-label="Sessions">‹</a><span class="title">New session</span></header>
+    <header class="bar"><a class="back" href="#/" aria-label="Sessions"><${Icon} name="back" /></a><span class="title">New session</span></header>
     <main class="new-session">
       <${FolderField} typed=${typed} setTyped=${setTyped} />
       ${problem.value ? html`<p class="problem">${problem.value}</p>` : null}

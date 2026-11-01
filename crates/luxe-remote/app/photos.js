@@ -76,5 +76,7 @@ export function usePhotos() {
   };
   /** @param {number} index */
   const remove = (index) => setList((now) => now.filter((_, at) => at !== index));
-  return { list, problem, add, remove, clear: () => setList([]) };
+  /** Puts photos taken back from the tray ahead of any attached since. @param {Photo[]} taken */
+  const restore = (taken) => setList((now) => [...taken, ...now]);
+  return { list, problem, add, remove, restore, clear: () => setList([]) };
 }

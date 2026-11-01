@@ -7,8 +7,8 @@
   bottom: 0;
   z-index: 1;
   /* The body pads for the home indicator; this takes that padding over so nothing shows under it */
-  margin-bottom: calc(-1 * env(safe-area-inset-bottom));
-  padding: 0.5lh 1ch calc(0.5lh + env(safe-area-inset-bottom));
+  margin-bottom: calc(-1 * var(--bottom-inset));
+  padding: 0.5lh 1ch calc(0.5lh + var(--bottom-inset));
   background: var(--luxe-background, #12100e);
   border-top: 1px solid var(--luxe-border-muted, #2e2b27);
 }
@@ -287,6 +287,18 @@
 
 .mode-plan {
   color: var(--luxe-accent-secondary, #d2a5cd);
+}
+
+/* The turn at work, as the TUI's activity segment: the spinner in the accent, the words muted */
+.status-line .activity {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-line .activity .spinner {
+  color: var(--luxe-accent, #ddc084);
 }
 
 .status-line .segments {

@@ -17,6 +17,7 @@ pub fn seed_file_view(app: &mut App, path: &str, text: &str, pick: Option<(u32, 
         bytes: text.len() as u64,
         truncated: false,
         binary: false,
+        image: None,
     }));
     view.selection = pick;
     view.scroll = pick.map_or(0, |(first, _)| first.saturating_sub(8) as usize);

@@ -48,7 +48,7 @@ const card = (revision, state) =>
 // every redraw; or the blocks that aren't text dropped, which moves hook context to block 0, where
 // the host reads it as the reader's own words
 test("a user message keeps its blocks for rendering, an image as just its type", () => {
-  const image = { type: "image", content: { media_type: "image/png", data: "iVBORw0KGgo=" } };
+  const image = { type: "image", content: { mime: "image/png", data: "iVBORw0KGgo=" } };
   const words = { type: "text", content: "what's this?" };
   const message = { role: "user", content: [image, words] };
   const transcript = fold([frame("message_committed", { message })]);
@@ -165,6 +165,25 @@ test("a photo sent on its own is still a message", () => {
   assert.deepEqual(asText(transcript.items.value[0]).content, [{ type: "image" }]);
 });
 
+// The break this catches: a sent photo shown only as "1 image(s) attached", so you can't see which
+// one went; or drawn from the wrong type, which the browser won't decode
+test("a message's photos are kept to show, each as its own picture", () => {
+  const words = { type: "text", content: "which is better?" };
+  const png = { type: "image", content: { data: "iVBORw0KGgo=", mime: "image/png" } };
+  const jpeg = { type: "image", content: { data: "QUJD", mime: "image/jpeg", name: "b.jpg" } };
+  const message = { role: "user", content: [words, png, jpeg] };
+  const transcript = fold([frame("message_committed", { message })]);
+  assert.deepEqual(asText(transcript.items.value[0]).photos, [
+    "data:image/png;base64,iVBORw0KGgo=", "data:image/jpeg;base64,QUJD",
+  ]);
+});
+
+// The break this catches: a message of words alone given an empty strip under it
+test("a message without photos has none to show", () => {
+  const message = { role: "user", content: [{ type: "text", content: "hi" }] };
+  assert.deepEqual(asText(fold([frame("message_committed", { message })]).items.value[0]).photos, []);
+});
+
 // The break this catches: a hook's note, committed between turns, taken for a turn starting
 test("a system message doesn't start a turn", () => {
   const note = { role: "system", content: [{ type: "text", content: "hook says hi" }] };
@@ -189,6 +208,19 @@ test("a stopped compaction settles the line that announced it", () => {
   const started = frame("compaction_started", { tokens_before: 1000 });
   const transcript = fold([started, frame("notice", "between"), frame("compaction_stopped")]);
   assert.deepEqual(texts(transcript), ["Compaction stopped.", "between"]);
+});
+
+// The break this catches: the status line spinning on after a summary ends, however it ends, or
+// never starting, so the phone looks idle through the minute it takes
+test("a compaction is running from its start until it's done or stopped", () => {
+  const started = frame("compaction_started", { tokens_before: 1000 });
+  const transcript = fold([started]);
+  assert.equal(transcript.compacting.value, true);
+  transcript.apply(frame("compaction_done", { tokens_before: 1000, tokens_after: 10 }));
+  assert.equal(transcript.compacting.value, false);
+  transcript.apply(started);
+  transcript.apply(frame("compaction_stopped"));
+  assert.equal(transcript.compacting.value, false);
 });
 
 // The break this catches: the phone writing a count differently from the TUI beside it.

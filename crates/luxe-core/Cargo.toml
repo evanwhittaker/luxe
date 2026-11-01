@@ -51,6 +51,8 @@ same-file = "1"
 # one glob dialect (`walk`)
 ignore = "0.4"
 globset = "0.4"
+# An SVG file previews as its picture, drawn here during the read so every front-end gets pixels
+resvg = { workspace = true }
 
 # Killing a timed-out process group, as a syscall rather than a subprocess.
 #

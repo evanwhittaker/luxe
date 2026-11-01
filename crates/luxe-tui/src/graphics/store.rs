@@ -198,6 +198,21 @@ impl ImageStore {
         Some(fit_within((source.width, source.height), max_cols, max_rows, self.cell))
     }
 
+    /// Like [`Self::fit`], but never more cells than the image's own pixels cover.
+    ///
+    /// For the file preview, which shows a file as it is: a 16-pixel icon stays an icon instead of
+    /// being blown up into a blur the width of the pane.
+    pub fn fit_unstretched(&self, key: &ImageKey, max_cols: u16, max_rows: u16) -> Option<Fit> {
+        let source = self.sources.get(key)?;
+        let cells = |pixels: u32, cell: u16, max: u16| {
+            let natural = pixels.div_ceil(u32::from(cell.max(1)));
+            u16::try_from(natural).unwrap_or(u16::MAX).min(max)
+        };
+        let cols = cells(source.width, self.cell.width, max_cols);
+        let rows = cells(source.height, self.cell.height, max_rows);
+        self.fit(key, cols, rows)
+    }
+
     /// Paints one row of an image at `(x, y)`, preparing it if this is the first sight of it.
     ///
     /// Returns whether anything was drawn; `false` means the caller should fall back to text —

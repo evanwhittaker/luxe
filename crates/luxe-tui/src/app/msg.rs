@@ -196,6 +196,8 @@ pub enum Msg {
     /// read it rather than to keep browsing the tree.
     PreviewProjectFile(String),
     TogglePeekView,
+    /// Switches an SVG's File view between its picture and its source.
+    TogglePeekSource,
     /// Starts picking lines in the File view at this 1-based line: a click picks one line, a
     /// second click on the only line picked lets it go.
     StartPeekPick(u32),

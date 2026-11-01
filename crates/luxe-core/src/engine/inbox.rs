@@ -21,19 +21,28 @@ impl Engine {
         lock(&self.continuations).push_back(action);
     }
 
-    /// Runs the buffered steers, and `content` after them, as an ordinary turn of their own: with
-    /// no turn in flight there is nothing for them to steer.
-    pub(super) async fn steer_into_turn(&self, content: Option<String>) {
+    /// Runs the buffered steers, and `steer` after them, as an ordinary turn of their own: with no
+    /// turn in flight there is nothing for them to steer. Their words join into one message, and
+    /// every image they carried goes with it.
+    pub(super) async fn steer_into_turn(&self, steer: Option<Steer>) {
         let mut steers = std::mem::take(&mut *self.pending_steers.lock().await);
-        steers.extend(content);
+        steers.extend(steer);
         if steers.is_empty() {
             return;
         }
-        self.enqueue_continuation(Action::SubmitUserMessage {
-            content: steers.join("\n\n"),
-            images: Vec::new(),
-            remediation: None,
-        });
+        let words: Vec<&str> = steers
+            .iter()
+            .map(|steer| steer.text.as_str())
+            .filter(|text| !text.trim().is_empty())
+            .collect();
+        let content = words.join("\n\n");
+        let images = steers.iter().flat_map(|steer| steer.images.iter().cloned()).collect();
+        self.enqueue_continuation(Action::SubmitUserMessage { content, images, remediation: None });
+    }
+
+    /// A steer sent with no turn in flight, which runs as a turn of its own after any buffered.
+    pub(super) async fn steer_idle(&self, text: String, images: Vec<ImageAttachment>) {
+        self.steer_into_turn(Some(Steer { text, images })).await;
     }
 
     /// Settles the steers sent while `/compact` ran, which had no turn to reach: a turn of their
@@ -114,8 +123,8 @@ impl Engine {
                     }
                     // Admitted immediately, promoted at the next checkpoint (see
                     // `deliver_pending_steers`) — the turn keeps running meanwhile.
-                    Some(Action::SteerTurn { content }) => {
-                        self.pending_steers.lock().await.push(content);
+                    Some(Action::SteerTurn { text, images }) => {
+                        self.pending_steers.lock().await.push(Steer { text, images });
                     }
                     // Handled here rather than re-queued: this is the one moment it means
                     // anything, and after the turn it would clear a buffer that had since filled

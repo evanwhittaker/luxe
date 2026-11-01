@@ -18,6 +18,7 @@ import { batch, signal } from "@preact/signals";
  *   kind: TextKind,
  *   text: Signal<string>,
  *   content?: { type: string, content?: string }[],
+ *   photos?: string[],
  *   provisional?: boolean,
  * }} TextItem
  * @typedef {{ key: string, kind: "tool", card: Signal<Card> }} ToolItem
@@ -25,7 +26,7 @@ import { batch, signal } from "@preact/signals";
  * @typedef {{
  *   items: Signal<Item[]>, busy: Signal<boolean>,
  *   cards: Map<string, ToolItem>, live: Map<string, TextItem>, serial: number,
- *   compacting?: TextItem | null,
+ *   compacting: Signal<boolean>, compactionLine?: TextItem | null,
  * }} State
  * @typedef {{
  *   call_id: string, name: string, label: string, state: string, revision: number,
@@ -37,10 +38,12 @@ import { batch, signal } from "@preact/signals";
 /** An empty transcript, and the one function that changes it. */
 export function createTranscript() {
   /** @type {State} */
-  const state = { items: signal([]), busy: signal(false), cards: new Map(), live: new Map(), serial: 0 };
+  const state = {
+    items: signal([]), busy: signal(false), compacting: signal(false), cards: new Map(), live: new Map(), serial: 0,
+  };
   /** @param {Frame} frame */
   const fold = (frame) => batch(() => apply(state, frame));
-  return { items: state.items, busy: state.busy, apply: fold };
+  return { items: state.items, busy: state.busy, compacting: state.compacting, apply: fold };
 }
 
 // The engine says a turn started with turn_started; the message that opened it, or anything it
@@ -69,18 +72,20 @@ function apply(state, { kind, content }) {
   }
 }
 
-// A summary takes a minute and nothing else streams meanwhile, so it's said as it starts, and the
-// same line becomes how it ended
+// A summary takes a minute and nothing else streams meanwhile, so it's said as it starts, the
+// status line spins until it ends, and the same line becomes how it ended
 /** @param {State} state @param {number} tokens */
 function startCompaction(state, tokens) {
-  state.compacting = textItem(state, "notice", `Compacting the conversation — ${formatTokens(tokens)} of context…`);
-  push(state, state.compacting);
+  state.compacting.value = true;
+  state.compactionLine = textItem(state, "notice", `Compacting the conversation — ${formatTokens(tokens)} of context…`);
+  push(state, state.compactionLine);
 }
 
 /** @param {State} state @param {string} text */
 function settleCompaction(state, text) {
-  const line = state.compacting;
-  state.compacting = null;
+  const line = state.compactionLine;
+  state.compactionLine = null;
+  state.compacting.value = false;
   if (line && state.items.value.includes(line)) line.text.value = text;
   else push(state, textItem(state, "notice", text));
 }
@@ -99,6 +104,9 @@ export function formatTokens(count) {
 
 /** @param {State} state @param {{ message: Message }[]} messages */
 function load(state, messages) {
+  // a summary still running comes again after the history, in the joiner's snapshot
+  state.compacting.value = false;
+  state.compactionLine = null;
   state.items.value = [];
   state.cards.clear();
   state.live.clear();
@@ -131,18 +139,31 @@ function grow(state, kind, block, delta) {
 
 /** @param {State} state @param {Message} message */
 function commit(state, message) {
-  if (message.role === "user") {
-    // a photo sent on its own is still a message, shown by its "attached" line
-    const words = message.content.find((block) => block.type === "text");
-    const shown = words || message.content.some((block) => block.type === "image");
-    if (shown) push(state, { ...textItem(state, "user", words?.content ?? ""), content: wordsOnly(message.content) });
-    return;
-  }
+  if (message.role === "user") return commitUser(state, message.content);
   if (message.role === "assistant") return commitAssistant(state, message.content);
   if (message.role === "tool") return settleResults(state, message.content);
   if (message.role === "system") for (const block of message.content) {
     if (block.type === "text") push(state, textItem(state, "notice", block.content));
   }
+}
+
+// a photo sent on its own is still a message, shown by its "attached" line and the photo itself
+/** @param {State} state @param {Block[]} content */
+function commitUser(state, content) {
+  const words = content.find((block) => block.type === "text");
+  const photos = photosOf(content);
+  if (!words && !photos.length) return;
+  push(state, { ...textItem(state, "user", words?.content ?? ""), content: wordsOnly(content), photos });
+}
+
+/**
+ * A message's images as URLs the page can show, from the bytes the message already carries.
+ * @param {Block[]} content
+ */
+export function photosOf(content) {
+  return content
+    .filter((block) => block.type === "image" && block.content?.data)
+    .map(({ content: { mime, data } }) => `data:${mime};base64,${data}`);
 }
 
 // Line the saved blocks up with the streamed ones in place; if they don't match, swap them out

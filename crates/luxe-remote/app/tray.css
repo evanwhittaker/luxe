@@ -1,0 +1,40 @@
+/* The tray over the composer (tray.js), as the TUI's: muted throughout, since none of it has
+   happened yet, with the mark in the warning color; one row a steer, its words cut short rather
+   than wrapped, so a long one can't push the composer off the screen. */
+
+.tray {
+  display: flex;
+  align-items: end;
+  gap: 1ch;
+  color: var(--luxe-muted, #97938c);
+}
+
+.tray ul {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tray li {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tray-mark {
+  color: var(--luxe-warning, #faaa51);
+}
+
+.tray img {
+  block-size: 1lh;
+  inline-size: auto;
+  margin-inline-start: 0.5ch;
+  vertical-align: top;
+  border-radius: 2px;
+}
+
+.tray .withdraw {
+  flex: none;
+}

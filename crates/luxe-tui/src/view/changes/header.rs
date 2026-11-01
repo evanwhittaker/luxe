@@ -102,24 +102,43 @@ fn lead_span(app: &App, view: &ChangesView, entry: Option<&ChangedFile>) -> Span
     }
 }
 
-/// What follows the path: the File view's length (and that it was cut short), and `+6 −8`.
+/// What follows the path: the File view's length (and that it was cut short) or its picture's
+/// size, and `+6 −8`.
 fn detail_spans(app: &App, view: &ChangesView, entry: Option<&ChangedFile>) -> Vec<Span<'static>> {
     let styles = &app.theme_styles;
-    let mut spans = Vec::new();
-    if let (PeekView::File, crate::changes::TextLoad::Ready(file)) = (view.view, &view.text) {
-        let lines = file.text.lines().count();
-        let mut meta = format!("  {lines} line{}", if lines == 1 { "" } else { "s" });
-        if file.truncated {
-            meta.push_str(" · cut short");
-        }
-        spans.push(Span::styled(meta, styles.muted));
-    }
+    let mut spans: Vec<Span<'static>> =
+        file_meta(app, view).map(|meta| Span::styled(meta, styles.muted)).into_iter().collect();
     if let Some((additions, deletions)) = entry.and_then(|file| file.additions.zip(file.deletions))
     {
         spans.push(Span::styled(format!("  +{additions}"), styles.success));
         spans.push(Span::styled(format!(" −{deletions}"), styles.error));
     }
     spans
+}
+
+/// `  42 lines · cut short` for text, `  640×320 image` for a picture, nothing for the diff.
+fn file_meta(app: &App, view: &ChangesView) -> Option<String> {
+    if let Some(meta) = picture_meta(app, view) {
+        return Some(meta);
+    }
+    let (PeekView::File, crate::changes::TextLoad::Ready(file)) = (view.view, &view.text) else {
+        return None;
+    };
+    let lines = file.text.lines().count();
+    let mut meta = format!("  {lines} line{}", if lines == 1 { "" } else { "s" });
+    if file.truncated {
+        meta.push_str(" · cut short");
+    }
+    Some(meta)
+}
+
+/// A picture's size: the one an SVG declares, since it was drawn at another, or an image's pixels.
+fn picture_meta(app: &App, view: &ChangesView) -> Option<String> {
+    let key = super::picture::showing(view)?;
+    let declared = view.picture.as_ref().and_then(|picture| picture.declared_size);
+    let kind = if declared.is_some() { "SVG" } else { "image" };
+    let (width, height) = declared.or_else(|| app.images.source_size(key))?;
+    Some(format!("  {width}\u{d7}{height} {kind}"))
 }
 
 /// The switch and the position, pushed to the right edge with at least [`SWITCH_GAP`] before them,

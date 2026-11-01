@@ -79,6 +79,7 @@ fn kinds(frames: &[Event]) -> Vec<&'static str> {
             Event::ContextUsage { .. } => "context_usage",
             Event::PermissionRequested { .. } => "permission_requested",
             Event::TurnStarted => "turn_started",
+            Event::CompactionStarted { .. } => "compaction_started",
             _ => "other",
         })
         .collect()
@@ -196,6 +197,23 @@ fn a_joiner_mid_turn_hears_the_turn_started() {
     assert_eq!(kinds(&snapshot.frames()), ["turn_started"]);
     snapshot.observe(&Event::TurnEnded { reason: luxe_core::event::StopReason::EndTurn });
     assert!(snapshot.frames().is_empty());
+}
+
+/// A joiner while a summary is written is told it's being written; one after it ends isn't.
+///
+/// The break this catches: leaving `compaction_started` out of the catch-up, so a phone that
+/// reconnects mid-summary looks idle for the minute it takes, then shows only the result.
+#[test]
+fn a_joiner_mid_compaction_hears_it_started() {
+    let mut snapshot = Snapshot::new("session-1".into());
+    snapshot.observe(&Event::TurnStarted);
+    snapshot.observe(&Event::CompactionStarted { tokens_before: 1000 });
+    assert_eq!(kinds(&snapshot.frames()), ["turn_started", "compaction_started"]);
+    snapshot.observe(&Event::CompactionDone { tokens_before: 1000, tokens_after: 10 });
+    assert_eq!(kinds(&snapshot.frames()), ["turn_started"]);
+    snapshot.observe(&Event::CompactionStarted { tokens_before: 1000 });
+    snapshot.observe(&Event::CompactionStopped);
+    assert_eq!(kinds(&snapshot.frames()), ["turn_started"]);
 }
 
 /// A prompt someone answered isn't put in front of the next joiner.

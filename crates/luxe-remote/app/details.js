@@ -8,6 +8,7 @@ import { Icon } from "./icons.js";
 import { useEscape } from "./dock.js";
 import { isCurrent, selectModelFrame, thinkingFrame, thinkingLevels } from "./models.js";
 import { useRendered } from "./render.js";
+import { DeviceSection } from "./text-size.js";
 
 /** @import { Frame } from "./connection.js" */
 /** @import { Listing, ModelChoice } from "./models.js" */
@@ -34,6 +35,7 @@ export function DetailsSheet({ facts, mode, listing, send, close }) {
         <${ModelPicker} listing=${listing} current=${facts.model} pick=${(/** @type {ModelChoice} */ choice) => send(selectModelFrame(choice))} />
       </section>
       <${Readings} facts=${facts} />
+      <${DeviceSection} />
     </div>
   </div>`;
 }

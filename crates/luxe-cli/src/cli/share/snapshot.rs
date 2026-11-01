@@ -1,9 +1,9 @@
 //! What a client joining mid-session has missed, kept current from the event stream.
 //!
 //! A joiner opens on the same frames a resume would show: the transcript so far, whether a turn is
-//! running, then the latest state, usage and workspace, the tool cards of a turn still running, and
-//! any prompt still waiting for an answer. Text a reply has already streamed is not replayed; it
-//! arrives whole once the message commits.
+//! running and a summary being written, then the latest state, usage and workspace, the tool cards
+//! of a turn still running, and any prompt still waiting for an answer. Text a reply has already
+//! streamed is not replayed; it arrives whole once the message commits.
 
 use super::super::rpc::SharedTranscript;
 use luxe_core::custom_dock::DockAnswer;
@@ -19,6 +19,8 @@ pub(super) struct Snapshot {
     transcript: Arc<Vec<SessionMessage>>,
     /// Whether a turn has started and not yet ended
     turning: bool,
+    /// The start of a summary still being written, which can take a minute with nothing streaming
+    compacting: Option<Event>,
     /// The newest event of each kind where only the newest matters
     latest: Vec<Event>,
     /// Tool cards of the turn in flight, by call id
@@ -34,6 +36,7 @@ impl Snapshot {
             session_id,
             transcript: Arc::default(),
             turning: false,
+            compacting: None,
             latest: Vec::new(),
             activity: Vec::new(),
             waiting: Vec::new(),
@@ -75,6 +78,8 @@ impl Snapshot {
             Event::PromptClosed { id } => self.waiting.retain(|prompt| prompt_id(prompt) != id),
             Event::TurnStarted => self.turning = true,
             Event::TurnEnded { .. } => self.end_turn(),
+            Event::CompactionStarted { .. } => self.compacting = Some(event.clone()),
+            Event::CompactionDone { .. } | Event::CompactionStopped => self.compacting = None,
             _ => {}
         }
     }
@@ -92,6 +97,7 @@ impl Snapshot {
         self.turning
             .then_some(Event::TurnStarted)
             .into_iter()
+            .chain(self.compacting.clone())
             .chain(self.latest.iter().cloned())
             .chain(self.activity.iter().cloned())
             .chain(self.waiting.iter().cloned())
@@ -102,6 +108,7 @@ impl Snapshot {
     fn load(&mut self, session_id: &str, messages: &[SessionMessage]) {
         self.session_id = session_id.to_string();
         self.transcript = Arc::new(messages.to_vec());
+        self.compacting = None;
         self.end_turn();
     }
 

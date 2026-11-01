@@ -49,14 +49,8 @@ pub(crate) fn render(
         .flatten()
         .filter(|fit| stage.height >= fit.rows);
     if let Some(fit) = drawn {
-        // Centered: an image letterboxed to one corner of an otherwise empty window looks like a
-        // layout bug rather than a picture.
-        let left = stage.x + (stage.width.saturating_sub(fit.cols)) / 2;
-        let top = stage.y + (stage.height.saturating_sub(fit.rows)) / 2;
         let canvas = styles.background.bg.unwrap_or(ratatui::style::Color::Reset);
-        for row in 0..fit.rows {
-            images.paint_row(frame.buffer_mut(), (left, top + row), key, fit, row, canvas);
-        }
+        paint_centered(frame.buffer_mut(), stage, (key, fit), images, canvas);
     }
 
     if drawn.is_none() {
@@ -71,6 +65,26 @@ pub(crate) fn render(
         );
     }
     crate::widgets::render_footer(frame, footer, "esc back", Some(&about(key, images)), styles);
+}
+
+/// Paints `key` at `fit` in the middle of `stage`, returning where it landed.
+///
+/// Centered because an image letterboxed to one corner of an otherwise empty area looks like a
+/// layout bug rather than a picture. Shared with the file preview, which shows a picture the same
+/// way in a smaller frame.
+pub(crate) fn paint_centered(
+    buf: &mut ratatui::buffer::Buffer,
+    stage: Rect,
+    (key, fit): (&ImageKey, crate::graphics::Fit),
+    images: &mut ImageStore,
+    canvas: ratatui::style::Color,
+) -> Rect {
+    let left = stage.x + (stage.width.saturating_sub(fit.cols)) / 2;
+    let top = stage.y + (stage.height.saturating_sub(fit.rows)) / 2;
+    for row in 0..fit.rows {
+        images.paint_row(buf, (left, top + row), key, fit, row, canvas);
+    }
+    Rect::new(left, top, fit.cols, fit.rows).intersection(stage)
 }
 
 /// What the footer says about the image: how big it really is, and where it came from.

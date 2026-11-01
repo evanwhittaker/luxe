@@ -142,6 +142,16 @@ async function stillThere(sessionId) {
   }
 }
 
+/**
+ * What the top bar says about the link: only that it dropped and is being retried. Live is how it
+ * nearly always is, connecting is a moment on every return to the app, and an ended or unpaired
+ * session says so where the transcript ends.
+ * @param {Status} status @returns {string | null}
+ */
+export function statusWord(status) {
+  return status === "reconnecting" ? "reconnecting" : null;
+}
+
 /** @param {string} text @returns {Frame | null} */
 function parse(text) {
   try {

@@ -113,6 +113,7 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         | Msg::OpenProjectFile(_)
         | Msg::PreviewProjectFile(_)
         | Msg::TogglePeekView
+        | Msg::TogglePeekSource
         | Msg::StartPeekPick(_)
         | Msg::ExtendPeekPick(_)
         | Msg::PeekSelectionAction(_) => changes::reduce(app, msg),
@@ -363,9 +364,7 @@ fn reduce_inner(app: &mut App, msg: Msg) {
                 app.guided_review_workspace.open_commit_preview();
             }
         }
-        Msg::GuidedReviewToggleCommitSquash => {
-            app.guided_review_workspace.toggle_commit_squash();
-        }
+        Msg::GuidedReviewToggleCommitSquash => app.guided_review_workspace.toggle_commit_squash(),
         Msg::GuidedReviewCancelCommit => app.guided_review_workspace.close_commit_preview(),
         Msg::GuidedReviewConfirmCommit => review::confirm_commit(app),
         Msg::GuidedReviewRetry
@@ -377,7 +376,6 @@ fn reduce_inner(app: &mut App, msg: Msg) {
             super::commands::refresh_guided_review(app)
         }
         Msg::GuidedReviewRetry => {}
-
         Msg::GuidedReviewBeginFinding => {
             app.with_review(|workspace, review| workspace.begin_finding_draft(&review.files));
         }

@@ -104,8 +104,8 @@ impl Engine {
         let sid = self.current_session_id().await;
         let mut leaf = leaf;
         let mut count = 0;
-        for content in steers {
-            let added = match self.admit_prompt(&content, hook_cx).await {
+        for Steer { text, images } in steers {
+            let added = match self.admit_prompt(&text, hook_cx).await {
                 Admission::Admitted(added) => added,
                 Admission::Refused(reason) => {
                     let _ = event_tx
@@ -114,16 +114,16 @@ impl Engine {
                     continue;
                 }
             };
-            debug!(%content, "delivering steering message mid-turn");
-            let mut message = Message::user(&content);
+            debug!(%text, images = images.len(), "delivering steering message mid-turn");
+            let mut message = super::commit::user_message_with(&text, &images);
             message.content.extend(added.as_deref().and_then(hook_context_block));
             let entry_id =
                 self.sessions_mut().append(&sid, Some(leaf), EntryKind::Message(message))?;
             leaf = entry_id.clone();
             self.set_leaf(entry_id.clone()).await;
             count += 1;
-            // What the reader typed, without what a hook added for the model
-            let message = Message::user(content);
+            // What the reader sent, without what a hook added for the model
+            let message = super::commit::user_message_with(&text, &images);
             let _ = event_tx
                 .send(Event::MessageCommitted { session_id: sid.to_string(), entry_id, message })
                 .await;

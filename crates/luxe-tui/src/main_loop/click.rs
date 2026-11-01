@@ -8,8 +8,13 @@ use crossterm::event::KeyEvent;
 /// A synthetic Enter, used to replay an overlay's existing "accept selected row" path after a
 /// click has moved its selection to the clicked row.
 pub(super) fn synthetic_enter() -> RouteAction {
-    use crossterm::event::{KeyCode, KeyModifiers};
-    RouteAction::msg(Msg::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)))
+    RouteAction::msg(synthetic_key(crossterm::event::KeyCode::Enter))
+}
+
+/// A bare key press, for a button that does what its key does: replaying the key keeps the one
+/// handler that owns it in charge, so click and keyboard cannot drift apart.
+fn synthetic_key(code: crossterm::event::KeyCode) -> Msg {
+    Msg::Key(KeyEvent::new(code, crossterm::event::KeyModifiers::NONE))
 }
 
 /// Routes a left-click to the clickable target under the cursor.
@@ -112,8 +117,13 @@ pub(super) fn clicked_target(app: &mut App, target: MouseTarget) -> RouteAction 
         MouseTarget::StatuslineChanges if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::DispatchUiAction(luxe_core::keymap::UiAction::ToggleChanges))
         }
-        MouseTarget::ChangesFooter(action) if app.changes.is_some() => {
-            changes_footer_message(action).map_or(RouteAction::None, RouteAction::msg)
+        target @ (MouseTarget::ChangesFooter(_)
+        | MouseTarget::PeekLine(_)
+        | MouseTarget::PeekSelection(_)
+        | MouseTarget::PreviewImage(_))
+            if app.changes.is_some() =>
+        {
+            changes_pane_click(app, target)
         }
         // A file in the tree: show it, or put it away when it is the one showing
         MouseTarget::DockFile(path) if app.current_view != ViewMode::GuidedReview => {
@@ -133,14 +143,6 @@ pub(super) fn clicked_target(app: &mut App, target: MouseTarget) -> RouteAction 
         }
         MouseTarget::DockFocusFiles if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::FocusFiles)
-        }
-        // A press on a line of the File view starts picking lines; the drag that follows extends it
-        MouseTarget::PeekLine(line) if app.changes.is_some() => {
-            app.pointer.peek_dragging = true;
-            RouteAction::msg(Msg::StartPeekPick(line))
-        }
-        MouseTarget::PeekSelection(action) if app.changes.is_some() => {
-            RouteAction::msg(Msg::PeekSelectionAction(action))
         }
         MouseTarget::DockModelRow(step) if app.current_view != ViewMode::GuidedReview => {
             RouteAction::msg(Msg::OpenModelPicker(step))
@@ -227,7 +229,26 @@ fn toggle_file(app: &App, path: &str, open: fn(String) -> Msg) -> RouteAction {
     RouteAction::msg(if showing { Msg::CloseChanges } else { open(path.to_owned()) })
 }
 
-/// What a click on the peek's footer does; the hint is not a button.
+/// A click in the preview pane: its footer, a line of the File view, the action row under a pick,
+/// or the picture it shows for an image.
+fn changes_pane_click(app: &mut App, target: MouseTarget) -> RouteAction {
+    match target {
+        MouseTarget::ChangesFooter(action) => {
+            changes_footer_message(action).map_or(RouteAction::None, RouteAction::msg)
+        }
+        // A press on a line starts picking lines; the drag that follows extends it
+        MouseTarget::PeekLine(line) => {
+            app.pointer.peek_dragging = true;
+            RouteAction::msg(Msg::StartPeekPick(line))
+        }
+        MouseTarget::PeekSelection(action) => RouteAction::msg(Msg::PeekSelectionAction(action)),
+        MouseTarget::PreviewImage(key) => RouteAction::msg(Msg::OpenImageViewer(key)),
+        _ => RouteAction::None,
+    }
+}
+
+/// What a click on the peek's footer does; the hint is not a button. The replayed keys are named
+/// rather than wildcarded below, so a new action has to say what its click does.
 fn changes_footer_message(action: crate::mouse::ChangesFooterAction) -> Option<Msg> {
     use crate::mouse::ChangesFooterAction as A;
     Some(match action {
@@ -240,7 +261,30 @@ fn changes_footer_message(action: crate::mouse::ChangesFooterAction) -> Option<M
         A::Close => Msg::CloseChanges,
         A::ToggleView => Msg::TogglePeekView,
         A::Focus => Msg::FocusPeek,
-        A::Hint => return None,
+        A::Files => Msg::FocusFiles,
+        A::Enlarge => Msg::DispatchUiAction(luxe_core::keymap::UiAction::OpenImage),
+        A::ToggleSource => Msg::TogglePeekSource,
+        A::Select | A::Ask | A::Copy | A::OtherEnd | A::Page | A::Escape | A::Hint => {
+            synthetic_key(focused_pane_key(action)?)
+        }
+    })
+}
+
+/// The key a focused-pane footer button stands for. Replayed rather than mirrored, since what
+/// they do (picks, visual mode, Esc's layers) lives in the pane's key handler.
+fn focused_pane_key(
+    action: crate::mouse::ChangesFooterAction,
+) -> Option<crossterm::event::KeyCode> {
+    use crate::mouse::ChangesFooterAction as A;
+    use crossterm::event::KeyCode;
+    Some(match action {
+        A::Select => KeyCode::Char('v'),
+        A::Ask => KeyCode::Enter,
+        A::Copy => KeyCode::Char('y'),
+        A::OtherEnd => KeyCode::Char('o'),
+        A::Page => KeyCode::Char(' '),
+        A::Escape => KeyCode::Esc,
+        _ => return None,
     })
 }
 

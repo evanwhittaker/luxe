@@ -6,7 +6,8 @@
 //
 // Steering follows the TUI's tray: a checkpoint delivers everything buffered at once, and a steer
 // that misses the last one waits for the next turn, so a turn ending leaves it pending. Only a
-// cancel or a withdrawal empties the buffer.
+// cancel or a withdrawal empties the buffer. What this device steered is kept as it was sent, so
+// the tray can show it until it lands.
 
 import { batch, signal } from "@preact/signals";
 
@@ -15,7 +16,8 @@ import { batch, signal } from "@preact/signals";
  * @typedef {{ label: string, description?: string | null, recommended?: boolean }} QuestionOption
  * @typedef {{ kind: "question", id: string, prompt: string, options: QuestionOption[], multi: boolean }} QuestionPrompt
  * @typedef {PermissionPrompt | QuestionPrompt} Prompt
- * @typedef {{ prompts: Signal<Prompt[]>, steering: Signal<number> }} State
+ * @typedef {{ text: string, photos: import("./photos.js").Photo[] }} Steer what was written and attached
+ * @typedef {{ prompts: Signal<Prompt[]>, steering: Signal<Steer[]> }} State
  */
 /** @import { Signal } from "@preact/signals" */
 /** @import { Frame } from "./connection.js" */
@@ -23,27 +25,27 @@ import { batch, signal } from "@preact/signals";
 /** Nothing waiting, and the functions that change that. */
 export function createPending() {
   /** @type {State} */
-  const state = { prompts: signal([]), steering: signal(0) };
+  const state = { prompts: signal([]), steering: signal(/** @type {Steer[]} */ ([])) };
   return {
     prompts: state.prompts,
     steering: state.steering,
     /** @param {Frame} frame */
     apply: (frame) => batch(() => apply(state, frame)),
-    /** This device sent a steering message. */
-    steered: () => (state.steering.value += 1),
+    /** This device sent `steer` into the running turn. @param {Steer} steer */
+    steered: (steer) => (state.steering.value = [...state.steering.value, steer]),
     /** This device withdrew or cancelled, which empties the engine's steering buffer. */
-    dropSteering: () => (state.steering.value = 0),
+    dropSteering: () => (state.steering.value = []),
   };
 }
 
 /** @param {State} state @param {Frame} frame */
 function apply(state, { kind, content }) {
   switch (kind) {
-    case "ready": state.prompts.value = []; state.steering.value = 0; return;
+    case "ready": state.prompts.value = []; state.steering.value = []; return;
     case "permission_requested": return open(state, { kind: "permission", ...content });
     case "question_asked": return open(state, { kind: "question", ...content });
     case "prompt_closed": return close(state, content.id);
-    case "steering_delivered": state.steering.value = 0; return;
+    case "steering_delivered": state.steering.value = []; return;
   }
 }
 
@@ -75,12 +77,12 @@ export function questionReply(id, answered) {
 }
 
 /**
- * What the composer sends: steering for the turn running, or a new turn. Steering carries only
- * words, so a message with images is always a new turn, which waits for a running one to end.
+ * What the composer sends: steering for the turn running, photos and all, or a new turn. The
+ * photos go only when there are some, as the protocol leaves an empty list out.
  * @param {string} text @param {boolean} busy @param {{ data: string, mime: string, name: string | null }[]} images
  * @returns {Frame}
  */
 export function messageFrame(text, busy, images = []) {
-  if (images.length) return { kind: "submit_user_message", content: { text, images } };
-  return busy ? { kind: "steer_turn", content: { text } } : { kind: "submit_user_message", content: { text } };
+  const content = images.length ? { text, images } : { text };
+  return { kind: busy ? "steer_turn" : "submit_user_message", content };
 }

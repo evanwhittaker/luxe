@@ -1,4 +1,5 @@
-//! Engine types — image attachments. Config, actions and errors each have a module of their own.
+//! Engine types — image attachments and buffered steers. Config, actions and errors each have a
+//! module of their own.
 
 use super::*;
 use serde::{Deserialize, Serialize};
@@ -26,4 +27,13 @@ impl ImageAttachment {
             name: self.name.clone(),
         }
     }
+}
+
+/// A steering message admitted mid-turn and waiting for the next checkpoint: what was typed, and
+/// any images sent with it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Steer {
+    /// What the reader wrote; empty when the steer is images alone
+    pub(crate) text: String,
+    pub(crate) images: Vec<ImageAttachment>,
 }

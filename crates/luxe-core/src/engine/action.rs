@@ -30,12 +30,16 @@ pub enum Action {
         /// Submitted review evidence eligible for a matching agent remediation report.
         remediation: Option<RemediationTurnContext>,
     },
-    /// Steer the in-flight turn: deliver `content` to the model as a user message at the next
+    /// Steer the in-flight turn: deliver `text` to the model as a user message at the next
     /// checkpoint between tool iterations, without ending the turn or starting a new one.
     ///
     /// With no turn running it behaves as a plain submission, so a front-end can send it without
-    /// racing the turn's lifecycle.
-    SteerTurn { content: String },
+    /// racing the turn's lifecycle. Images ride along in the same message, as a submission's do.
+    SteerTurn {
+        text: String,
+        /// Base64-encoded image data with MIME type.
+        images: Vec<ImageAttachment>,
+    },
     /// Drop every steering message admitted but not yet delivered, so a front-end can take back
     /// what the user typed and let them edit it instead.
     ///

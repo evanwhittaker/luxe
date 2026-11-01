@@ -58,7 +58,14 @@ fn sample_actions() -> Vec<Action> {
                 name: Some("shot.png".into()),
             }],
         },
-        Action::SteerTurn { text: "check the windows path too".into() },
+        Action::SteerTurn {
+            text: "check the windows path too".into(),
+            images: vec![crate::engine::ImageAttachment {
+                data: "aGk=".into(),
+                mime: "image/jpeg".into(),
+                name: Some("photo.jpg".into()),
+            }],
+        },
         Action::WithdrawSteering,
         Action::Cancel,
         Action::EditResend { text: "summarize the diff, briefly".into() },
@@ -248,6 +255,17 @@ fn an_owners_introduction_keeps_its_wire_name() {
     assert!(matches!(serde_json::from_str(unsaid), Ok(Action::Introduce { yours: false, .. })));
 }
 
+/// A steer from a client older than its `images` reads as words alone.
+///
+/// The break this catches: `images` made required, which refuses every steer an older client (or
+/// the phone app before it learned photos) sends.
+#[test]
+fn a_steer_without_images_still_decodes() {
+    let words = r#"{"kind":"steer_turn","content":{"text":"check the windows path too"}}"#;
+    let steer = serde_json::from_str::<Action>(words).expect("a steer of words alone decodes");
+    assert!(matches!(steer, Action::SteerTurn { images, .. } if images.is_empty()));
+}
+
 fn section() -> crate::config::GithubSection {
     crate::config::GithubSection {
         name: "Mine".into(),
@@ -266,7 +284,7 @@ fn section() -> crate::config::GithubSection {
 fn the_wire_action_vocabulary_is_pinned() {
     const PINNED: &[&str] = &[
         r#"{"kind":"submit_user_message","content":{"text":"summarize the diff","images":[{"data":"aGk=","mime":"image/png","name":"shot.png"}]}}"#,
-        r#"{"kind":"steer_turn","content":{"text":"check the windows path too"}}"#,
+        r#"{"kind":"steer_turn","content":{"text":"check the windows path too","images":[{"data":"aGk=","mime":"image/jpeg","name":"photo.jpg"}]}}"#,
         r#"{"kind":"withdraw_steering"}"#,
         r#"{"kind":"cancel"}"#,
         r#"{"kind":"edit_resend","content":{"text":"summarize the diff, briefly"}}"#,

@@ -60,7 +60,10 @@ async fn steer_through_policy(steers: &[&str]) -> Steered {
         .unwrap();
     tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified()).await.unwrap();
     for steer in steers {
-        action_tx.send(Action::SteerTurn { content: (*steer).to_string() }).await.unwrap();
+        action_tx
+            .send(Action::SteerTurn { text: (*steer).to_string(), images: Vec::new() })
+            .await
+            .unwrap();
     }
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     release.notify_one();

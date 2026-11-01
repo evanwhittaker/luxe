@@ -51,6 +51,29 @@ impl App {
         }
     }
 
+    /// Takes the picture a previewed file turned out to be into the store, returning its key.
+    ///
+    /// Keyed by content, so reopening an unchanged image reuses what was already prepared (and,
+    /// on kitty, already sent) while an edited one gets a new key and is never shown stale.
+    pub(crate) fn intern_preview_image(
+        &mut self,
+        path: &str,
+        image: &luxe_core::project_files::PreviewImage,
+    ) -> Option<crate::graphics::ImageKey> {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        image.data.hash(&mut hasher);
+        let key =
+            crate::graphics::ImageKey::new(format!("preview:{path}:{:016x}", hasher.finish()));
+        let root = self
+            .project_root
+            .clone()
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+        let name = path.rsplit('/').next().unwrap_or(path);
+        let origin = crate::graphics::ImageOrigin::new(name, Some(path), &root);
+        self.intern_image(&key, &image.data, origin).then_some(key)
+    }
+
     /// Names an image the way the transcript should, vetting any path it claims to live at.
     pub fn image_origin(
         &self,
@@ -61,11 +84,17 @@ impl App {
         crate::graphics::ImageOrigin::new(label, name, &cwd)
     }
 
-    /// The image `Alt+I` should open: the selected message's, else the newest in the transcript.
+    /// The image `Alt+I` should open: the preview's picture, else the selected message's, else the
+    /// newest in the transcript.
     ///
     /// Newest rather than first, because the reason to reach for the key is a capture that just
-    /// landed. A selected message wins when it has one, so the key can also be aimed.
+    /// landed. A selected message wins when it has one, so the key can also be aimed. A picture in
+    /// the preview wins over both: it is where the reader is looking.
     pub fn newest_visible_image(&self) -> Option<crate::graphics::ImageKey> {
+        let previewed = self.changes.as_ref().and_then(crate::view::changes::showing_picture);
+        if let Some(key) = previewed {
+            return Some(key.clone());
+        }
         let from_item = |item: &ConversationItem| match item.block() {
             ConvoBlock::Image { key, .. } => Some(key.clone()),
             ConvoBlock::Tool(tool) => self
@@ -90,11 +119,16 @@ impl App {
     /// Detached on purpose: an image viewer outlives the click, and waiting on one would hold the
     /// event loop until the reader closed it.
     pub fn open_image_externally(&mut self, key: &crate::graphics::ImageKey) {
-        let Some(path) = self.images.origin(key).and_then(|origin| origin.path.clone()) else {
+        let Some(path) = self.image_path(key) else {
             return;
         };
         let label = luxe_core::paths::display(&path);
         self.open_externally(path.as_os_str(), &label);
+    }
+
+    /// The checked file an image lives in, when it lives in one with an image extension.
+    pub(crate) fn image_path(&self, key: &crate::graphics::ImageKey) -> Option<std::path::PathBuf> {
+        self.images.origin(key).and_then(|origin| origin.path.clone())
     }
 
     /// Hands a file or an address to the desktop's opener, detached, and says so if it cannot.

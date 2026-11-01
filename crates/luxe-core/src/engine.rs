@@ -142,7 +142,7 @@ pub struct Engine {
     /// A turn can't take a new message the instant it arrives — the provider call and its tool
     /// dispatch are already in flight — so a steer is buffered here and delivered as a real user
     /// message before the next provider call, in admission order.
-    pending_steers: tokio::sync::Mutex<Vec<String>>,
+    pending_steers: tokio::sync::Mutex<Vec<Steer>>,
     /// Actions that arrived during a turn and wait for it, in the order they arrived.
     ///
     /// Drained by the main loop ahead of the channel, because everything in here arrived before
