@@ -429,7 +429,7 @@ async fn a_launchers_key_queues_the_launch_and_types_nothing() {
 
 /// Through the whole key path, not just the editor: Ctrl+A reaches the composer as the start of
 /// the line — what macOS terminals send for Cmd+← — and select-all moved to Alt+A, since terminals
-/// keep Ctrl+Shift+A for their own. Alt+← is Guided Review's "back to chat", and in chat a word.
+/// keep Ctrl+Shift+A for their own. Ctrl+← is a word; Alt+← moves between panes in chat.
 #[tokio::test]
 async fn composer_keys_reach_the_editor_and_select_all_moved() {
     let (tx, _rx) = mpsc::channel(100);
@@ -441,7 +441,7 @@ async fn composer_keys_reach_the_editor_and_select_all_moved() {
     assert_eq!(app.editor.selection(), None, "ctrl+a moves; it no longer selects");
 
     app.update(Msg::Key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL)));
-    app.update(Msg::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::ALT)));
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::CONTROL)));
     assert_eq!(app.editor.cursor(), "first line\nsecond ".len());
 
     app.update(Msg::Key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::ALT)));

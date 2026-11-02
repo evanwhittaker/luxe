@@ -96,8 +96,9 @@ can answer prompts and send messages. It can't switch or end the session, or pub
 In a session, the app can:
 
 - Name the session's folder and branch in the header, starred when the tree has changes.
-- Show the conversation as the interface draws it: markdown, highlighted code, tool cards. A long
-  one opens on its latest 300 items, and **Show earlier** at the top brings 300 more at a time.
+- Show the conversation as the interface draws it: markdown, highlighted code, tool cards, and an
+  image a tool returned (a picture the agent read, a screenshot) under its card. A long one opens
+  on its latest 300 items, and **Show earlier** at the top brings 300 more at a time.
 - Send a message, with photos from the camera or library, and steer or stop a running turn. While
   one runs, what you send steers it at the next step, photos and all, and waits above the message
   box, marked `steering`, until it's delivered. **Withdraw**, or stopping the turn, puts it back
@@ -114,17 +115,18 @@ In a session, the app can:
   (from the same list as `/model`, with the levels each model honors), and see the cost. The
   details also set the **Text size**, small, medium or large, for this device alone; the session
   list has the same setting.
-- Keep everything about the project in one sidebar: [the dock](interface.md#the-dock) at the top,
-  then Project (the file tree), GitHub and Review, each under a heading you tap to show or hide
-  it. The links along its top jump to each one. On an iPad or an open iPhone Duo it's a rail
-  beside the conversation: the header's dock button or `/dock` shows and hides it, `/dock left` or
-  `/dock right` moves it, and it starts from your `dock.mode` and `dock.position`
+- Keep everything about the project in one sidebar: Plan, Files, GitHub and Review, the
+  [dock](interface.md#the-dock)'s plan at the top and each of the rest under a heading you tap to
+  show or hide it. The links along its top jump to each one. On an iPad or an open iPhone Duo
+  it's a rail beside the conversation: the header's dock button or `/dock` shows and hides it,
+  `/dock left` or `/dock right` moves it, and it starts from your `dock.mode` and `dock.position`
   [settings](configuration.md), as the interface does. On a phone the header's one menu button
-  opens it over the page, and `/dock` opens it at the dock.
-- See the plan and the changed files in the dock. A long plan scrolls in a box of its own that
-  keeps the work in hand in view, until you scroll it yourself. Tap a file for its diff.
-- Browse the project's files under the Project heading, in the interface's FILES tree, and read a
-  file highlighted as the interface shows it. An image or an SVG shows as its picture, an SVG's
+  opens it over the page, and `/dock` opens it at the plan.
+- See the plan under Plan. A long plan scrolls in a box of its own that keeps the work in hand in
+  view, until you scroll it yourself.
+- Browse the project's files under Files, in the interface's FILES tree. A changed file wears its
+  counts and status, a deleted one included, and a tap opens its diff. Tap any other file to read
+  it highlighted as the interface shows it. An image or an SVG shows as its picture, an SVG's
   source under it. **Mention** adds its path to your message. On an iPad or an open iPhone Duo a
   file opens beside the rail; on a screen wide enough the conversation stays in view too.
 - Ask about particular lines of a file, a diff or a review chapter, as you would in the interface's

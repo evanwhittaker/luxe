@@ -1,11 +1,12 @@
 // @ts-check
 // The Files part: the project as the TUI's FILES tree, drawn by the host so its guides, marks and
-// change counts are the TUI's, with folders unfolding in place, and a file read in place,
-// highlighted as the host renders it, with a way to mention it to the agent.
+// change counts are the TUI's, with folders unfolding in place. A changed file opens its diff, as
+// the TUI's tree opens one; any other is read in place, highlighted as the host renders it, with a
+// way to mention it to the agent.
 
 import { useEffect } from "preact/hooks";
 import { useRendered } from "./render.js";
-import { fileMention, readFaces, treeRows } from "./files.js";
+import { changedPaths, fileMention, readFaces, treeRows } from "./files.js";
 import { html, landedIn } from "./html.js";
 import { useEscape } from "./dock.js";
 import { Icon } from "./icons.js";
@@ -23,7 +24,7 @@ export function FilesTab({ hooks }) {
 function TreeView({ hooks }) {
   const { files, listings, changes } = hooks;
   useFreshFolders(hooks);
-  const rows = treeRows(listings.folders.value, files.unfolded.value);
+  const rows = treeRows(listings.folders.value, files.unfolded.value, changedPaths(changes));
   const rendered = useRendered({ kind: "tree", rows, changes }, false);
   return html`<div class="tree-view" onClick=${(/** @type {MouseEvent} */ event) => tapRow(event, hooks)}
     dangerouslySetInnerHTML=${{ __html: rendered ?? "" }}></div>`;
@@ -40,20 +41,28 @@ function useFreshFolders({ files, listings, send, changes }) {
   }, [changes]);
 }
 
-/** A tap on a folder unfolds or folds it; one on a file opens it. @param {MouseEvent} event @param {PanelHooks} hooks */
-export function tapRow(event, { files, github, review, listings, send }) {
+/**
+ * A tap on a folder unfolds or folds it; one on a changed file opens its diff, and one on any other
+ * file reads it, in place of whatever pane was open.
+ * @param {MouseEvent} event @param {PanelHooks} hooks
+ */
+export function tapRow(event, hooks) {
   const row = landedIn(event, "button.tree-row");
   const folder = row?.dataset.folder;
-  if (folder !== undefined) {
-    files.toggle(folder);
-    if (files.unfolded.value.has(folder)) listings.ask(folder, send, { fresh: true });
-    return;
-  }
+  if (folder !== undefined) return unfold(folder, hooks);
   const file = row?.dataset.file;
   if (file === undefined) return;
-  github.close();
-  review.close();
-  files.read(file, send);
+  hooks.github.close();
+  hooks.review.close();
+  if (changedPaths(hooks.changes).includes(file)) return hooks.openDiff(file);
+  hooks.closeDiff();
+  hooks.files.read(file, hooks.send);
+}
+
+/** Folds an open folder, or unfolds a closed one and lists it afresh. @param {string} folder @param {PanelHooks} hooks */
+function unfold(folder, { files, listings, send }) {
+  files.toggle(folder);
+  if (files.unfolded.value.has(folder)) listings.ask(folder, send, { fresh: true });
 }
 
 /**

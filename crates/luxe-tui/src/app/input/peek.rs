@@ -6,7 +6,8 @@
 //! `V` is vim's visual-line mode, where every move grows the pick until `y`, `Enter` or `Esc`. In
 //! the diff the cursor moves row by row and picks nothing. `Ctrl+D` and `Ctrl+U` move half a page
 //! in either, the only chords the pane keeps; every other chord is the app's. A key the pane does
-//! not know hands the keyboard back and goes to the composer, the same as the tree.
+//! not know hands the keyboard back and goes to the composer, the same as the tree. `Esc` drops a
+//! pick first and then closes the pane, so one key (or the footer's one button) puts it away.
 
 use crate::app::{App, Msg};
 use crate::changes::PeekView;
@@ -46,7 +47,7 @@ pub(super) fn peek_took(app: &mut App, key: KeyEvent) -> bool {
             view.selection = None;
         }
         KeyCode::Esc if view.cells_picked() => view.cells = None,
-        KeyCode::Esc => view.focused = false,
+        KeyCode::Esc => app.update(Msg::CloseChanges),
         KeyCode::Char('o') if view.visual => view.swap_pick_ends(),
         KeyCode::Char('o') => {
             app.update(Msg::DispatchUiAction(luxe_core::keymap::UiAction::ChangesOpenInEditor));

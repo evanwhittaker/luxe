@@ -12,19 +12,19 @@ const unfolded = (/** @type {ReturnType<typeof createPanel>} */ panel) => [...pa
 test("a jump unfolds the part it lands on and asks for it in view", () => {
   const panel = createPanel();
   panel.jump("github");
-  assert.deepEqual(unfolded(panel), ["dock", "files", "github"]);
+  assert.deepEqual(unfolded(panel), ["files", "github", "plan"]);
   assert.equal(panel.target.value, "github");
 });
 
 // The break this catches: the phone's button opening the sheet scrolled to some part, or `/dock`
-// opening it somewhere other than the dock
+// opening it somewhere other than the plan
 test("opening shows the sheet, jumping only when told where", () => {
   const panel = createPanel();
   panel.open();
   assert.equal(panel.shown.value, true);
   assert.equal(panel.target.value, null);
-  panel.open("dock");
-  assert.equal(panel.target.value, "dock");
+  panel.open("plan");
+  assert.equal(panel.target.value, "plan");
 });
 
 // The break this catches: a heading's tap only ever unfolding, so a long part can't be put away,
@@ -32,10 +32,10 @@ test("opening shows the sheet, jumping only when told where", () => {
 test("a heading's tap folds an unfolded part and unfolds a folded one", () => {
   const panel = createPanel();
   panel.fold("files");
-  assert.deepEqual(unfolded(panel), ["dock"]);
+  assert.deepEqual(unfolded(panel), ["plan"]);
   panel.fold("review");
   panel.fold("files");
-  assert.deepEqual(unfolded(panel), ["dock", "files", "review"]);
+  assert.deepEqual(unfolded(panel), ["files", "plan", "review"]);
 });
 
 // The break this catches: closing the phone's sheet forgetting what was unfolded, so GitHub is

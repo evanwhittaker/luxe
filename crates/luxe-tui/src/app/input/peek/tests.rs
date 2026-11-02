@@ -15,13 +15,13 @@ fn previewing() -> crate::app::App {
 }
 
 /// The walk: Ctrl+T's message takes the keyboard from the composer to the tree to the preview,
-/// Tab trades it back to the tree, and Esc gives it to the composer.
+/// and Tab trades it back to the tree.
 #[test]
 fn the_keyboard_walks_from_the_composer_to_the_tree_to_the_preview() {
     let mut app = previewing();
-    app.update(Msg::FocusFiles);
+    app.update(Msg::WalkFocus);
     assert!(app.files.focused);
-    app.update(Msg::FocusFiles);
+    app.update(Msg::WalkFocus);
     let view = app.changes.as_ref().expect("a preview");
     assert!(view.focused && !app.files.focused);
     assert_eq!(view.cursor, Some(1), "the cursor starts on the first line showing");
@@ -30,8 +30,22 @@ fn the_keyboard_walks_from_the_composer_to_the_tree_to_the_preview() {
     assert!(app.files.focused && !app.changes.as_ref().expect("a preview").focused);
     press(&mut app, KeyCode::Tab, KeyModifiers::NONE);
     assert!(app.changes.as_ref().expect("a preview").focused);
+}
+
+/// The break this catches: Esc in the pane only handing the keyboard back, leaving a preview a
+/// mouse user then has to find a second button to close, or closing it while a pick was there to
+/// drop first.
+#[test]
+fn esc_closes_the_preview_and_the_keyboard_lands_in_the_composer() {
+    let mut app = previewing();
+    app.update(Msg::FocusPeek);
+    press(&mut app, KeyCode::Char('v'), KeyModifiers::NONE);
     press(&mut app, KeyCode::Esc, KeyModifiers::NONE);
-    assert!(!app.changes.as_ref().expect("still open").focused && !app.files.focused);
+    assert!(app.changes.is_some(), "the first Esc drops the pick");
+    press(&mut app, KeyCode::Esc, KeyModifiers::NONE);
+    assert!(app.changes.is_none() && !app.files.focused, "the next closes the preview");
+    press(&mut app, KeyCode::Char('w'), KeyModifiers::NONE);
+    assert!(app.editor.current_input().ends_with('w'), "and typing reaches the composer");
 }
 
 /// The cursor moves line by line and the view follows it; Shift, or the capitals, grow a pick
@@ -108,7 +122,7 @@ fn v_keeps_growing_the_pick_until_it_is_used_or_dropped() {
     assert!(!view.visual && view.selection.is_none() && view.focused, "Esc drops it, stays");
 }
 
-/// Esc drops dragged-over text before it gives up the keyboard, as it drops a line pick.
+/// Esc drops dragged-over text before it closes the preview, as it drops a line pick.
 #[test]
 fn esc_drops_a_character_selection_and_keeps_the_keyboard() {
     use crate::selection::{SelectionSpan, TextPoint};
@@ -123,7 +137,7 @@ fn esc_drops_a_character_selection_and_keeps_the_keyboard() {
     let view = app.changes.as_ref().expect("a preview");
     assert!(view.cells.is_none() && view.focused, "the text goes, the keyboard stays");
     press(&mut app, KeyCode::Esc, KeyModifiers::NONE);
-    assert!(!app.changes.as_ref().expect("a preview").focused, "then Esc gives it back");
+    assert!(app.changes.is_none(), "then Esc closes it");
 }
 
 /// `Ctrl+D` and `Ctrl+U` move the cursor half a page, and in visual mode grow the pick by it.

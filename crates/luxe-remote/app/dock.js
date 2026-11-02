@@ -1,37 +1,30 @@
 // @ts-check
-// The dock: the plan and the changed files, as the host renders them, at the top of the sidebar
-// (panel.js), which the header's button and `/dock` show and hide (layout.js). A long plan scrolls
-// in its own box, and a changed file opens its diff.
+// The dock's plan, as the host renders it, at the top of the sidebar (panel.js), which the header's
+// button and `/dock` show and hide (layout.js). A long plan scrolls in its own box. A changed file
+// is opened from the Files tree (files-view.js), and its diff shows in the sheet here.
 
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { html, landedIn } from "./html.js";
+import { html } from "./html.js";
 import { Icon } from "./icons.js";
 import { useRendered } from "./render.js";
 import { PickablePiece } from "./lines-view.js";
-import { hasDock, planScroll } from "./workspace.js";
+import { planScroll } from "./workspace.js";
 import { useWide } from "./layout.js";
 
-/** @import { Changes, OpenDiff, Todos } from "./workspace.js" */
+/** @import { OpenDiff, Todos } from "./workspace.js" */
 
 /**
- * The dock as the sidebar's first part.
- * @param {{ hooks: { todos: Todos | null, changes: Changes | null, openDiff: (path: string) => void } }} props
+ * The plan as the sidebar's first part. With none yet it keeps the heading the host draws over
+ * one, so each of the jumps lands on a heading.
+ * @param {{ hooks: { todos: Todos | null } }} props
  */
-export function DockPart({ hooks: { todos, changes, openDiff } }) {
-  return html`<div class="dock-part" onClick=${(/** @type {Event} */ event) => pickChange(event, openDiff)}>
-    ${hasDock(todos, changes) ? null : html`<p class="dim dock-empty">No plan or changes yet.</p>`}
-    ${todos?.total ? html`<${Section} piece=${{ kind: "plan", todos }} />` : null}
-    ${changes?.total_files ? html`<${Section} piece=${{ kind: "changes", changes }} />` : null}
+export function PlanPart({ hooks: { todos } }) {
+  return html`<div class="dock-part">
+    ${todos?.total ? html`<${Section} piece=${{ kind: "plan", todos }} />` : html`<section class="dock-section">
+      <p class="dock-head"><span class="badge">PLAN</span></p>
+      <p class="dock-sub">No plan yet.</p>
+    </section>`}
   </div>`;
-}
-
-/**
- * The rows are host HTML, so a tap is read off the button it landed in.
- * @param {Event} event @param {(path: string) => void} open
- */
-function pickChange(event, open) {
-  const path = landedIn(event, "button.change")?.dataset.path;
-  if (path) open(path);
 }
 
 /** @param {{ piece: import("./render.js").Piece }} props */

@@ -123,7 +123,7 @@ The composer and every other text field take the usual line-editing keys:
 
 | To | Key |
 | --- | --- |
-| Move by word | `ctrl+←` / `ctrl+→`, or `alt+←` / `alt+→` |
+| Move by word | `ctrl+←` / `ctrl+→` |
 | Start or end of line | `home` / `end`, or `ctrl+a` / `ctrl+e` |
 | Delete the word before or after | `alt+backspace` / `alt+delete` |
 | Delete to the start of the line | `ctrl+u` |
@@ -288,8 +288,10 @@ permissions and shows up in the review, or press `O` to open the folder in your 
 terminal one such as yazi takes the screen until you quit it, as your editor does; the tree reads
 its folders again when you come back.
 
-`ctrl+t` moves the keyboard into the tree, and pressed again, into the file showing beside it.
-`tab` trades the keyboard between the two, and `esc` hands it back to the composer.
+`alt+←` and `alt+→` move the keyboard between the tree, the file showing and the composer, in the
+order they sit on screen. `ctrl+t` goes round the same three: into the tree, then into the file
+showing, then back to the composer. `tab` trades the keyboard between the tree and the file. The
+file's title lights up while the keyboard is in it.
 
 | In the tree | Key |
 | --- | --- |
@@ -361,11 +363,11 @@ The preview is not a review: looking at a file does not count it as reviewed.
 | Wrap long lines, or not | `alt+w` |
 | Open the file in your editor, at the top line shown, or an image in your image viewer | `alt+o` |
 | Open a [Guided Review](guided-review.md) of your changes, at this file | `ctrl+g` |
-| Back to the conversation | `esc` |
+| Close it | `esc` |
 
 With the keyboard in the file, a cursor marks the line you are on with a `›` and a lighter band,
 and the file scrolls to keep it in view. Clicking a file under `FILES` or a line in the file puts
-the keyboard there, as do `ctrl+t` twice and `tab` from the tree. In a diff the cursor moves the
+the keyboard there, as do `alt+←` or `alt+→` toward it, `ctrl+t` twice, and `tab` from the tree. In a diff the cursor moves the
 same way, row by row, and picks nothing.
 
 | In the file | Key |

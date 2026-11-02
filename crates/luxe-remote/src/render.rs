@@ -202,8 +202,6 @@ pub(crate) enum Piece {
     Status(Box<StatusFacts>),
     /// The todos from `workspace_updated`, as the dock's PLAN shows them
     Plan { todos: Box<TodoSummary> },
-    /// The changed files from `workspace_updated`, each a way into its diff
-    Changes { changes: Box<WorkspaceChangesSummary> },
     /// A `file_diff_loaded` frame's diff
     Diff { diff: Box<FileDiff> },
     /// A `file_diff_failed` frame's reason
@@ -290,7 +288,6 @@ pub(crate) fn render(renderer: &dyn Renderer, piece: &Piece) -> String {
         Piece::Tool { name } => escape(&renderer.tool_glyph(name)),
         Piece::Status(facts) => renderer.status(facts).iter().map(status_segment).collect(),
         Piece::Plan { todos } => workspace::plan(renderer, todos),
-        Piece::Changes { changes } => workspace::changes(renderer, changes),
         Piece::Diff { diff } => diff::file(renderer, diff),
         Piece::DiffFailed { error } => diff::failed(error),
         Piece::File { file } => file::file(renderer, file),

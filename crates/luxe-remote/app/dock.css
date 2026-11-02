@@ -1,5 +1,5 @@
-/* The dock (plan and changed files) at the sidebar's top, and the diff sheet, colored as the TUI's
-   dock colors them. Where the sidebar sits is peek.css's */
+/* The dock's plan at the sidebar's top, and the diff sheet, colored as the TUI's dock colors
+   them. Where the sidebar sits is peek.css's */
 
 .dock-toggle {
   display: grid;
@@ -27,19 +27,16 @@
   padding: 0 1.5ch 1lh;
 }
 
-.dock-empty {
-  margin-top: 1lh !important;
-}
-
 .dock-section p,
 .dock-section ol,
 .dock-section ul {
   margin: 0;
 }
 
-/* what a heading sums up rides muted beside its badge, as on the TUI's rail */
+/* what a heading sums up rides muted beside its badge, as on the TUI's rail; spaced as the other
+   parts' headings (panel.css) */
 .dock-head {
-  margin-top: 1lh !important;
+  margin: 1lh 0 0.5lh !important;
   color: var(--luxe-muted, #97938c);
 }
 
@@ -47,16 +44,12 @@
   color: var(--luxe-muted, #97938c);
 }
 
-.todos,
-.changes {
-  padding: 0;
-  list-style: none;
-}
-
 /* A long plan scrolls in a box of its own, the TUI's budget of 8 todos and 4 wrapped lines, so
-   the changes stay close below; dock.js keeps the work in hand in view. Positioned, so each todo's
+   the files stay close below; dock.js keeps the work in hand in view. Positioned, so each todo's
    offset is measured from the list */
 .todos {
+  padding: 0;
+  list-style: none;
   position: relative;
   max-height: 12lh;
   overflow-y: auto;
@@ -74,22 +67,6 @@
 .todo-in-progress { font-weight: bold; }
 .todo-blocked { color: var(--luxe-warning, #faaa51); }
 .todo-pending { color: var(--luxe-muted, #97938c); }
-
-.change {
-  display: flex;
-  width: 100%;
-  gap: 1ch;
-  padding: 0.25lh 0;
-  text-align: left;
-}
-
-.change-path {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .change-added, .change-untracked { color: var(--luxe-success, #81caa0); }
 .change-modified { color: var(--luxe-warning, #faaa51); }

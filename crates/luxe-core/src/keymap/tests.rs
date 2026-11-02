@@ -247,24 +247,38 @@ fn guided_review_defaults_match_the_documented_shortcuts() {
         .is_some_and(|chords| chords == &vec![chord("ctrl+shift+r")]));
 }
 
+/// Every chord in the default map resolves to one action wherever it's pressed: a chord shared at
+/// all is shared by one Guided Review action and one other, which the review and chat each resolve
+/// to their own.
 #[test]
-fn default_keymap_has_no_duplicate_chords() {
-    // Every chord in the default map should resolve to exactly one action.
+fn default_keymap_shares_a_chord_only_between_review_and_chat() {
     let map = KeyMap::defaults();
-    let mut seen: HashMap<KeyChord, UiAction> = HashMap::new();
+    let mut seen: HashMap<(KeyChord, bool), UiAction> = HashMap::new();
     for action in map.actions() {
-        if let Some(chords) = map.chords_for(action) {
-            for chord in chords {
-                if let Some(existing) = seen.get(chord) {
-                    panic!(
-                        "duplicate chord {:?} maps to both {:?} and {:?}",
-                        chord, existing, action
-                    );
-                }
-                seen.insert(chord.clone(), action);
+        for chord in map.chords_for(action).into_iter().flatten() {
+            let key = (chord.clone(), action.is_review());
+            if let Some(existing) = seen.insert(key, action) {
+                panic!("duplicate chord {chord:?} maps to both {existing:?} and {action:?}");
             }
         }
     }
+}
+
+/// The break this catches: a shared chord resolving to the first action declared wherever it's
+/// pressed, so `Alt+Left` either never leaves a review or never moves between panes in chat.
+#[test]
+fn a_shared_chord_resolves_to_the_action_the_surface_prefers() {
+    let map = KeyMap::defaults();
+    let alt_left = KeyChord::parse("alt+left").expect("a chord");
+    let review = map.resolve_chord_preferring(&alt_left, |action| action.is_review());
+    assert_eq!(review, Some(UiAction::ReviewReturnChat));
+    let chat = map.resolve_chord_preferring(&alt_left, |action| !action.is_review());
+    assert_eq!(chat, Some(UiAction::FocusLeft));
+    let alt_right = KeyChord::parse("alt+right").expect("a chord");
+    let unshared = map.resolve_chord_preferring(&alt_right, |action| action.is_review());
+    assert_eq!(unshared, Some(UiAction::FocusRight), "an unshared chord is itself either way");
+    let unbound = KeyChord::parse("alt+down").expect("a chord");
+    assert_eq!(map.resolve_chord_preferring(&unbound, |_| true), None);
 }
 
 #[test]
@@ -333,14 +347,23 @@ fn overrides_replace_defaults() {
     assert_eq!(map.resolve(true, false, false, &KeyName::Char('p')), Some(UiAction::OpenPalette));
 }
 
+/// The break this catches: a user's chord left on the default action it collides with, so which
+/// one fires depends on declaration order; or evicted from the other scope's action, which a saved
+/// map then reads back without.
 #[test]
-fn overrides_evict_colliding_default_chords() {
+fn overrides_evict_colliding_default_chords_in_their_own_scope() {
     let mut overrides = HashMap::new();
-    overrides.insert("tui.convo.search".to_string(), vec!["f".to_string()]);
+    overrides.insert("tui.convo.search".to_string(), vec!["alt+d".to_string(), "f".to_string()]);
     let map = KeyMap::defaults().with_overrides(overrides);
 
-    assert_eq!(map.resolve(false, false, false, &KeyName::Char('f')), Some(UiAction::SearchConvo));
-    assert_eq!(map.chords_for(UiAction::ReviewToggleNoise), None);
+    assert_eq!(map.resolve(false, false, true, &KeyName::Char('d')), Some(UiAction::SearchConvo));
+    assert_eq!(map.chords_for(UiAction::ToggleDock), None, "the dock's chord went to search");
+    let f = KeyChord::parse("f").expect("a chord");
+    assert_eq!(
+        map.resolve_chord_preferring(&f, |action| action.is_review()),
+        Some(UiAction::ReviewToggleNoise),
+        "the review keeps its own f"
+    );
 }
 
 #[test]
@@ -421,6 +444,8 @@ fn the_action_ids_are_pinned() {
             "tui.workspace.reset_dock_auto",
             "tui.workspace.toggle_dock_position",
             "tui.workspace.focus_files",
+            "tui.workspace.focus_left",
+            "tui.workspace.focus_right",
             "tui.statusline.toggle",
             "tui.statusline.show",
             "tui.statusline.hide",
@@ -557,6 +582,8 @@ fn the_default_bindings_are_pinned() {
         ("tui.review.toggle_word_wrap", vec!["w"]),
         ("tui.statusline.toggle", vec!["alt+s"]),
         ("tui.workspace.focus_files", vec!["ctrl+t"]),
+        ("tui.workspace.focus_left", vec!["alt+left"]),
+        ("tui.workspace.focus_right", vec!["alt+right"]),
         ("tui.workspace.toggle_dock", vec!["alt+d"]),
     ];
     let bound: Vec<(&str, Vec<&str>)> = bound

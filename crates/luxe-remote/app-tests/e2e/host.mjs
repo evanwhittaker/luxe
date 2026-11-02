@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
+import { PICTURE } from "./mock-provider.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 
@@ -46,6 +47,7 @@ function gitProject(root, name) {
   git("init", "-q", "-b", "main");
   // a few lines, so a phone can pick a range of them and select part of one
   writeFileSync(join(project, "README.md"), "# e2e\n\nThe port is 4519.\nThe host is luxe.local.\n");
+  writeFileSync(join(project, PICTURE.path), Buffer.from(PICTURE.base64, "base64"));
   git("add", ".");
   git("commit", "-qm", "start");
   return project;

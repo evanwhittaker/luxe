@@ -87,6 +87,8 @@ ui_actions! {
     ResetDockAuto => ("tui.workspace.reset_dock_auto", "Reset dock to automatic behavior"),
     ToggleDockPosition => ("tui.workspace.toggle_dock_position", "Swap the sidebar's side"),
     FocusFiles => ("tui.workspace.focus_files", "Browse files by keyboard"),
+    FocusLeft => ("tui.workspace.focus_left", "Move to the pane on the left"),
+    FocusRight => ("tui.workspace.focus_right", "Move to the pane on the right"),
     ToggleStatusline => ("tui.statusline.toggle", "Toggle statusline"),
     ShowStatusline => ("tui.statusline.show", "Show statusline"),
     HideStatusline => ("tui.statusline.hide", "Hide statusline"),

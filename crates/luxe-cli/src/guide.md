@@ -678,7 +678,8 @@ the conversation. All three wait for a running turn to finish.
 | `alt+o` | Open the file in your editor, in the preview | `tui.preview.open_in_editor` |
 | `alt+m` | Show a changed file whole, or its diff, in the preview | `tui.preview.toggle_view` |
 | `alt+l` | Ask about the lines you picked, in the preview | `tui.preview.ask_about_selection` |
-| `ctrl+t` | Move the keyboard into the dock's file tree, then into the file showing | `tui.workspace.focus_files` |
+| `ctrl+t` | Move the keyboard into the dock's file tree, then into the file showing, then back to the composer | `tui.workspace.focus_files` |
+| `alt+←`, `alt+→` | Move the keyboard to the pane on the left or right: the file tree, the file showing, the composer | `tui.workspace.focus_left`, `tui.workspace.focus_right` |
 | `ctrl+g` | Guided Review | `tui.review.open` |
 | `ctrl+shift+r` | Reload config and keys | `tui.app.reload` |
 | `ctrl+c` | Quit | `tui.app.quit` |
@@ -2536,7 +2537,7 @@ The composer and every other text field take the usual line-editing keys:
 
 | To | Key |
 | --- | --- |
-| Move by word | `ctrl+←` / `ctrl+→`, or `alt+←` / `alt+→` |
+| Move by word | `ctrl+←` / `ctrl+→` |
 | Start or end of line | `home` / `end`, or `ctrl+a` / `ctrl+e` |
 | Delete the word before or after | `alt+backspace` / `alt+delete` |
 | Delete to the start of the line | `ctrl+u` |
@@ -2701,8 +2702,10 @@ permissions and shows up in the review, or press `O` to open the folder in your 
 terminal one such as yazi takes the screen until you quit it, as your editor does; the tree reads
 its folders again when you come back.
 
-`ctrl+t` moves the keyboard into the tree, and pressed again, into the file showing beside it.
-`tab` trades the keyboard between the two, and `esc` hands it back to the composer.
+`alt+←` and `alt+→` move the keyboard between the tree, the file showing and the composer, in the
+order they sit on screen. `ctrl+t` goes round the same three: into the tree, then into the file
+showing, then back to the composer. `tab` trades the keyboard between the tree and the file. The
+file's title lights up while the keyboard is in it.
 
 | In the tree | Key |
 | --- | --- |
@@ -2774,11 +2777,11 @@ The preview is not a review: looking at a file does not count it as reviewed.
 | Wrap long lines, or not | `alt+w` |
 | Open the file in your editor, at the top line shown, or an image in your image viewer | `alt+o` |
 | Open a [Guided Review](guided-review.md) of your changes, at this file | `ctrl+g` |
-| Back to the conversation | `esc` |
+| Close it | `esc` |
 
 With the keyboard in the file, a cursor marks the line you are on with a `›` and a lighter band,
 and the file scrolls to keep it in view. Clicking a file under `FILES` or a line in the file puts
-the keyboard there, as do `ctrl+t` twice and `tab` from the tree. In a diff the cursor moves the
+the keyboard there, as do `alt+←` or `alt+→` toward it, `ctrl+t` twice, and `tab` from the tree. In a diff the cursor moves the
 same way, row by row, and picks nothing.
 
 | In the file | Key |
@@ -4315,8 +4318,9 @@ can answer prompts and send messages. It can't switch or end the session, or pub
 In a session, the app can:
 
 - Name the session's folder and branch in the header, starred when the tree has changes.
-- Show the conversation as the interface draws it: markdown, highlighted code, tool cards. A long
-  one opens on its latest 300 items, and **Show earlier** at the top brings 300 more at a time.
+- Show the conversation as the interface draws it: markdown, highlighted code, tool cards, and an
+  image a tool returned (a picture the agent read, a screenshot) under its card. A long one opens
+  on its latest 300 items, and **Show earlier** at the top brings 300 more at a time.
 - Send a message, with photos from the camera or library, and steer or stop a running turn. While
   one runs, what you send steers it at the next step, photos and all, and waits above the message
   box, marked `steering`, until it's delivered. **Withdraw**, or stopping the turn, puts it back
@@ -4333,17 +4337,18 @@ In a session, the app can:
   (from the same list as `/model`, with the levels each model honors), and see the cost. The
   details also set the **Text size**, small, medium or large, for this device alone; the session
   list has the same setting.
-- Keep everything about the project in one sidebar: [the dock](interface.md#the-dock) at the top,
-  then Project (the file tree), GitHub and Review, each under a heading you tap to show or hide
-  it. The links along its top jump to each one. On an iPad or an open iPhone Duo it's a rail
-  beside the conversation: the header's dock button or `/dock` shows and hides it, `/dock left` or
-  `/dock right` moves it, and it starts from your `dock.mode` and `dock.position`
+- Keep everything about the project in one sidebar: Plan, Files, GitHub and Review, the
+  [dock](interface.md#the-dock)'s plan at the top and each of the rest under a heading you tap to
+  show or hide it. The links along its top jump to each one. On an iPad or an open iPhone Duo
+  it's a rail beside the conversation: the header's dock button or `/dock` shows and hides it,
+  `/dock left` or `/dock right` moves it, and it starts from your `dock.mode` and `dock.position`
   [settings](configuration.md), as the interface does. On a phone the header's one menu button
-  opens it over the page, and `/dock` opens it at the dock.
-- See the plan and the changed files in the dock. A long plan scrolls in a box of its own that
-  keeps the work in hand in view, until you scroll it yourself. Tap a file for its diff.
-- Browse the project's files under the Project heading, in the interface's FILES tree, and read a
-  file highlighted as the interface shows it. An image or an SVG shows as its picture, an SVG's
+  opens it over the page, and `/dock` opens it at the plan.
+- See the plan under Plan. A long plan scrolls in a box of its own that keeps the work in hand in
+  view, until you scroll it yourself.
+- Browse the project's files under Files, in the interface's FILES tree. A changed file wears its
+  counts and status, a deleted one included, and a tap opens its diff. Tap any other file to read
+  it highlighted as the interface shows it. An image or an SVG shows as its picture, an SVG's
   source under it. **Mention** adds its path to your message. On an iPad or an open iPhone Duo a
   file opens beside the rail; on a screen wide enough the conversation stays in view too.
 - Ask about particular lines of a file, a diff or a review chapter, as you would in the interface's

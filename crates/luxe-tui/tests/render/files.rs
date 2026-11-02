@@ -281,7 +281,7 @@ fn a_click_on_a_file_in_the_tree_gives_the_pane_the_keyboard() {
 /// pointer lights only the key it is over. A key that names a pair (`j k`) is no button at all.
 ///
 /// The break this catches: every key sharing one target, so a hover lit them all and a click on
-/// `esc back` did nothing.
+/// `esc close` did nothing, or that click only handing the keyboard back with the preview left up.
 #[test]
 fn the_focused_footer_keys_are_buttons_of_their_own() {
     let (width, height) = (160, 40);
@@ -293,19 +293,18 @@ fn the_focused_footer_keys_are_buttons_of_their_own() {
     app.update(Msg::FocusPeek);
 
     let buffer = render_app(&mut app, &backend);
-    let footer = row_containing(&buffer, "esc back", width, height);
+    let footer = row_containing(&buffer, "esc close", width, height);
     let text = row_text(&buffer, footer, width);
     let target = |needle: &str| app.hit.borrow().at(column_of(&text, needle), footer).cloned();
     assert_eq!(target("j k line"), None, "a pair of keys is a hint, not a button");
-    let (copy, back) = (target("y copy"), target("esc back"));
-    assert!(copy.is_some() && back.is_some(), "single keys are buttons: {copy:?} {back:?}");
-    assert_ne!(copy, back, "and each is its own, so a hover lights only one");
+    let (copy, close) = (target("y copy"), target("esc close"));
+    assert!(copy.is_some() && close.is_some(), "single keys are buttons: {copy:?} {close:?}");
+    assert_ne!(copy, close, "and each is its own, so a hover lights only one");
 
-    let action = left_click(&mut app, column_of(&text, "esc back"), footer);
+    let action = left_click(&mut app, column_of(&text, "esc close"), footer);
     apply(&mut app, action);
     let content = buffer_to_string(&render_app(&mut app, &backend));
-    assert!(content.contains("esc close"), "the pane let go of the keyboard: {content}");
-    assert!(content.contains("README.md"), "and the preview is still open: {content}");
+    assert!(!content.contains("esc close"), "one click puts the preview away: {content}");
 }
 
 /// The peek's FILE / DIFF switch: both faces in capitals, both slabs, neither moving when the

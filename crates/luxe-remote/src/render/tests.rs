@@ -114,17 +114,14 @@ fn the_dock_and_diff_pieces_arrive_by_their_kinds() {
     let pieces = serde_json::json!([
         { "kind": "plan", "todos": { "current": null, "items": [], "pending": 0, "in_progress": 0,
             "completed": 0, "blocked": 0, "total": 0, "truncated": false } },
-        { "kind": "changes", "changes": { "files": [], "total_files": 0, "additions": 0,
-            "deletions": 0, "truncated": false } },
         { "kind": "diff", "diff": { "path": "a", "file": null, "untracked": false } },
         { "kind": "diff_failed", "error": "too_large" },
     ]);
     let pieces: Vec<Piece> = serde_json::from_value(pieces).expect("the pieces the app sends");
     let html: Vec<String> = pieces.iter().map(|piece| render(&PlainText, piece)).collect();
     assert!(html[0].contains(">PLAN</span>"), "{html:?}");
-    assert!(html[1].contains(">FILES</span>"), "{html:?}");
-    assert!(html[2].contains("matches the last commit"), "{html:?}");
-    assert!(html[3].contains("too large"), "{html:?}");
+    assert!(html[1].contains("matches the last commit"), "{html:?}");
+    assert!(html[2].contains("too large"), "{html:?}");
 }
 
 /// The break this catches: a message with no images given an "attached" line anyway.

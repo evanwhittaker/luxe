@@ -126,7 +126,7 @@ fn shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<Shortcut>
         action: ChangesFooterAction::OpenInEditor,
     });
     shortcuts.push(Shortcut {
-        chord: chord(UiAction::FocusFiles, "ctrl+t"),
+        chord: toward_the_preview(app),
         label: "navigate",
         action: ChangesFooterAction::Focus,
     });
@@ -136,6 +136,17 @@ fn shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<Shortcut>
         action: ChangesFooterAction::Close,
     });
     shortcuts
+}
+
+/// The arrow that steps the keyboard into the preview from where it is: the preview sits left of
+/// the conversation on either side, and right of the tree only when the dock is on the left.
+fn toward_the_preview(app: &App) -> String {
+    use luxe_core::keymap::UiAction;
+    let dock_left = app.dock.position != luxe_core::config::DockPosition::Right;
+    if dock_left && app.files.focused {
+        return chord(app, UiAction::FocusRight, "alt+right");
+    }
+    chord(app, UiAction::FocusLeft, "alt+left")
 }
 
 /// The first key bound to `action`, or `fallback` when nothing is.
@@ -175,7 +186,7 @@ fn wrap_shortcut(app: &App, view: &ChangesView) -> Shortcut {
 }
 
 /// The keys the pane answers to while the keyboard is in it, which are not the ones it shows
-/// otherwise: a reader who just walked in needs the way around, and the way out.
+/// otherwise: a reader who just walked in needs the way around, and the way to put it away.
 ///
 /// The layout chords still work here (the pane passes every chord on), so they follow the
 /// movement keys where the row has room, and are the first to go where it doesn't.
@@ -186,7 +197,7 @@ fn focused_shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<S
     }
     let layout =
         split_shortcut(app, view, side_by_side).into_iter().chain([wrap_shortcut(app, view)]);
-    // Ahead of `tab files` and `esc back`, which stay last
+    // Ahead of `tab files` and `esc close`, which stay last
     let at = shortcuts.len().saturating_sub(2);
     shortcuts.splice(at..at, layout);
     shortcuts
@@ -200,7 +211,7 @@ fn focused_keys(view: &ChangesView) -> Vec<Shortcut> {
         .map(|&(chord, label, action)| Shortcut { chord: chord.to_string(), label, action })
         .collect();
     if let Some(source) = source_shortcut(view).filter(|_| !view.visual) {
-        // Ahead of `tab files` and `esc back`, which stay last
+        // Ahead of `tab files` and `esc close`, which stay last
         shortcuts.insert(shortcuts.len().saturating_sub(2), source);
     }
     shortcuts
@@ -235,14 +246,14 @@ const SVG_KEYS: [FocusedKey; 4] = [
     ("enter", "full size", A::Enlarge),
     ("o", "editor", A::OpenInEditor),
     ("tab", "files", A::Files),
-    ("esc", "back", A::Escape),
+    ("esc", "close", A::Escape),
 ];
 
 const PICTURE_KEYS: [FocusedKey; 4] = [
     ("enter", "full size", A::Enlarge),
     ("o", "open", A::OpenInEditor),
     ("tab", "files", A::Files),
-    ("esc", "back", A::Escape),
+    ("esc", "close", A::Escape),
 ];
 
 const VISUAL_KEYS: [FocusedKey; 5] = [
@@ -260,7 +271,7 @@ const FILE_KEYS: [FocusedKey; 7] = [
     ("y", "copy", A::Copy),
     ("o", "editor", A::OpenInEditor),
     ("tab", "files", A::Files),
-    ("esc", "back", A::Escape),
+    ("esc", "close", A::Escape),
 ];
 
 const DIFF_KEYS: [FocusedKey; 6] = [
@@ -269,7 +280,7 @@ const DIFF_KEYS: [FocusedKey; 6] = [
     ("g G", "ends", A::Hint),
     ("o", "editor", A::OpenInEditor),
     ("tab", "files", A::Files),
-    ("esc", "back", A::Escape),
+    ("esc", "close", A::Escape),
 ];
 
 /// The footer, with a click region per shortcut so the mouse can do what the keys do.
@@ -318,3 +329,6 @@ pub(super) fn render_footer(
         hit.push(Rect::new(x, area.y, width, 1), MouseTarget::ChangesFooter(action));
     }
 }
+
+#[cfg(test)]
+mod tests;

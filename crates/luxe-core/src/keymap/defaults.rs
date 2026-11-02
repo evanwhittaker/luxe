@@ -89,6 +89,12 @@ const DEFAULTS: &[(UiAction, &[&str])] = &[
     // `T` for tree. The composer reads `Ctrl+T` as nothing, and every fuzzy finder that binds
     // it means files by it.
     (UiAction::FocusFiles, &["ctrl+t"]),
+    // The keyboard goes where the arrow points: the FILES tree, the preview, the composer, in the
+    // order they're drawn. The composer's word jumps keep Ctrl+arrows, and macOS's Option+arrows
+    // arrive as Alt+B/F. Alt+Left is also Guided Review's way back to chat, which a review resolves
+    // to instead (`KeyMap::resolve_chord_preferring`).
+    (UiAction::FocusLeft, &["alt+left"]),
+    (UiAction::FocusRight, &["alt+right"]),
     // Guided Review workspace. Contextual routing owns these while review is active.
     // ReviewOpen is the entry point from chat ("g" for Guided review); it no-ops in review.
     (UiAction::ReviewOpen, &["ctrl+g"]),

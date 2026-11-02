@@ -6,12 +6,13 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { SIDEBAR_PARTS, WIDE, createDock, dockAfter, dockVisible, phoneDock, startingMode } from "../app/layout.js";
 
-// The break this catches: the plan and changes moved below the project's views, where a phone's
-// one button no longer opens on them; or GitHub unfolded from the start, so every iPad session's
-// rail asks GitHub for its lists unasked
-test("the sidebar runs dock first, and only what's cheap to ask for starts unfolded", () => {
-  assert.deepEqual(SIDEBAR_PARTS.map(({ id }) => id), ["dock", "files", "github", "review"]);
-  assert.deepEqual(SIDEBAR_PARTS.filter(({ unfolded }) => unfolded).map(({ id }) => id), ["dock", "files"]);
+// The break this catches: the plan moved below the project's views, where a phone's one button no
+// longer opens on it; a part named other than the TUI's sections; or GitHub unfolded from the
+// start, so every iPad session's rail asks GitHub for its lists unasked
+test("the sidebar runs plan first, and only what's cheap to ask for starts unfolded", () => {
+  assert.deepEqual(SIDEBAR_PARTS.map(({ title }) => title), ["Plan", "Files", "GitHub", "Review"]);
+  assert.deepEqual(SIDEBAR_PARTS.map(({ id }) => id), ["plan", "files", "github", "review"]);
+  assert.deepEqual(SIDEBAR_PARTS.filter(({ unfolded }) => unfolded).map(({ id }) => id), ["plan", "files"]);
 });
 
 // The break this catches: `/dock` on a phone doing nothing now the dock lives in the sheet, or a

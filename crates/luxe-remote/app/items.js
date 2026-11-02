@@ -161,12 +161,25 @@ function ToolCard({ card, waiting }) {
     ${body(call)}`;
   const outcome = call.name === "question" && output ? questionOutcome(output) : null;
   const className = `item tool ${call.state}${call.name === "skill" ? " skill" : ""}`;
+  const pictures = html`<${ToolPictures} call=${call} />`;
   if (outcome) return html`<div class=${className}><div class="tool-head">${head}</div><${Answers} outcome=${outcome} /></div>`;
-  if (!output) return html`<div class=${className}><div class="tool-head">${head}</div></div>`;
-  return html`<details class=${className}>
+  if (!output) return html`<div class=${className}><div class="tool-head">${head}</div>${pictures}</div>`;
+  return html`<div class=${className}><details>
     <summary class="tool-head">${head}</summary>
     <pre class="tool-output">${output}</pre>
-  </details>`;
+  </details>${pictures}</div>`;
+}
+
+/**
+ * The images a call's result carried, such as a screenshot or an image file read, shown under its
+ * card in view rather than folded with its text, as the TUI draws them under the card.
+ * @param {{ call: Card }} props
+ */
+function ToolPictures({ call }) {
+  if (!call.pictures?.length) return null;
+  return html`<div class="tool-pictures">
+    ${call.pictures.map((picture, index) => html`<img key=${index} src=${picture} alt=${`${call.label || call.name}, image ${index + 1}`} />`)}
+  </div>`;
 }
 
 /**

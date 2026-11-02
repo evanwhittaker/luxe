@@ -9,6 +9,7 @@ use super::{events, App, ConvoBlock, Msg};
 
 pub(crate) mod changes;
 pub(crate) mod files;
+mod focus;
 pub(super) mod github_post;
 pub(super) mod pull_request_fix;
 pub(crate) mod pull_request_opening;
@@ -121,8 +122,8 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         | Msg::ToggleFilesScope
         | Msg::ToggleIgnoredFiles
         | Msg::FocusFiles
-        | Msg::FocusPeek
         | Msg::ChooseMenuItem(_) => files::reduce(app, msg),
+        Msg::FocusPeek | Msg::WalkFocus | Msg::StepFocus(_) => focus::reduce(app, msg),
         Msg::Key(key) => app.handle_key(key),
         Msg::Engine(event) => events::reduce(app, event),
         Msg::Tick => tick(app),

@@ -76,9 +76,10 @@ function WorkspaceViews({ view }) {
   `;
 }
 
-/** Asks for a changed file's diff, which opens over the page. @param {View} view */
+/** Asks for a changed file's diff, which opens in place of an open file. @param {View} view */
 function openDiff(view) {
   return (/** @type {string} */ path) => {
+    view.files.close();
     const request = diffRequest(path);
     view.workspace.opened(request);
     if (!view.send(request)) view.workspace.lost();
@@ -92,7 +93,7 @@ function openDiff(view) {
  */
 function workDock(view, verb) {
   const onPhone = matchMedia(WIDE).matches ? null : phoneDock(verb, view.panel.shown.value);
-  if (onPhone === "open") return view.panel.open("dock");
+  if (onPhone === "open") return view.panel.open("plan");
   if (onPhone === "close") return view.panel.close();
   theDock().apply(verb);
 }
@@ -116,7 +117,10 @@ function panelHooks(view) {
   const mention = (words) => mentionIn(view, words);
   const { listings, files, github, review, workspace } = view;
   const project = projectOf(view);
-  const dock = { changes: workspace.changes.value, todos: workspace.todos.value, openDiff: openDiff(view), diffOpen: Boolean(workspace.diff.value) };
+  const dock = {
+    changes: workspace.changes.value, todos: workspace.todos.value,
+    openDiff: openDiff(view), closeDiff: workspace.close, diffOpen: Boolean(workspace.diff.value),
+  };
   const live = view.status.value === "live";
   return { send: (frame) => view.send(frame), listings, files, github, review, mention, ...dock, project, live };
 }
