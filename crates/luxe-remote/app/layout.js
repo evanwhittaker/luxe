@@ -1,8 +1,8 @@
 // @ts-check
 // Whether the sidebar shows, and on which side: started from your config's dock, which the bridge
 // writes on the page, as the TUI starts from it. `/dock` and the header's button change them while
-// the app is open, as `/dock` does in the TUI. The sidebar is the dock's plan and changes with the
-// project's views under them: a rail beside the conversation on a wide screen, a sheet over it on a
+// the app is open, as `/dock` does in the TUI. The sidebar is the plan with the project's views
+// under it: a rail beside the conversation on a wide screen, a sheet over it on a
 // phone, behind the header's one button either way.
 
 import { signal } from "@preact/signals";
@@ -10,7 +10,7 @@ import { useEffect, useState } from "preact/hooks";
 
 /**
  * @typedef {"auto" | "shown" | "hidden"} DockMode
- * @typedef {"dock" | "files" | "github" | "review"} Part
+ * @typedef {"plan" | "files" | "github" | "review"} Part
  */
 
 /**
@@ -19,8 +19,8 @@ import { useEffect, useState } from "preact/hooks";
  * rail showing on every iPad session shouldn't do unasked.
  */
 export const SIDEBAR_PARTS = /** @type {{ id: Part, title: string, unfolded: boolean }[]} */ ([
-  { id: "dock", title: "Dock", unfolded: true },
-  { id: "files", title: "Project", unfolded: true },
+  { id: "plan", title: "Plan", unfolded: true },
+  { id: "files", title: "Files", unfolded: true },
   { id: "github", title: "GitHub", unfolded: false },
   { id: "review", title: "Review", unfolded: false },
 ]);

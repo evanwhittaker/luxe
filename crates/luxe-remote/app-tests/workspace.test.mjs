@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createWorkspace, diffRequest, hasDock, planScroll } from "../app/workspace.js";
+import { createWorkspace, diffRequest, planScroll } from "../app/workspace.js";
 
 /** Ten todos a line (10px) each, in `statuses` order, then pending. @param {string[]} statuses */
 const plan = (...statuses) => Array.from({ length: 10 }, (_, index) => ({ bottom: (index + 1) * 10, status: statuses[index] ?? "pending" }));
@@ -106,11 +106,3 @@ test("a diff request names its file", () => {
   assert.equal(request.content.path, "src/a b.rs");
 });
 
-// The break this catches: an empty dock taking the wide screen's right side, or a dock with only
-// a plan, or only changes, not shown
-test("the dock shows when there's a plan or a change", () => {
-  assert.equal(hasDock(null, null), false);
-  assert.equal(hasDock({ total: 0 }, { total_files: 0 }), false);
-  assert.equal(hasDock(TODOS, { total_files: 0 }), true);
-  assert.equal(hasDock({ total: 0 }, CHANGES), true);
-});

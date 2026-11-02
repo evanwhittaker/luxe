@@ -1,13 +1,14 @@
 // @ts-check
-// The sidebar: the dock's plan and changes, then the project's views (its file tree, GitHub,
-// Review), in one column that scrolls, with a row of jumps at its top. On a wide screen it's a rail
-// beside the conversation, as the TUI keeps FILES in its dock, shown and hidden with the dock; a
-// file, a pull request or a review chapter opens in a pane beside it. On a phone it's a sheet over
-// the page, behind the header's one button, and a pane covers it. One pane at a time.
+// The sidebar: the plan, then the project's views (Files, where a changed file opens its diff,
+// GitHub, Review), in one column that scrolls, with a row of jumps at its top. On a wide screen
+// it's a rail beside the conversation, as the TUI keeps FILES in its dock, shown and hidden with
+// the dock; a file, a diff, a pull request or a review chapter opens in a pane beside it. On a
+// phone it's a sheet over the page, behind the header's one button, and a pane covers it. One pane
+// at a time.
 
 import { signal } from "@preact/signals";
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { DockPart, useEscape } from "./dock.js";
+import { PlanPart, useEscape } from "./dock.js";
 import { FilePeek, FilesTab } from "./files-view.js";
 import { GithubPeek, GithubTab } from "./github-view.js";
 import { html } from "./html.js";
@@ -23,13 +24,13 @@ import { ReviewPeek, ReviewTab } from "./review-view.js";
  * @typedef {ReturnType<typeof createPanel>} Panel
  * @typedef {{ send: (frame: Frame) => boolean, listings: Listings, files: ReturnType<typeof import("./files.js").createFiles>,
  *   github: ReturnType<typeof import("./github.js").createGithub>, review: ReturnType<typeof import("./review.js").createReview>,
- *   mention: (words: string) => void, changes: any, todos: any, openDiff: (path: string) => void, diffOpen: boolean,
+ *   mention: (words: string) => void, changes: any, todos: any, openDiff: (path: string) => void, closeDiff: () => void, diffOpen: boolean,
  *   project: Project, live: boolean }} PanelHooks
  * @typedef {{ name: string, branch: string | null, dirty: boolean }} Project
  */
 
 /** @type {Record<Part, (props: { hooks: PanelHooks }) => any>} */
-const PART_VIEWS = { dock: DockPart, files: FilesTab, github: GithubTab, review: ReviewTab };
+const PART_VIEWS = { plan: PlanPart, files: FilesTab, github: GithubTab, review: ReviewTab };
 
 /**
  * The sidebar's state: whether a phone's sheet is open, which parts are unfolded, and the part to
@@ -59,7 +60,7 @@ function toggled(parts, part) {
 
 /** The phone header's button that opens the sidebar. @param {{ open: () => void }} props */
 export function PanelButton({ open }) {
-  return html`<button type="button" class="panel-button" aria-label="Dock and project" onClick=${open}><${Icon} name="menu" /></button>`;
+  return html`<button type="button" class="panel-button" aria-label="Sidebar" onClick=${open}><${Icon} name="menu" /></button>`;
 }
 
 /** @param {{ panel: Panel, hooks: PanelHooks }} props */
@@ -79,7 +80,7 @@ function Sidebar({ panel, hooks, wide }) {
   const sheet = useRef(/** @type {HTMLElement | null} */ (null));
   useJump(panel, sheet);
   return html`<div class="sheet panel" ref=${sheet} role=${wide ? "complementary" : "dialog"} aria-modal=${!wide}
-      aria-label="Dock and project">
+      aria-label="Sidebar">
     <div class="panel-top">
       ${wide ? null : html`<${SheetBar} project=${hooks.project} close=${panel.close} />`}
       <${Jumps} jump=${panel.jump} />
@@ -105,14 +106,14 @@ function Jumps({ jump }) {
 }
 
 /**
- * One part: the dock under the host's own headings, or a project view under a heading that folds
+ * One part: the plan under the host's own heading, or a project view under a heading that folds
  * it. A view is only built while it's unfolded and the link is up: each asks the host for what it
  * shows as it's built, and the rail is on screen from before the link is, and after one drops.
  * @param {{ id: Part, title: string, panel: Panel, hooks: PanelHooks }} props
  */
 function PartView({ id, title, panel, hooks }) {
   const View = PART_VIEWS[id];
-  if (id === "dock") return html`<section class="part" data-part="dock" aria-label=${title}><${View} hooks=${hooks} /></section>`;
+  if (id === "plan") return html`<section class="part" data-part="plan" aria-label=${title}><${View} hooks=${hooks} /></section>`;
   const unfolded = panel.unfolded.value.has(id);
   return html`<section class="part" data-part=${id} aria-label=${title}>
     <h2 class="part-head"><button type="button" aria-expanded=${unfolded} onClick=${() => panel.fold(id)}>

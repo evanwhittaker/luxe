@@ -140,7 +140,8 @@ the conversation. All three wait for a running turn to finish.
 | `alt+o` | Open the file in your editor, in the preview | `tui.preview.open_in_editor` |
 | `alt+m` | Show a changed file whole, or its diff, in the preview | `tui.preview.toggle_view` |
 | `alt+l` | Ask about the lines you picked, in the preview | `tui.preview.ask_about_selection` |
-| `ctrl+t` | Move the keyboard into the dock's file tree, then into the file showing | `tui.workspace.focus_files` |
+| `ctrl+t` | Move the keyboard into the dock's file tree, then into the file showing, then back to the composer | `tui.workspace.focus_files` |
+| `alt+←`, `alt+→` | Move the keyboard to the pane on the left or right: the file tree, the file showing, the composer | `tui.workspace.focus_left`, `tui.workspace.focus_right` |
 | `ctrl+g` | Guided Review | `tui.review.open` |
 | `ctrl+shift+r` | Reload config and keys | `tui.app.reload` |
 | `ctrl+c` | Quit | `tui.app.quit` |

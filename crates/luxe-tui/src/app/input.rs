@@ -15,7 +15,7 @@ pub mod review_keys;
 mod submit;
 mod tabs;
 
-pub(crate) use chord::{chord_of, resolve_key_event};
+pub(crate) use chord::{chord_of, resolve_in_view, resolve_key_event};
 pub(crate) use modal::{github_wheel, modal_took_paste};
 pub(super) use submit::{submit_prompt, submit_prompt_with};
 pub(super) use tabs::open_tab;
@@ -178,7 +178,8 @@ fn bound_action_took(app: &mut App, key: crossterm::event::KeyEvent, is_text_inp
     use crossterm::event::KeyCode;
 
     let bare_esc = key.code == KeyCode::Esc && key.modifiers.is_empty();
-    let action = resolve_key_event(&app.keymap, key).filter(|action| {
+    let in_review = app.current_view == super::ViewMode::GuidedReview;
+    let action = resolve_in_view(&app.keymap, key, in_review).filter(|action| {
         !(bare_esc && *action == UiAction::Cancel && commands::esc_yields_to_composer(app))
     });
     let Some(action) = action else { return false };

@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyRead, childPath, createFiles, entriesNote, fileMention, readFaces, toggled, treeRows, withMention } from "../app/files.js";
+import { applyRead, changedPaths, childPath, createFiles, entriesNote, fileMention, readFaces, toggled, treeRows, withMention } from "../app/files.js";
 import { createGithub } from "../app/github.js";
 import { createReview } from "../app/review.js";
 import { tapRow } from "../app/files-view.js";
@@ -115,9 +115,9 @@ test("toggling opens a closed folder and closes an open one", () => {
 
 /**
  * A tap on a tree row with `dataset`, and what it asked for.
- * @param {Record<string, string>} dataset @param {Iterable<string>} [unfolded]
+ * @param {Record<string, string>} dataset @param {Iterable<string>} [unfolded] @param {any} [changes]
  */
-function tap(dataset, unfolded = []) {
+function tap(dataset, unfolded = [], changes = null) {
   /** @type {any[]} */
   const asked = [];
   const files = createFiles();
@@ -129,9 +129,66 @@ function tap(dataset, unfolded = []) {
   github.open.value = /** @type {any} */ ({ subject: { number: 1 } });
   const review = createReview();
   review.open.value = "chapter:1";
-  tapRow(event, /** @type {any} */ ({ files, github, review, listings, send }));
-  return { files, github, review, asked, send };
+  /** @type {string[]} */
+  const diffs = [];
+  const openDiff = (/** @type {string} */ path) => diffs.push(path);
+  const closeDiff = () => diffs.push("closed");
+  tapRow(event, /** @type {any} */ ({ files, github, review, listings, send, changes, openDiff, closeDiff }));
+  return { files, github, review, asked, send, diffs };
 }
+
+/** A turn's changes: `notes.txt` added and `old.rs` deleted. */
+const CHANGED = { files: [{ path: "notes.txt", status: "added" }, { path: "src/old.rs", status: "deleted" }], total_files: 2 };
+
+// The break this catches: a changed file read as it stands rather than its diff opened, as the
+// TUI's tree opens one, or an open pull request left over it
+test("tapping a changed file opens its diff", () => {
+  const { files, github, review, diffs } = tap({ file: "src/old.rs" }, [], CHANGED);
+  assert.deepEqual(diffs, ["src/old.rs"]);
+  assert.equal(files.open.value, null, "not read");
+  assert.equal(github.open.value, null);
+  assert.equal(review.open.value, null);
+});
+
+// The break this catches: an unchanged file read under a diff still open, two panes at once
+test("tapping an unchanged file closes an open diff", () => {
+  const { files, diffs } = tap({ file: "README.md" }, [], CHANGED);
+  assert.deepEqual(diffs, ["closed"]);
+  assert.equal(files.open.value?.path, "README.md");
+});
+
+// The break this catches: a deleted file, which no listing names, missing from the tree and so
+// out of reach, the tree being where a change opens; or placed out of the TUI's folders-first order
+test("a changed file the listing lacks gets a row", () => {
+  const rows = treeRows(FOLDERS, new Set(["src"]), changedPaths(CHANGED));
+  assert.deepEqual(rows.map((row) => row.kind === "note" ? row.text : row.path),
+    ["src", "src/app", "src/lib.rs", "src/old.rs", "notes.txt", "README.md"]);
+  assert.deepEqual(rows[3], { kind: "file", path: "src/old.rs", name: "old.rs", depth: 1 });
+});
+
+// The break this catches: a listed entry shown twice, or the listing's own order lost when no
+// change adds anything
+test("a change the listing already names adds nothing", () => {
+  const rows = treeRows(FOLDERS, new Set(), ["README.md", "src/lib.rs"]);
+  assert.deepEqual(rows.map((row) => row.kind === "note" ? row.text : row.path), ["src", "README.md"]);
+});
+
+// The break this catches: an untracked folder (`dir/`) drawn as a file named `dir`, or as an
+// empty-named row inside itself
+test("an untracked folder is a folder outside and nothing inside", () => {
+  const folders = { ...FOLDERS, drafts: { state: /** @type {const} */ ("listed"), entries: [{ name: "a.md", kind: /** @type {const} */ ("file") }] } };
+  const rows = treeRows(folders, new Set(["drafts"]), ["drafts/"]);
+  assert.deepEqual(rows.slice(0, 2), [
+    { kind: "folder", path: "drafts", name: "drafts", depth: 0, open: true },
+    { kind: "file", path: "drafts/a.md", name: "a.md", depth: 1 },
+  ]);
+});
+
+// The break this catches: a folder not listed yet hiding the changes inside it behind its note
+test("a folder still being listed shows its changes", () => {
+  const rows = treeRows({}, new Set(), ["notes.txt"]);
+  assert.deepEqual(rows, [{ kind: "file", path: "notes.txt", name: "notes.txt", depth: 0 }]);
+});
 
 // The break this catches: a folder opened without being listed afresh, so it shows what was there
 // before the agent changed it, or listed again on closing, which asks for nothing anyone sees

@@ -20,15 +20,26 @@ changes add to that section until it ships; `scripts/version-check.py` holds the
   `--rpc` clients can send `images` with `steer_turn` too; older clients still work without it.
 - The remote app shows the photos you sent under your message, and images and SVGs as pictures
   in its file viewer.
+- The remote app shows an image a tool returned, such as a picture the agent read or a
+  screenshot, under the tool's card, as the interface does.
 - The remote app shows when the conversation is being compacted, with the spinner, even if you
   join partway through.
 - A **Text size** setting in the remote app, small, medium or large, kept per device.
+- `alt+←` and `alt+→` move the keyboard between the file tree, the file showing and the composer,
+  in the order they sit on screen. In a Guided Review `alt+←` still goes back to the conversation.
 
 ### Changed
 
-- The remote app keeps the dock and the project in one sidebar: the dock at the top, then the
-  file tree, GitHub and Review, with links along its top to jump to each. On an iPad it's the rail
-  beside the conversation; on a phone the header's one button opens it.
+- The remote app keeps the project in one sidebar of four parts, named as the interface's: Plan,
+  Files, GitHub and Review, each under its own heading, with links along its top to jump to
+  each. On an iPad it's the rail beside the conversation; on a phone the header's one button
+  opens it.
+- The remote app's changed files are in the Files tree, deleted ones included, and a tap opens a
+  file's diff, as the interface's tree does.
+- `esc` in the File view closes it, and its footer says **close**. Its title lights up while the
+  keyboard is in it.
+- `alt+←` and `alt+→` in the composer move between panes; `ctrl+←` and `ctrl+→` still move by
+  word.
 - The remote app's tool cards use the interface's working colors and braille spinner, and the
   status line names what's running.
 - The remote app's text is a little larger by default, and its back button is bigger.
@@ -40,6 +51,8 @@ changes add to that section until it ships; `scripts/version-check.py` holds the
   screen.
 - The remote app no longer leaves a gap under the composer when opened from the Home Screen.
 - Clicking the File view's footer lands on the control under the pointer.
+- `ctrl+t` comes back to the composer after the file showing, rather than trading between the
+  tree and the file.
 
 ## [0.1.7]
 

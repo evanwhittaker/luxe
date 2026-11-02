@@ -54,7 +54,7 @@ fn the_unified_diff_marks_and_bands_the_cursor_row() {
 }
 
 /// With the keyboard in the pane, the layout chords still work, so the footer still names them
-/// where there's room: after the movement keys and before the way back. The break this catches:
+/// where there's room: after the movement keys and before the way out. The break this catches:
 /// the focused footer listing only the pane's own keys while wrap and side by side went unsaid.
 #[test]
 fn the_focused_footer_keeps_the_layout_keys_where_they_fit() {
@@ -62,12 +62,12 @@ fn the_focused_footer_keeps_the_layout_keys_where_they_fit() {
         let (mut app, backend, _) = diff_pane(width, 24);
         app.update(Msg::FocusPeek);
         let buffer = render_app(&mut app, &backend);
-        let row = row_containing(&buffer, "esc back", width, 24);
+        let row = row_containing(&buffer, "esc close", width, 24);
         peek_diff_text(&buffer, row, &app, width).trim().to_string()
     };
     let wide = footer(200);
     assert!(wide.contains("ctrl+b unified diff · alt+w stop wrapping · tab files"), "{wide}");
-    assert!(wide.starts_with("j k line") && wide.ends_with("esc back"), "{wide}");
+    assert!(wide.starts_with("j k line") && wide.ends_with("esc close"), "{wide}");
     let narrow = footer(60);
     assert!(
         !narrow.contains("alt+w") && narrow.contains("j k line"),

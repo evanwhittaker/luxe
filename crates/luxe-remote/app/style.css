@@ -291,10 +291,10 @@ main {
 }
 
 /* The TUI's heading badge: the word cut into a slab two cells in and one after, then three cells
-   stepping a quarter of the way each into the canvas. The depth is the section's own, by the TUI's
-   stops: PROJECT and MODEL the accent itself with the canvas as ink, the work in flight (PLAN,
-   FILES) receded 40% into the canvas and SESSION 70%, both inked in body text. An idle badge is
-   a switch's face that isn't showing. A flat statusline style draws bold accent words, as the
+   stepping a quarter of the way each into the canvas. The sidebar's parts and MODEL are the accent
+   itself with the canvas as ink, so every jump lands on the same heading; SESSION recedes 70%
+   into the canvas, inked in body text, by the TUI's stops. An idle badge is a switch's face that
+   isn't showing. A flat statusline style draws bold accent words, as the
    TUI's rail does */
 .badge {
   --canvas: var(--luxe-background, #12100e);
@@ -311,17 +311,9 @@ main {
     color-mix(in srgb, var(--canvas) 75%, var(--slab)) calc(100% - 1ch));
 }
 
-.badge.raised,
-.badge.recessed {
-  color: var(--luxe-text, #e4dfd6);
-}
-
-.badge.raised {
-  --slab: color-mix(in srgb, var(--luxe-accent, #ddc084) 60%, var(--canvas));
-}
-
 .badge.recessed {
   --slab: color-mix(in srgb, var(--luxe-accent, #ddc084) 30%, var(--canvas));
+  color: var(--luxe-text, #e4dfd6);
 }
 
 .badge.idle {
@@ -531,6 +523,22 @@ h2 {
 
 .answer-note {
   color: var(--luxe-muted, #97938c);
+}
+
+/* Indented under the head as the TUI draws a result's image, big enough to read a screenshot by,
+   never wider than the card */
+.tool-pictures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1ch;
+  margin-block-start: 0.5lh;
+  padding-inline-start: 3ch;
+}
+
+.tool-pictures img {
+  max-block-size: 20lh;
+  max-inline-size: 100%;
+  border-radius: 4px;
 }
 
 .tool-output {

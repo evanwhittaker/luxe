@@ -32,6 +32,7 @@ import { batch, signal } from "@preact/signals";
  *   call_id: string, name: string, label: string, state: string, revision: number,
  *   elapsed_ms?: number | null, summary?: string | null, output_preview?: string | null,
  *   card_body?: { text: string, total_lines: number, collapsed_lines: number } | null,
+ *   pictures?: string[],
  * }} Card
  */
 
@@ -157,7 +158,8 @@ function commitUser(state, content) {
 }
 
 /**
- * A message's images as URLs the page can show, from the bytes the message already carries.
+ * A message's images, or a tool result's, as URLs the page can show, from the bytes it already
+ * carries. The two write an image the same way.
  * @param {Block[]} content
  */
 export function photosOf(content) {
@@ -225,7 +227,10 @@ function showCard(state, activity) {
     state.cards.set(activity.call_id, item);
     return push(state, item);
   }
-  if (activity.revision >= known.card.value.revision) known.card.value = activity;
+  if (activity.revision < known.card.value.revision) return;
+  // the host's activity carries text alone; the pictures came with the result and stay
+  const { pictures } = known.card.value;
+  known.card.value = pictures ? { ...activity, pictures } : activity;
 }
 
 /** @param {State} state @param {{ id: string, name: string, arguments: any }} call */
@@ -248,11 +253,13 @@ function settleResults(state, content) {
     const parts = output;
     const text = parts.filter((part) => part.type === "text").map((part) => part.content).join("\n");
     const card = item.card.value;
+    const pictures = photosOf(parts);
     item.card.value = {
       ...card,
       state: is_error ? "failed" : "succeeded",
       output_preview: card.output_preview ?? text,
       revision: card.revision + 1,
+      ...(pictures.length ? { pictures } : {}),
     };
   }
 }

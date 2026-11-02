@@ -1,7 +1,7 @@
 // The app end to end in WebKit, Safari's engine: pair by pasting the invitation link, open the
 // session from the list, send a message, grant the write it asks for, and watch the mock model's
-// turn arrive as the TUI would show it: the rendered answer, the changed file in the dock, and its
-// diff.
+// turn arrive as the TUI would show it: the rendered answer, the changed file in the Files tree,
+// and its diff.
 //
 // Needs a built `luxe` (`LUXE_BIN`, or target/debug/luxe) and Playwright's WebKit
 // (`npx playwright install webkit`). Run: npm run e2e
@@ -11,7 +11,7 @@ import { createRequire } from "node:module";
 import { basename } from "node:path";
 import { after, before, test } from "node:test";
 import { LOGIN, startHost } from "./host.mjs";
-import { WRITTEN, startMockProvider } from "./mock-provider.mjs";
+import { PICTURE, WRITTEN, startMockProvider } from "./mock-provider.mjs";
 
 const playwright = createRequire(import.meta.url)("playwright");
 
@@ -39,7 +39,7 @@ after(async () => {
 
 // The break this catches: any link in the chain from invitation to diff (the unpaired app's
 // pairing field, pairing, the session list, the socket, the composer, the permission card,
-// rendering, the dock, the diff request) broken in Safari's engine
+// rendering, the Files tree, the diff request) broken in Safari's engine
 test("a paired iPad drives a turn and reads its diff", async () => {
   await pair();
   await page.locator("a.session").click();
@@ -47,7 +47,7 @@ test("a paired iPad drives a turn and reads its diff", async () => {
   await page.locator(".send").click();
   await page.locator(".prompt .choice.once").click();
   await page.locator(".item.reply strong", { hasText: WRITTEN.path }).waitFor();
-  await page.locator(`button.change[data-path="${WRITTEN.path}"]`).click();
+  await openWrittenDiff();
   const added = page.locator(".sheet .dl-addition code");
   assert.equal((await added.textContent())?.trim(), WRITTEN.content.trim());
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
@@ -117,7 +117,9 @@ test("the rail lists the project, shows a file and mentions it", async () => {
   assert.match((await header.textContent()) ?? "", new RegExp(`${basename(host.project)}.*\\S+ \\*$`));
   assert.equal(await page.locator(".panel-button").count(), 0, "one header button on a wide screen");
   const parts = await page.$$eval(".panel .part", (all) => all.map((part) => part.getAttribute("data-part")));
-  assert.deepEqual(parts, ["dock", "files", "github", "review"], "the dock, then the project, in one rail");
+  assert.deepEqual(parts, ["plan", "files", "github", "review"], "the plan, then the project, in one rail");
+  // every jump lands on a heading, the plan's too before there's a plan
+  assert.equal(await page.locator('.part[data-part="plan"] .badge').textContent(), "PLAN");
   // the file the turn wrote wears its change, as it does in the TUI's tree
   await page.locator(`button.tree-row[data-file="${WRITTEN.path}"] .tree-name[class*="change-"]`).waitFor();
   await page.locator("button.tree-row", { hasText: "README.md" }).click();
@@ -135,6 +137,16 @@ test("the rail lists the project, shows a file and mentions it", async () => {
   assert.equal(await page.locator(".panel").count(), 1, "Escape leaves the rail");
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });
+
+/**
+ * Opens the turn's file from the Files tree once it wears its change, so the tap opens its diff
+ * rather than reading it as it stands.
+ */
+async function openWrittenDiff() {
+  const row = page.locator(`.panel button.tree-row[data-file="${WRITTEN.path}"]`);
+  await row.locator('.tree-name[class*="change-"]').waitFor();
+  await row.click();
+}
 
 /** Unfolds the rail's Review part by its jump, as a reader reaches it. */
 async function jumpToReview() {
@@ -257,11 +269,11 @@ async function openSheet() {
   await page.locator('.panel[role="dialog"]').waitFor();
 }
 
-// The break this catches: a phone keeping two header buttons, the button not reaching the dock,
+// The break this catches: a phone keeping two header buttons, the button not reaching the plan,
 // the sheet's bar not naming the project and its branch, its jumps wrapping to a second row on the
-// narrowest iPhone, a diff opened from the dock drawn under the sheet, Escape closing the sheet
+// narrowest iPhone, a diff opened from the tree drawn under the sheet, Escape closing the sheet
 // with the diff or not armed the moment the sheet shows, or `/dock` on a phone doing nothing
-test("on a phone one header button opens the dock and the project", async () => {
+test("on a phone one header button opens the plan and the project", async () => {
   await page.setViewportSize({ width: 375, height: 812 });
   // no rail and no rail button, once the app sees the narrow screen
   await page.locator(".dock-toggle").waitFor({ state: "detached", timeout: 2000 });
@@ -274,7 +286,7 @@ test("on a phone one header button opens the dock and the project", async () => 
   assert.match((await named.locator(".project-branch").textContent()) ?? "", /\S+ \*$/);
   const rows = await page.$$eval(".jumps button", (jumps) => new Set(jumps.map((jump) => jump.getBoundingClientRect().top)).size);
   assert.equal(rows, 1, "the jumps fit one row");
-  await page.locator(`.panel button.change[data-path="${WRITTEN.path}"]`).click();
+  await openWrittenDiff();
   await page.locator(".peek .dl-addition").waitFor();
   const onTop = await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest(".peek") !== null);
   assert.ok(onTop, "the diff covers the panel");
@@ -291,5 +303,19 @@ test("on a phone one header button opens the dock and the project", async () => 
   await page.locator('.panel[role="dialog"]').waitFor();
   await page.locator(".panel .close").click();
   await page.setViewportSize(playwright.devices["iPad Pro 11 landscape"].viewport);
+  assert.deepEqual(troubles, [], "the page ran without errors or refusals");
+});
+
+// The break this catches: an image a tool returned (a read picture, a screenshot) reaching the
+// model and never the reader, though the TUI shows it under the call's card; or its bytes mangled
+// on the way, so the page draws a broken image
+test("a picture the agent reads shows under its card", async () => {
+  await page.locator(".composer textarea").fill("Read the picture, please.");
+  await page.locator(".send").click();
+  await page.locator(".item.reply strong", { hasText: PICTURE.path }).waitFor();
+  const picture = page.locator(".item.tool .tool-pictures img");
+  await picture.waitFor();
+  await page.waitForFunction(() => /** @type {HTMLImageElement | null} */ (document.querySelector(".tool-pictures img"))?.complete);
+  assert.equal(await picture.evaluate((img) => /** @type {HTMLImageElement} */ (img).naturalWidth), 1, "the pixel decoded");
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });

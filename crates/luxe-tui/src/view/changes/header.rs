@@ -23,9 +23,24 @@ pub(super) fn render_header(frame: &mut Frame, area: Rect, app: &App, view: &Cha
     frame.render_widget(Paragraph::new(line), Rect { height: 1, ..area });
     if area.height > 1 {
         frame.render_widget(
-            Block::default().borders(Borders::TOP).border_style(app.theme_styles.border_muted),
+            Block::default().borders(Borders::TOP).border_style(keyboard_style(app, view).rule),
             Rect { y: area.y + 1, height: 1, ..area },
         );
+    }
+}
+
+/// The path's and the rule's styles: lit in the accent while the keyboard is in the pane, so
+/// moving it in or out is something the reader sees, not just a footer that changes its words.
+struct KeyboardStyle {
+    path: Style,
+    rule: Style,
+}
+
+fn keyboard_style(app: &App, view: &ChangesView) -> KeyboardStyle {
+    let styles = &app.theme_styles;
+    match view.focused {
+        true => KeyboardStyle { path: styles.accent, rule: styles.accent },
+        false => KeyboardStyle { path: styles.text, rule: styles.border_muted },
     }
 }
 
@@ -57,8 +72,8 @@ fn header_line(app: &App, view: &ChangesView, area: Rect) -> Line<'static> {
     // outside the project arrives absolute and is said the way a person would say it
     let budget = width.saturating_sub(fixed(&position)).max(PATH_FLOOR);
     let path = truncate_path_left(&home_relative(&view.path), budget);
-    let mut spans =
-        vec![lead, Span::styled(path, app.theme_styles.text.add_modifier(Modifier::BOLD))];
+    let path_style = keyboard_style(app, view).path.add_modifier(Modifier::BOLD);
+    let mut spans = vec![lead, Span::styled(path, path_style)];
     spans.extend(details);
     push_tail(&mut spans, (app, area), tabs, position);
     Line::from(spans)
@@ -257,5 +272,34 @@ fn status_style(status: luxe_core::FileChangeStatus, app: &App) -> Style {
         Status::Modified => app.theme_styles.warning,
         Status::Deleted => app.theme_styles.error,
         Status::Renamed => app.theme_styles.info,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fixture::{seed_file_view, seeded_app, FixtureScenario};
+
+    fn path_style(app: &App) -> Style {
+        let view = app.changes.as_ref().expect("a preview");
+        let line = header_line(app, view, Rect::new(0, 0, 80, 2));
+        line.spans.iter().find(|span| span.content == "src/lib.rs").expect("the path").style
+    }
+
+    /// The break this catches: the pane taking or giving up the keyboard with nothing in its header
+    /// to say so, which is how leaving it went unnoticed; or a pane that stays lit after.
+    #[test]
+    fn the_header_lights_while_the_pane_has_the_keyboard() {
+        let mut app = seeded_app("nord", FixtureScenario::ChatIdle).expect("chat fixture");
+        seed_file_view(&mut app, "src/lib.rs", "one\n", None);
+        let styles = app.theme_styles.clone();
+        assert_eq!(path_style(&app).fg, styles.text.fg, "plain while the composer has it");
+        let view = app.changes.as_ref().expect("a preview");
+        assert_eq!(keyboard_style(&app, view).rule.fg, styles.border_muted.fg);
+
+        app.update(crate::app::Msg::FocusPeek);
+        assert_eq!(path_style(&app).fg, styles.accent.fg, "lit while the pane has it");
+        let view = app.changes.as_ref().expect("a preview");
+        assert_eq!(keyboard_style(&app, view).rule.fg, styles.accent.fg, "the rule too");
     }
 }

@@ -42,30 +42,68 @@ export function toggled(set, path) {
 
 /**
  * The rows the tree shows: `folder`'s entries at `depth`, and inside each open folder its own, as
- * the TUI's FILES unfolds in place. A folder with nothing to list yet shows a note instead.
+ * the TUI's FILES unfolds in place. A changed file the listing lacks has a row too, as it does in
+ * the TUI's, since the tree is where a change is opened: a deleted file is listed nowhere else. A
+ * folder with nothing to show yet shows a note instead.
  * @param {Record<string, Listing>} folders @param {ReadonlySet<string>} unfolded
+ * @param {string[]} [changed] The changed files' paths
  * @param {string} [folder] @param {number} [depth] @returns {TreeRow[]}
  */
-export function treeRows(folders, unfolded, folder = "", depth = 0) {
+export function treeRows(folders, unfolded, changed = [], folder = "", depth = 0) {
   const listing = folders[folder];
-  const note = entriesNote(listing);
-  if (note || !listing) return [{ kind: "note", depth, text: note }];
-  return listing.entries.flatMap((entry) => entryRows(entry, { folders, unfolded, folder, depth }));
+  const entries = withChanged(listing?.entries ?? [], changed, folder);
+  if (!entries.length) return [{ kind: "note", depth, text: entriesNote(listing) }];
+  return entries.flatMap((entry) => entryRows(entry, { folders, unfolded, changed, folder, depth }));
+}
+
+/**
+ * `entries` and, for each changed path under `folder` they don't name, the file or folder it
+ * passes through. Sorted as the TUI's tree is, folders first, only when something was added, so a
+ * listing keeps its own order.
+ * @param {Entry[]} entries @param {string[]} changed @param {string} folder @returns {Entry[]}
+ */
+function withChanged(entries, changed, folder) {
+  const names = new Set(entries.map((entry) => entry.name));
+  const added = changedChildren(changed, folder).filter((entry) => !names.has(entry.name) && names.add(entry.name));
+  if (!added.length) return entries;
+  const order = (/** @type {Entry} */ entry) => [entry.kind === "directory" ? 0 : 1, entry.name.toLowerCase(), entry.name].join("\0");
+  return [...entries, ...added].sort((a, b) => (order(a) < order(b) ? -1 : 1));
+}
+
+/**
+ * The entry each changed path under `folder` passes through: a file directly in it, else the
+ * folder it's inside. An untracked folder comes as `dir/`, which is a folder seen from outside and
+ * nothing from inside.
+ * @param {string[]} changed @param {string} folder @returns {Entry[]}
+ */
+function changedChildren(changed, folder) {
+  const prefix = folder ? `${folder}/` : "";
+  return changed
+    .filter((path) => path.startsWith(prefix) && path.length > prefix.length)
+    .map((path) => {
+      const [name, ...inside] = path.slice(prefix.length).split("/");
+      return { name, kind: inside.length ? "directory" : "file" };
+    });
+}
+
+/** The changed files' paths, for the tree. @param {{ files?: { path: string }[] } | null} changes */
+export function changedPaths(changes) {
+  return changes?.files?.map((file) => file.path) ?? [];
 }
 
 /**
  * An entry's row, then, for an open folder, the rows inside it.
  * @param {Entry} entry
- * @param {{ folders: Record<string, Listing>, unfolded: ReadonlySet<string>, folder: string, depth: number }} at
+ * @param {{ folders: Record<string, Listing>, unfolded: ReadonlySet<string>, changed: string[], folder: string, depth: number }} at
  * @returns {TreeRow[]}
  */
-function entryRows(entry, { folders, unfolded, folder, depth }) {
+function entryRows(entry, { folders, unfolded, changed, folder, depth }) {
   const path = childPath(folder, entry.name);
   if (entry.kind !== "directory") return [{ kind: "file", path, name: entry.name, depth }];
   const open = unfolded.has(path);
   /** @type {TreeRow} */
   const row = { kind: "folder", path, name: entry.name, depth, open };
-  return open ? [row, ...treeRows(folders, unfolded, path, depth + 1)] : [row];
+  return open ? [row, ...treeRows(folders, unfolded, changed, path, depth + 1)] : [row];
 }
 
 /** What to say in place of a folder's entries, or "" when there are some to show. @param {Listing | undefined} listing */

@@ -1,11 +1,18 @@
 // A model that follows a script, served the way an OpenAI-compatible endpoint streams: asked to
-// act, it calls `write`; given the tool's result, it says what it did. A request with no tools
-// (a session title, say) gets a word back. Every request is kept for the test to look at.
+// act, it calls `write`, or `read` on the project's picture when the ask names one; given the
+// tool's result, it says what it did. A request with no tools (a session title, say) gets a word
+// back. Every request is kept for the test to look at.
 
 import { createServer } from "node:http";
 
 /** The file the scripted model writes, and what it writes in it. */
 export const WRITTEN = { path: "hello.txt", content: "hello from the mock\n" };
+
+/** A picture in the host's project, one pixel, which the scripted model reads when asked to. */
+export const PICTURE = {
+  path: "pixel.png",
+  base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+};
 
 /** Starts the server on a free port. */
 export async function startMockProvider() {
@@ -34,10 +41,24 @@ async function readBody(request) {
   return text;
 }
 
+/**
+ * Acts on the newest ask, then says what it did once the result is in. Whether it has acted is
+ * read from the history rather than the last message's role, since an image a tool returned
+ * follows its `tool` message as a `user` one.
+ */
 function reply(body) {
   if (!body.tools?.length) return words("Mock");
-  if (body.messages.at(-1)?.role === "tool") return words(`Wrote **${WRITTEN.path}**.`);
-  return writeCall();
+  const { messages } = body;
+  const asked = messages.findLastIndex(isAsk);
+  const acted = messages.findLastIndex((message) => message.tool_calls?.length);
+  if (acted > asked) return words(messages[acted].tool_calls[0].function.name === "read" ? `Read **${PICTURE.path}**.` : `Wrote **${WRITTEN.path}**.`);
+  if (JSON.stringify(messages[asked]?.content).includes("picture")) return toolCall("read", { path: PICTURE.path });
+  return toolCall("write", WRITTEN);
+}
+
+/** A message the person wrote, not the images a tool's result brought along. */
+function isAsk(message) {
+  return message.role === "user" && !JSON.stringify(message.content).includes("from tool result");
 }
 
 const chunk = (delta, finish = null) => ({
@@ -54,9 +75,9 @@ function words(text) {
     chunk({}, "stop"), usage];
 }
 
-function writeCall() {
-  const call = { index: 0, id: "call_write", type: "function", function: { name: "write", arguments: "" } };
-  const args = { index: 0, function: { arguments: JSON.stringify(WRITTEN) } };
+function toolCall(name, args_) {
+  const call = { index: 0, id: `call_${name}`, type: "function", function: { name, arguments: "" } };
+  const args = { index: 0, function: { arguments: JSON.stringify(args_) } };
   return [chunk({ role: "assistant", content: null, tool_calls: [call] }), chunk({ tool_calls: [args] }),
     chunk({}, "tool_calls"), usage];
 }

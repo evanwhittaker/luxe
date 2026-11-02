@@ -74,11 +74,6 @@ export function diffRequest(path) {
   return { kind: "load_file_diff", content: { request_id: `phone-${asked}`, path } };
 }
 
-/** Whether there's anything for the dock to show. @param {Todos | null} todos @param {Changes | null} changes */
-export function hasDock(todos, changes) {
-  return Boolean(todos?.total || changes?.total_files);
-}
-
 /** Todos the plan keeps in view below the active one, as the TUI's PLAN_LOOKAHEAD. */
 const PLAN_LOOKAHEAD = 2;
 

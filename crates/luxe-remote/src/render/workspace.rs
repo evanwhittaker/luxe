@@ -1,12 +1,10 @@
-//! The dock's sections, as the app shows them beside the transcript: the plan and the changes.
+//! Workspace — the dock's plan as the app shows it, and the change marks its FILES tree shares.
 //!
 //! The TUI's words and marks, laid out for a touch screen: every row of the plan wraps rather than
-//! scrolling in a window of its own, and each changed file is a button that opens its diff.
+//! being cut. A changed file is marked in the tree (`tree.rs`), which opens its diff.
 
 use super::{escape, Renderer};
-use luxe_core::workspace::{
-    FileChangeStatus, FileChangeSummary, TodoSummary, TodoSummaryItem, WorkspaceChangesSummary,
-};
+use luxe_core::workspace::{FileChangeStatus, TodoSummary, TodoSummaryItem};
 use luxe_core::TodoSummaryStatus;
 
 /// `PLAN 2/5`, the counts, and the checklist in the order it was written.
@@ -43,33 +41,7 @@ fn todo_status(status: TodoSummaryStatus) -> (&'static str, &'static str) {
     }
 }
 
-/// `FILES 3 changed +7 −0`, and a row for each file.
-pub(super) fn changes(renderer: &dyn Renderer, changes: &WorkspaceChangesSummary) -> String {
-    let counts = counts(changes.additions, changes.deletions);
-    let mut out = heading("FILES", &format!("{} changed{counts}", changes.total_files));
-    if changes.files.is_empty() {
-        return out + "<p class=\"dock-sub\">nothing has changed</p>";
-    }
-    out.push_str("<ul class=\"changes\">");
-    for file in &changes.files {
-        out.push_str(&change_row(renderer, file));
-    }
-    out.push_str("</ul>");
-    out + &more(changes.total_files, changes.files.len())
-}
-
-fn change_row(renderer: &dyn Renderer, file: &FileChangeSummary) -> String {
-    let path = escape(&luxe_core::paths::display(&file.path));
-    format!(
-        "<li><button type=\"button\" class=\"change change-{}\" data-path=\"{path}\">\
-         <span class=\"change-path\">{path}</span><span class=\"change-counts\">{}</span> \
-         <span class=\"change-mark\">{}</span></button></li>",
-        change_status(file.status),
-        counts(file.additions, file.deletions),
-        escape(&renderer.change_mark(file.status)),
-    )
-}
-
+/// The class the stylesheet colors a change by.
 pub(super) fn change_status(status: FileChangeStatus) -> &'static str {
     match status {
         FileChangeStatus::Added => "added",
@@ -90,10 +62,10 @@ pub(super) fn counts(additions: Option<u64>, deletions: Option<u64>) -> String {
     )
 }
 
-/// The TUI's heading: the word cut into a badge at the depth both of these sections sit at, with
-/// what it sums up riding bare beside it.
+/// The TUI's heading: the word cut into a badge as the sidebar's other parts head theirs, with what
+/// it sums up riding bare beside it.
 fn heading(title: &str, rest: &str) -> String {
-    format!("<p class=\"dock-head\"><span class=\"badge raised\">{title}</span> {rest}</p>")
+    format!("<p class=\"dock-head\"><span class=\"badge\">{title}</span> {rest}</p>")
 }
 
 /// `and 3 more`, for rows the snapshot left out.

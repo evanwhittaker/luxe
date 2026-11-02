@@ -66,3 +66,13 @@ pub(crate) fn resolve_key_event(
 ) -> Option<UiAction> {
     keymap.resolve_chord(&chord_of(&key)?)
 }
+
+/// Resolves a key event for the surface showing: a chord Guided Review shares with chat is the
+/// review's action inside a review and the other one everywhere else.
+pub(crate) fn resolve_in_view(
+    keymap: &KeyMap,
+    key: crossterm::event::KeyEvent,
+    in_review: bool,
+) -> Option<UiAction> {
+    keymap.resolve_chord_preferring(&chord_of(&key)?, |action| action.is_review() == in_review)
+}

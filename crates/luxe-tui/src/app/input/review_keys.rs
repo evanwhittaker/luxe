@@ -61,7 +61,7 @@ pub fn claim(app: &mut App, key: &KeyEvent) -> Option<Msg> {
     if workspace.finding_draft.is_some() {
         return None;
     }
-    let action = crate::app::input::resolve_key_event(&app.keymap, *key);
+    let action = crate::app::input::resolve_in_view(&app.keymap, *key, true);
     let failed =
         matches!(workspace.load_state, crate::guided_review::GuidedReviewLoadState::Failed { .. });
     if overlay == LocalOverlay::None && !failed && action.is_some_and(|action| action.is_review()) {

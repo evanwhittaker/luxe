@@ -80,6 +80,21 @@ pub(super) fn cycle_mode(app: &mut App) {
     app.send_action(Action::SetMode(next), "change the mode");
 }
 
+/// `Ctrl+T`'s walk or an `Alt`+arrow's step between panes. An arrow is taken even at the edge, so
+/// it never means a word jump in one place and a move in the next. Only in chat: a review has panes
+/// of its own.
+fn move_focus(app: &mut App, action: UiAction) -> bool {
+    if app.current_view != super::ViewMode::Chat {
+        return false;
+    }
+    let msg = match action {
+        UiAction::FocusFiles => super::Msg::WalkFocus,
+        _ => super::Msg::StepFocus(action == UiAction::FocusRight),
+    };
+    app.update(msg);
+    true
+}
+
 /// Applies a resolved UI action and reports whether it was handled.
 pub(super) fn dispatch_action(app: &mut App, action: UiAction) -> bool {
     match action {
@@ -160,9 +175,8 @@ pub(super) fn dispatch_action(app: &mut App, action: UiAction) -> bool {
             }
             true
         }
-        UiAction::FocusFiles if app.current_view == super::ViewMode::Chat => {
-            app.update(super::Msg::FocusFiles);
-            true
+        UiAction::FocusFiles | UiAction::FocusLeft | UiAction::FocusRight => {
+            move_focus(app, action)
         }
         UiAction::ChangesOpenInEditor
             if app.changes.is_some() && app.current_view != super::ViewMode::GuidedReview =>

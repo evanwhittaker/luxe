@@ -125,6 +125,44 @@ test("a saved result settles its card, failures as failures", () => {
   assert.equal(asTool(transcript.items.value[0]).card.value.output_preview, "no rule");
 });
 
+/**
+ * A screenshot's result as a saved session writes it, text then the image, its bytes cut short.
+ * The image part is shaped as the one a read image file returns.
+ */
+const SHOT = {
+  type: "tool_result",
+  content: { call_id: "c1", content: [
+    { type: "text", content: "Captured url via headless browser (1280x800, 164 KB on disk)." },
+    { type: "image", content: { data: "iVBORw0KGgo=", mime: "image/png" } },
+  ], is_error: false },
+};
+const toolMessage = (...content) => frame("message_committed", { message: { role: "tool", content } });
+
+// The break this catches: a result's image dropped with everything that isn't text, so a
+// screenshot or an image read reaches the model and never the reader, as the TUI shows it
+test("a result's images stay with its card", () => {
+  const transcript = fold([card(1, "running"), toolMessage(SHOT)]);
+  const shown = asTool(transcript.items.value[0]).card.value;
+  assert.deepEqual(shown.pictures, ["data:image/png;base64,iVBORw0KGgo="]);
+  assert.equal(shown.output_preview, "Captured url via headless browser (1280x800, 164 KB on disk).");
+});
+
+// The break this catches: the host's next word on the card, which carries text alone, taking the
+// pictures away again
+test("a later card update keeps the result's images", () => {
+  const transcript = fold([card(1, "running"), toolMessage(SHOT), card(5, "succeeded")]);
+  const shown = asTool(transcript.items.value[0]).card.value;
+  assert.equal(shown.revision, 5, "the update was taken");
+  assert.equal(shown.pictures?.length, 1);
+});
+
+// The break this catches: a card for a result without images given an empty strip anyway
+test("a result without images adds none", () => {
+  const words = { ...SHOT, content: { ...SHOT.content, content: [SHOT.content.content[0]] } };
+  const transcript = fold([card(1, "running"), toolMessage(words)]);
+  assert.equal(asTool(transcript.items.value[0]).card.value.pictures, undefined);
+});
+
 // The break this catches: a frame the host refused vanishing, so a reply or a message sent from
 // the phone seems to go nowhere
 test("a refused action shows as an error, with the host's reason", () => {

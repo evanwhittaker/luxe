@@ -141,6 +141,36 @@ pub(super) fn listed(app: &mut App, files: Option<Vec<String>>) {
     }
 }
 
+/// Puts the keyboard in the tree.
+fn focus_tree(app: &mut App) {
+    if let Some(view) = app.changes.as_mut() {
+        view.focused = false;
+    }
+    app.files.focused = true;
+    // A tree the reader cannot see is not one they can move through
+    if app.dock.presentation(app.workspace_layout)
+        == crate::workspace_dock::DockPresentation::Hidden
+    {
+        app.dock.show();
+    }
+    land_tree_cursor(app);
+}
+
+/// Stands the tree's cursor on the row it last stood on or the file showing, else the first row.
+fn land_tree_cursor(app: &mut App) {
+    let changes = changed(app);
+    let rows = app.files.rows(&changes);
+    let showing = app.changes.as_ref().map(|view| view.path.clone());
+    let landed = app
+        .files
+        .cursor
+        .clone()
+        .or(showing)
+        .filter(|path| rows.iter().any(|row| row.path() == Some(path.as_str())));
+    app.files.cursor =
+        landed.or_else(|| rows.iter().find_map(|row| row.path().map(str::to_string)));
+}
+
 /// Reduces one FILES message.
 pub(super) fn reduce(app: &mut App, msg: Msg) {
     match msg {
@@ -151,13 +181,6 @@ pub(super) fn reduce(app: &mut App, msg: Msg) {
         }
         Msg::ToggleFilesScope => app.files.changed_only = !app.files.changed_only,
         Msg::ToggleIgnoredFiles => app.files.toggle_ignored(),
-        Msg::FocusPeek => {
-            app.files.focused = false;
-            if let Some(view) = app.changes.as_mut() {
-                view.focus();
-            }
-            return;
-        }
         Msg::ChooseMenuItem(index) => {
             let chosen = app.overlays.context_menu.take().and_then(|mut menu| {
                 menu.selected = index;
@@ -174,41 +197,7 @@ pub(super) fn reduce(app: &mut App, msg: Msg) {
         {
             return app.status.flash_toast("FILES is hidden by dock.sections");
         }
-        // The keyboard's walk: composer, then the tree, then the preview when one is open, then
-        // the composer again. `Tab` inside the tree and the preview trades between those two.
-        Msg::FocusFiles => {
-            let previewing = app.changes.as_ref().is_some_and(|view| view.focused);
-            if previewing {
-                if let Some(view) = app.changes.as_mut() {
-                    view.focused = false;
-                }
-                app.files.focused = true;
-            } else if app.files.focused && app.changes.is_some() {
-                app.files.focused = false;
-                return app.update(Msg::FocusPeek);
-            } else {
-                app.files.focused = !app.files.focused;
-            }
-            if app.files.focused {
-                // A tree the reader cannot see is not one they can move through
-                if app.dock.presentation(app.workspace_layout)
-                    == crate::workspace_dock::DockPresentation::Hidden
-                {
-                    app.dock.show();
-                }
-                let changes = changed(app);
-                let rows = app.files.rows(&changes);
-                let showing = app.changes.as_ref().map(|view| view.path.clone());
-                let landed = app
-                    .files
-                    .cursor
-                    .clone()
-                    .or(showing)
-                    .filter(|path| rows.iter().any(|row| row.path() == Some(path.as_str())));
-                app.files.cursor =
-                    landed.or_else(|| rows.iter().find_map(|row| row.path().map(str::to_string)));
-            }
-        }
+        Msg::FocusFiles => focus_tree(app),
         _ => return,
     }
     sync(app);

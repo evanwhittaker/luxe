@@ -42,8 +42,8 @@ impl KeyMap {
     ///
     /// - Known action ids: chords are **replaced** (not appended) — a user binding
     ///   for `tui.editor.submit` replaces the default, not adds to it.
-    /// - Explicit bindings evict matching chords from every other action, so user
-    ///   overrides always win default collisions.
+    /// - Explicit bindings evict matching chords from every other action in the same scope (Guided
+    ///   Review's actions, or the rest), so user overrides always win default collisions there.
     /// - Unknown action ids: skipped with a warning (forward compatibility).
     /// - A retired id beside the action's current one: dropped, the current entry applies.
     /// - Unparseable chords: skipped with a warning (never fatal).
@@ -78,12 +78,14 @@ impl KeyMap {
         }
 
         // HashMap input order is unstable. Sorting makes collisions between two explicit
-        // overrides deterministic; the lexically later action owns the shared chord.
+        // overrides deterministic; the lexically later action owns the shared chord. Only within
+        // a scope: Guided Review and chat each resolve a chord to their own action, so one in the
+        // other scope keeps it, which is what lets a saved map read back whole.
         parsed.sort_by_key(|(action, _)| action.id());
         for (action, chords) in parsed {
             self.bindings.insert(action, chords.clone());
             self.bindings.retain(|other_action, other_chords| {
-                *other_action == action || {
+                *other_action == action || other_action.is_review() != action.is_review() || {
                     other_chords.retain(|chord| !chords.contains(chord));
                     !other_chords.is_empty()
                 }
@@ -105,6 +107,25 @@ impl KeyMap {
     /// does.
     pub fn resolve_chord(&self, chord: &KeyChord) -> Option<UiAction> {
         self.bindings.iter().find(|(_, chords)| chords.contains(chord)).map(|(action, _)| *action)
+    }
+
+    /// Resolve a chord bound to more than one action to the first that `preferred` accepts, or to
+    /// the one [`Self::resolve_chord`] gives when none is.
+    ///
+    /// A chord can mean one thing in Guided Review and another outside it (`Alt+Left` leaves the
+    /// review, and moves between panes in chat), and the surface showing is what decides.
+    pub fn resolve_chord_preferring(
+        &self,
+        chord: &KeyChord,
+        preferred: impl Fn(UiAction) -> bool,
+    ) -> Option<UiAction> {
+        let bound: Vec<UiAction> = self
+            .bindings
+            .iter()
+            .filter(|(_, chords)| chords.contains(chord))
+            .map(|(action, _)| *action)
+            .collect();
+        bound.iter().copied().find(|action| preferred(*action)).or_else(|| bound.first().copied())
     }
 
     /// Get the chords bound to an action (for palette/help display).
