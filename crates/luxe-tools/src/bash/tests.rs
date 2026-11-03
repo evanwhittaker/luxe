@@ -565,3 +565,44 @@ async fn many_lines_still_compress_far_below_the_clamp() {
     let ContentBlock::Text(text) = &result.content[0] else { panic!("expected text") };
     assert!(text.chars().count() < 5_000, "compressed, got {} chars", text.chars().count());
 }
+
+fn hinted(args: serde_json::Value, content: Vec<ContentBlock>) -> Vec<ContentBlock> {
+    with_description_hint(&args, ToolResultData { content, is_error: false }).content
+}
+
+fn said(text: &str) -> ContentBlock {
+    ContentBlock::Text(text.to_string())
+}
+
+/// The break this catches: the hint on a call that did name itself, or missing from one that
+/// didn't, left the field blank, or came back with nothing to append it to.
+#[test]
+fn only_a_call_without_a_description_hears_about_it() {
+    let described = hinted(json!({"command": "ls", "description": "List files"}), vec![said("a")]);
+    assert_eq!(described, vec![said("a")]);
+
+    let hint = NO_DESCRIPTION_HINT;
+    let bare = hinted(json!({"command": "ls"}), vec![said("a")]);
+    assert_eq!(bare, vec![said(&format!("a{hint}"))], "one block, the hint after the output");
+    let blank = hinted(json!({"command": "ls", "description": "  "}), vec![said("a")]);
+    assert_eq!(blank, vec![said(&format!("a{hint}"))]);
+    let not_text = hinted(json!({"command": "ls", "description": 7}), vec![]);
+    assert_eq!(not_text, vec![said(hint.trim_start())], "nothing to follow, so a block of its own");
+}
+
+/// The break this catches: the hint written but never reaching a real call's result.
+#[tokio::test]
+async fn a_real_call_without_a_description_carries_the_hint() {
+    if !posix_shell_available() {
+        return;
+    }
+    let tmp_dir = scratch_dir("bash-hint");
+    let cx = test_context(&tmp_dir);
+    let result = BashTool::new().run(json!({"command": "echo hi"}), &cx).await;
+    let ContentBlock::Text(text) = &result.content[0] else { panic!("expected text") };
+    assert!(text.ends_with(NO_DESCRIPTION_HINT), "{text}");
+    let named = json!({"command": "echo hi", "description": "Say hi"});
+    let result = BashTool::new().run(named, &cx).await;
+    let ContentBlock::Text(text) = &result.content[0] else { panic!("expected text") };
+    assert!(!text.contains("[hint]"), "{text}");
+}

@@ -10,7 +10,7 @@
 //
 // One panel, as the TUI's composer is one box: the box takes the whole width, with the buttons
 // along its foot, since a narrow phone (or a closed iPhone Duo beside its side bar) has no room
-// for both in a row.
+// for both in a row. The mode switch is one of those buttons, by the photo, under a faint rule.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { withMention } from "./files.js";
@@ -19,6 +19,7 @@ import { Icon } from "./icons.js";
 import { messageFrame } from "./pending.js";
 import { forTheWire, usePhotos } from "./photos.js";
 import { Picker } from "./picker.js";
+import { ModeButton } from "./status.js";
 import { SteeringTray, restoredDraft } from "./tray.js";
 
 /** @import { Frame } from "./connection.js" */
@@ -36,12 +37,13 @@ const MOST_ROWS = 8;
  * `run` carries out a slash command: null when the text isn't one, else whether it went out.
  * `mention` is what a mention from elsewhere (the sidebar) adds to the draft, added and
  * then `taken`.
- * @param {{ busy: boolean, live: boolean, steering: Steer[], listings: Listings,
+ * `mode` is the session's, switched from the panel's foot; empty until the host says it.
+ * @param {{ busy: boolean, live: boolean, steering: Steer[], listings: Listings, mode: string,
  *   send: (frame: Frame) => boolean, run: (text: string) => boolean | null,
  *   onSteered: (steer: Steer) => void, onDropped: () => void, mention: string | null,
  *   taken: () => void }} props
  */
-export function Composer({ busy, live, steering, listings, send, run, onSteered, onDropped, mention, taken }) {
+export function Composer({ busy, live, steering, listings, mode, send, run, onSteered, onDropped, mention, taken }) {
   const [draft, setDraft] = useState(EMPTY);
   useMentioned(mention, setDraft, taken);
   const photos = usePhotos();
@@ -55,7 +57,8 @@ export function Composer({ busy, live, steering, listings, send, run, onSteered,
     <div class="composer-panel">
       <${PhotoStrip} photos=${photos} />
       <${MessageBox} draft=${draft} setDraft=${setDraft} busy=${busy} live=${live} submit=${submit} />
-      <${Tools} live=${live} busy=${busy} ready=${ready} photos=${photos} stop=${() => takeBack({ kind: "cancel" })} />
+      <${Tools} live=${live} busy=${busy} ready=${ready} photos=${photos} mode=${mode} send=${send}
+        stop=${() => takeBack({ kind: "cancel" })} />
     </div>
   </form>`;
 }
@@ -78,12 +81,15 @@ function useTakeBack({ steering, setDraft, photos, send, onDropped }) {
 }
 
 /**
- * The panel's foot: a photo, the steering line, then Stop and Send.
- * @param {{ live: boolean, busy: boolean, ready: boolean, photos: Photos, stop: () => void }} props
+ * The panel's foot: a photo and the mode on the left, as the TUI leads the row over its composer
+ * with the mode, then the steering line, then Stop and Send.
+ * @param {{ live: boolean, busy: boolean, ready: boolean, photos: Photos, mode: string,
+ *   send: (frame: Frame) => boolean, stop: () => void }} props
  */
-function Tools({ live, busy, ready, photos, stop }) {
+function Tools({ live, busy, ready, photos, mode, send, stop }) {
   return html`<div class="composer-tools">
     <${Attach} live=${live} onPick=${photos.add} />
+    ${mode ? html`<${ModeButton} mode=${mode} send=${send} />` : null}
     ${busy ? html`<p class="steering">Send steers the turn</p>` : null}
     <${Actions} label=${busy ? "Steer" : "Send"} busy=${busy} ready=${ready} stop=${stop} />
   </div>`;

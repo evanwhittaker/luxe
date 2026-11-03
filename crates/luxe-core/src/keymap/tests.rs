@@ -123,9 +123,10 @@ fn workspace_actions_have_stable_ids_and_default_toggle_chord() {
     assert_eq!(UiAction::HideDock.label(), "Hide Context Dock");
     assert_eq!(keymap.resolve(false, false, true, &KeyName::Char('d')), Some(UiAction::ToggleDock));
     assert!(keymap.chords_for(UiAction::ShowDock).is_none());
-    // The informational dock has no keyboard section navigation, so Tab is unbound at the
-    // workspace level (it stays free for other surfaces).
-    assert_eq!(keymap.resolve(false, false, false, &KeyName::Tab), None);
+    // Tab walks the panes and shift+Tab switches the mode; the surfaces drawn over the composer
+    // take either first
+    assert_eq!(keymap.resolve(false, false, false, &KeyName::Tab), Some(UiAction::FocusFiles));
+    assert_eq!(keymap.resolve(false, true, false, &KeyName::Tab), Some(UiAction::CycleMode));
 }
 
 #[test]
@@ -264,19 +265,20 @@ fn default_keymap_shares_a_chord_only_between_review_and_chat() {
     }
 }
 
-/// The break this catches: a shared chord resolving to the first action declared wherever it's
-/// pressed, so `Alt+Left` either never leaves a review or never moves between panes in chat.
+/// The break this catches: a chord bound in chat and in a review resolving to the first action
+/// declared wherever it's pressed, so one of the two never gets its key.
 #[test]
 fn a_shared_chord_resolves_to_the_action_the_surface_prefers() {
-    let map = KeyMap::defaults();
-    let alt_left = KeyChord::parse("alt+left").expect("a chord");
-    let review = map.resolve_chord_preferring(&alt_left, |action| action.is_review());
-    assert_eq!(review, Some(UiAction::ReviewReturnChat));
-    let chat = map.resolve_chord_preferring(&alt_left, |action| !action.is_review());
-    assert_eq!(chat, Some(UiAction::FocusLeft));
-    let alt_right = KeyChord::parse("alt+right").expect("a chord");
-    let unshared = map.resolve_chord_preferring(&alt_right, |action| action.is_review());
-    assert_eq!(unshared, Some(UiAction::FocusRight), "an unshared chord is itself either way");
+    let overrides = HashMap::from([("tui.convo.search".to_string(), vec!["f".to_string()])]);
+    let map = KeyMap::defaults().with_overrides(overrides);
+    let f = KeyChord::parse("f").expect("a chord");
+    let review = map.resolve_chord_preferring(&f, |action| action.is_review());
+    assert_eq!(review, Some(UiAction::ReviewToggleNoise));
+    let chat = map.resolve_chord_preferring(&f, |action| !action.is_review());
+    assert_eq!(chat, Some(UiAction::SearchConvo));
+    let alt_d = KeyChord::parse("alt+d").expect("a chord");
+    let unshared = map.resolve_chord_preferring(&alt_d, |action| action.is_review());
+    assert_eq!(unshared, Some(UiAction::ToggleDock), "an unshared chord is itself either way");
     let unbound = KeyChord::parse("alt+down").expect("a chord");
     assert_eq!(map.resolve_chord_preferring(&unbound, |_| true), None);
 }
@@ -444,8 +446,6 @@ fn the_action_ids_are_pinned() {
             "tui.workspace.reset_dock_auto",
             "tui.workspace.toggle_dock_position",
             "tui.workspace.focus_files",
-            "tui.workspace.focus_left",
-            "tui.workspace.focus_right",
             "tui.statusline.toggle",
             "tui.statusline.show",
             "tui.statusline.hide",
@@ -581,9 +581,7 @@ fn the_default_bindings_are_pinned() {
         ("tui.review.toggle_split", vec!["ctrl+b"]),
         ("tui.review.toggle_word_wrap", vec!["w"]),
         ("tui.statusline.toggle", vec!["alt+s"]),
-        ("tui.workspace.focus_files", vec!["ctrl+t"]),
-        ("tui.workspace.focus_left", vec!["alt+left"]),
-        ("tui.workspace.focus_right", vec!["alt+right"]),
+        ("tui.workspace.focus_files", vec!["tab", "ctrl+t"]),
         ("tui.workspace.toggle_dock", vec!["alt+d"]),
     ];
     let bound: Vec<(&str, Vec<&str>)> = bound

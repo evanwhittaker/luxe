@@ -369,14 +369,24 @@ fn drag_scroll(app: &mut App, surface: crate::mouse::TextSurface, row: u16) {
     }
 }
 
+fn answer_being_typed(app: &App) -> bool {
+    app.overlays.question.as_ref().is_some_and(crate::question_prompt::QuestionPromptState::editing)
+}
+
 /// Moves the highlight to whatever the pointer is over: list rows adopt the same selection the
 /// arrow keys would set, other affordances just record a hover so their renderer can light up.
 pub(super) fn hover(app: &mut App, col: u16, row: u16) -> RouteAction {
     use crate::mouse::MouseTarget;
     let target = app.hit.borrow().at(col, row).cloned();
     // An overlay's list follows the pointer as it follows the arrows; over the information column
-    // that moves the *focus* there too, so the cursor the pointer left behind is the one Enter uses
-    let overlay_row = target.as_ref().and_then(|target| select_overlay_row(app, target));
+    // that moves the *focus* there too, so the cursor the pointer left behind is the one Enter uses.
+    // Not while a question's answer is being typed: a pointer passing by isn't a choice, and taking
+    // the highlight would leave the next key to answer an option instead
+    let overlay_row = match &target {
+        Some(MouseTarget::QuestionRow(_)) if answer_being_typed(app) => Some(false),
+        Some(target) => select_overlay_row(app, target),
+        None => None,
+    };
     let moved_row = overlay_row.unwrap_or_else(|| match &target {
         // A level the model can't honor refuses the highlight, so hovering it changes nothing.
         Some(MouseTarget::ThinkingRow(index)) => {

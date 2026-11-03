@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 /**
  * @typedef {{ kind: "answer" | "reasoning", text: string }
  *   | { kind: "user", content: { type: string, content?: string }[] }
- *   | { kind: "tool", name: string }
+ *   | { kind: "tool", name: string } | { kind: "tool_code", tool: string, label: string, text: string }
  *   | { kind: "status", [fact: string]: any }
  *   | { kind: "plan", todos: any } | { kind: "changes", changes: any }
  *   | { kind: "diff", diff: any } | { kind: "diff_failed", error: any }

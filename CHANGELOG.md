@@ -9,6 +9,42 @@ The version on `main` is always the next release. The first change to what ships
 `Cargo.toml`, `Cargo.lock`) after a release bumps it one step and opens its section here, and later
 changes add to that section until it ships; `scripts/version-check.py` holds them to it.
 
+## [0.1.9]
+
+### Added
+
+- A `bash` call without a `description` reminds the agent to give one, so the card you watch says
+  what the command is for.
+- The remote app colors a tool card's code as the terminal does: a `bash` command as shell, in its
+  header or under it, and what a `write` wrote by the file's type.
+
+### Changed
+
+- `tab` moves the keyboard round the panes: from the composer into the file tree, then the file
+  showing, then back. `shift+tab` switches build and plan mode from any of them. `ctrl+t` still
+  walks the panes too.
+- The remote app's mode switch sits in the message box, beside the paperclip, and its status line
+  no longer shows a spinner while a turn runs.
+
+### Fixed
+
+- A question's typed answer survives the pointer passing over the options. A click on it, or the
+  arrows back to it, picks up where you left off instead of sending what's there so far.
+- On a screen wide enough for the remote app's sidebar beside the conversation, an iPad or an
+  open iPhone Duo, the sidebar's row of jumps is as tall as the conversation's bar, so the lines
+  under the two meet.
+- A block quote, in the terminal and the remote app, is set off as markdown sets one, with a rule
+  down its side over a raised plate instead of a `>` before each block, so a quote holding a
+  heading, a paragraph and a list reads as one quote rather than three. In the terminal the rule
+  runs down every row, the ones a long line wraps onto and the gaps between blocks too, and a quote
+  in a quote draws a rule of its own. An alert's rule takes its color.
+
+### Removed
+
+- `alt+←` and `alt+→` no longer move between panes, and the `tui.workspace.focus_left` and
+  `tui.workspace.focus_right` key names are gone. In a Guided Review `alt+←` still goes back to the
+  conversation.
+
 ## [0.1.8]
 
 ### Added

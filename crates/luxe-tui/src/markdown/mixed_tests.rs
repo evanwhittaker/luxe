@@ -57,6 +57,12 @@ after the list in a quote
 > ```
 
 after the fence in a quote
+
+> outer
+>
+> > inner
+>
+> outer again
 ";
 
 fn styles() -> ThemeStyles {
@@ -64,35 +70,38 @@ fn styles() -> ThemeStyles {
     ThemeStyles::from_resolved(&resolved, "luxe")
 }
 
-/// Each laid-out line as `kind width | text`, with a fence's rule and a table spelled out.
+/// Each laid-out line as `kind width | text`, with a fence's rule and a table spelled out, behind
+/// a `▎` for each quote that holds it.
 fn rows(lines: &[MarkdownLine]) -> Vec<String> {
+    lines
+        .iter()
+        .map(|line| {
+            let depth = line.quote.as_ref().map_or(0, |quote| quote.rules.len());
+            format!("{}{}", "▎".repeat(depth), row(line))
+        })
+        .collect()
+}
+
+/// One line as `kind width | text`.
+fn row(line: &MarkdownLine) -> String {
     // A hard break is a newline inside a span; spelled out, so one row stays one line here
     let text = |spans: &[Span]| {
         spans.iter().map(|span| span.content.replace('\n', "⏎")).collect::<String>()
     };
-    lines
-        .iter()
-        .map(|line| {
-            let kind = match line.kind {
-                MarkdownBlockKind::Prose => "P",
-                MarkdownBlockKind::Wide => "W",
-            };
-            if let Some(rule) = &line.fence_rule {
-                return format!(
-                    "{kind} rule {} | {} … {}",
-                    rule.ends_at,
-                    text(&rule.lead),
-                    text(&rule.tail)
-                );
-            }
-            if let Some(table) = &line.table {
-                let drawn = table.lines_at(usize::MAX);
-                let body = drawn.iter().map(|row| text(&row.spans)).collect::<Vec<_>>().join(" / ");
-                return format!("{kind} table | {body}");
-            }
-            format!("{kind} {} | {}", line.line.width(), text(&line.line.spans))
-        })
-        .collect()
+    let kind = match line.kind {
+        MarkdownBlockKind::Prose => "P",
+        MarkdownBlockKind::Wide => "W",
+    };
+    if let Some(rule) = &line.fence_rule {
+        let (lead, tail) = (text(&rule.lead), text(&rule.tail));
+        return format!("{kind} rule {} | {lead} … {tail}", rule.ends_at);
+    }
+    if let Some(table) = &line.table {
+        let drawn = table.lines_at(usize::MAX);
+        let body = drawn.iter().map(|row| text(&row.spans)).collect::<Vec<_>>().join(" / ");
+        return format!("{kind} table | {body}");
+    }
+    format!("{kind} {} | {}", line.line.width(), text(&line.line.spans))
 }
 
 fn digest(lines: &[MarkdownLine]) -> u64 {

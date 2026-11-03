@@ -248,19 +248,6 @@ test("a stopped compaction settles the line that announced it", () => {
   assert.deepEqual(texts(transcript), ["Compaction stopped.", "between"]);
 });
 
-// The break this catches: the status line spinning on after a summary ends, however it ends, or
-// never starting, so the phone looks idle through the minute it takes
-test("a compaction is running from its start until it's done or stopped", () => {
-  const started = frame("compaction_started", { tokens_before: 1000 });
-  const transcript = fold([started]);
-  assert.equal(transcript.compacting.value, true);
-  transcript.apply(frame("compaction_done", { tokens_before: 1000, tokens_after: 10 }));
-  assert.equal(transcript.compacting.value, false);
-  transcript.apply(started);
-  transcript.apply(frame("compaction_stopped"));
-  assert.equal(transcript.compacting.value, false);
-});
-
 // The break this catches: the phone writing a count differently from the TUI beside it.
 test("token counts read as the TUI writes them", () => {
   assert.deepEqual([812, 1000, 579_400, 1_240_000].map(formatTokens), ["812", "1.0k", "579.4k", "1.2M"]);

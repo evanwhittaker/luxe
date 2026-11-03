@@ -1,6 +1,7 @@
 /* Rendered text: the host's HTML (`luxe_tui::markdown::html`) set the way the terminal sets it.
    One blank row between blocks, headings in weight and color rather than size, `•` and numbers
-   hanging in the margin, a `>` before each block of a quote, rules of box characters. */
+   hanging in the margin, rules of box characters. A quote is set off the way markdown sets one
+   rather than with the terminal's `>`: a phone has a page to draw on, not a grid of cells. */
 
 .md {
   white-space: normal;
@@ -72,39 +73,29 @@
   content: counter(list-item) ". ";
 }
 
+/* A rule down the quote's side over a raised plate, so all of it, a heading, a paragraph and a list
+   together, reads as one block set apart from the reply. The words keep the reply's color: a quote
+   is often the part to read, a title or a description proposed */
 .md blockquote {
-  padding-inline-start: 2ch;
-}
-
-.md blockquote > * {
-  position: relative;
-}
-
-.md blockquote > :not(.alert-label)::before {
-  content: ">";
-  position: absolute;
-  left: -2ch;
-  color: var(--luxe-md-quote, #97938c);
-  font-style: italic;
+  --quote-rule: var(--luxe-md-quote, #97938c);
+  padding: 0.5lh 1.5ch;
+  border-inline-start: 2px solid var(--quote-rule);
+  border-radius: 0 var(--corner) var(--corner) 0;
+  background: var(--luxe-tool-call-bg, #201e1a);
 }
 
 .md .alert-label {
   margin: 0;
-  margin-inline-start: -2ch;
   font-weight: bold;
+  color: var(--quote-rule);
 }
 
-.md .alert-label::before {
-  content: "> ";
-  color: var(--luxe-md-quote, #97938c);
-  font-weight: normal;
-}
-
-.md .note .alert-label { color: var(--luxe-info, #85c7d7); }
-.md .tip .alert-label { color: var(--luxe-success, #81caa0); }
-.md .important .alert-label { color: var(--luxe-accent, #ddc084); }
-.md .warning .alert-label { color: var(--luxe-warning, #faaa51); }
-.md .caution .alert-label { color: var(--luxe-error, #e68485); }
+/* An alert's rule and word take its severity's color, as GitHub draws one */
+.md .note { --quote-rule: var(--luxe-info, #85c7d7); }
+.md .tip { --quote-rule: var(--luxe-success, #81caa0); }
+.md .important { --quote-rule: var(--luxe-accent, #ddc084); }
+.md .warning { --quote-rule: var(--luxe-warning, #faaa51); }
+.md .caution { --quote-rule: var(--luxe-error, #e68485); }
 
 /* Rules are box characters cut to the width, as the terminal fills a row */
 .md hr,

@@ -1,8 +1,9 @@
-// How a tool card leads: with the spinner while it works, its own mark otherwise.
+// How a tool card leads: with the spinner while it works, its own mark otherwise, and its command
+// colored as shell when the header is where the command shows.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { spins } from "../app/items.js";
+import { commandInHeader, spins } from "../app/items.js";
 import { SPINNER_FRAMES } from "../app/spinner.js";
 
 const call = (name, state) => ({ call_id: "c", name, label: "", state, revision: 0 });
@@ -27,6 +28,15 @@ test("a call that isn't moving keeps its own mark", () => {
 test("while the turn waits on you, only a call being written spins", () => {
   assert.ok(!spins(call("edit", "running"), true));
   assert.ok(spins(call("edit", "composing"), true));
+});
+
+// The break this catches: a described command's header (its description) colored as shell, a
+// one-liner's left plain, or another tool's label taken for a command
+test("only a bash header with no body is the command itself", () => {
+  const body = { text: "wc -l main.rs", total_lines: 1, collapsed_lines: 1 };
+  assert.ok(commandInHeader({ ...call("bash", "running"), card_body: null }));
+  assert.ok(!commandInHeader({ ...call("bash", "running"), card_body: body }));
+  assert.ok(!commandInHeader({ ...call("read", "running"), card_body: null }));
 });
 
 // The break this catches: the sweep drifting from the TUI's, in its frames or their order

@@ -28,6 +28,15 @@
     padding-top: var(--top-inset);
   }
 
+  /* The jumps' row is as tall as the conversation's bar beside it, a line with half a line either
+     side, so the rules under the two meet and their words share a line. Each jump stays a finger
+     tall by spilling past the row's edges, as the bar's icons do */
+  .jumps button {
+    min-height: 0;
+    block-size: var(--tap);
+    margin-block: calc((2lh - var(--tap)) / 2);
+  }
+
   :root[data-dock-side="right"] .panel {
     inset: 0 0 0 auto;
     width: calc(var(--rail) + env(safe-area-inset-right));

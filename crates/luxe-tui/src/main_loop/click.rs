@@ -39,10 +39,8 @@ pub(super) fn click(app: &mut App, col: u16, row: u16) -> RouteAction {
 
 /// Maps one resolved click target to the action it stands for.
 pub(super) fn clicked_target(app: &mut App, target: MouseTarget) -> RouteAction {
-    // Overlay list rows: move the selection to the clicked row, then reuse the overlay's
-    // existing Enter/accept path so click and keyboard behave identically.
-    if let Some(open) = select_overlay_row(app, &target) {
-        return if open { synthetic_enter() } else { RouteAction::None };
+    if let Some(action) = overlay_row_clicked(app, &target) {
+        return action;
     }
     match target {
         // A dashboard menu row activates only while the dashboard itself has the input, so a
@@ -389,6 +387,21 @@ pub(super) fn scroll_for_view(app: &App, up: bool) -> RouteAction {
 pub(super) fn conversation_wheel(app: &App, up: bool) -> RouteAction {
     let lines = app.config.conversation.scroll_lines();
     RouteAction::Scroll(if up { ScrollAction::Up(lines) } else { ScrollAction::Down(lines) })
+}
+
+/// A click on an overlay list's row: the selection moves to it, then the overlay's own Enter accepts
+/// it, so click and keyboard behave identically. The one exception is the question's typed answer,
+/// where a click puts the caret back to carry on writing rather than sending what's there so far.
+fn overlay_row_clicked(app: &mut App, target: &MouseTarget) -> Option<RouteAction> {
+    if let MouseTarget::QuestionRow(index) = *target {
+        let question = app.overlays.question.as_mut();
+        if let Some(prompt) = question.filter(|prompt| prompt.is_answer_row(index)) {
+            prompt.resume_answer();
+            return Some(RouteAction::None);
+        }
+    }
+    let open = select_overlay_row(app, target)?;
+    Some(if open { synthetic_enter() } else { RouteAction::None })
 }
 
 /// Moves an open overlay list's selection to the row `target` names: the context files, the

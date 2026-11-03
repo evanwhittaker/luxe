@@ -53,6 +53,13 @@ test("a paired iPad drives a turn and reads its diff", async () => {
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });
 
+// The break this catches: a tool card's code drawn plain, the piece asked for under a name the
+// host doesn't know, or highlighted for a language other than the written file's
+test("a write's card colors its code as the file's language", async () => {
+  const keyword = page.locator(".item.tool .tool-body .tool-code .t-accent-secondary", { hasText: "const" });
+  await keyword.first().waitFor();
+});
+
 // Pairs as an app on the home screen would: the unpaired app takes the pasted link to the
 // invitation page. Serve puts HTTPS in front of the bridge, so the credential is a Secure cookie,
 // and WebKit drops one that arrives over this test's plain HTTP; the test carries it over itself,
@@ -136,6 +143,61 @@ test("the rail lists the project, shows a file and mentions it", async () => {
   await page.keyboard.press("Escape");
   assert.equal(await page.locator(".panel").count(), 1, "Escape leaves the rail");
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
+});
+
+/** Where `selector`'s box ends, top to bottom. */
+async function bottomOf(/** @type {string} */ selector) {
+  return page.locator(selector).evaluate((element) => element.getBoundingClientRect().bottom);
+}
+
+// The break this catches: the rail's jumps and the conversation's bar sized by different rules,
+// so the rules under them sit at different heights side by side, at any of the text sizes
+test("the rail's top and the conversation's bar end on one line", async () => {
+  await page.setViewportSize({ width: 951, height: 669 });
+  await page.locator(".panel .jumps").waitFor();
+  const chosen = await page.evaluate(() => document.documentElement.dataset.textSize);
+  for (const size of ["small", "medium", "large"]) {
+    await page.evaluate((size) => (document.documentElement.dataset.textSize = size), size);
+    const rail = await bottomOf(".panel-top");
+    const bar = await bottomOf("header.bar:has(.back)");
+    assert.ok(Math.abs(rail - bar) < 0.5, `${size} text: the rail's top ends at ${rail}px, the bar at ${bar}px`);
+  }
+  await page.evaluate((size) => (document.documentElement.dataset.textSize = size), chosen);
+  await page.setViewportSize(playwright.devices["iPad Pro 11 landscape"].viewport);
+});
+
+/** `text` as the host renders a reply, drawn into the transcript as one. */
+async function showReply(/** @type {string} */ text) {
+  await page.evaluate(async (text) => {
+    const response = await fetch("/api/render", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pieces: [{ kind: "answer", text }] }),
+    });
+    const reply = Object.assign(document.createElement("div"), { className: "item reply md shown-reply" });
+    reply.innerHTML = (await response.json()).html[0];
+    document.querySelector(".transcript")?.append(reply);
+  }, text);
+}
+
+// The break this catches: a quote drawn with the terminal's `>` marks, on itself or on any block
+// in it, rather than set off as markdown sets one; or set off by nothing a reader can see, with no
+// rule down its side or no plate behind it
+test("a quote is set off by a rule and a plate, with no marks", async () => {
+  await showReply("> ### What\n>\n> Three commits, best reviewed one at a time.\n>\n> 1. one\n> 2. two");
+  const quote = await page.locator(".shown-reply blockquote").evaluate((element) => {
+    const style = getComputedStyle(element);
+    const marked = [element, ...element.querySelectorAll("*")]
+      .map((part) => getComputedStyle(part, "::before").content)
+      .filter((content) => content.includes(">"));
+    const reply = getComputedStyle(/** @type {Element} */ (element.parentElement)).backgroundColor;
+    return { marked, rule: style.borderInlineStartWidth, ruled: style.borderInlineStartStyle, plate: style.backgroundColor, reply };
+  });
+  await page.locator(".shown-reply").evaluate((element) => element.remove());
+  assert.deepEqual(quote.marked, [], "no `>` drawn anywhere in the quote");
+  assert.equal(quote.ruled, "solid", `a rule down its side: ${JSON.stringify(quote)}`);
+  assert.notEqual(quote.rule, "0px", `a rule down its side: ${JSON.stringify(quote)}`);
+  assert.notEqual(quote.plate, quote.reply, `a plate behind it: ${JSON.stringify(quote)}`);
 });
 
 /**
@@ -302,6 +364,31 @@ test("on a phone one header button opens the plan and the project", async () => 
   await runCommand("/dock");
   await page.locator('.panel[role="dialog"]').waitFor();
   await page.locator(".panel .close").click();
+  await page.setViewportSize(playwright.devices["iPad Pro 11 landscape"].viewport);
+  assert.deepEqual(troubles, [], "the page ran without errors or refusals");
+});
+
+/** The middle of `selector`'s box, top to bottom. */
+async function middleOf(/** @type {string} */ selector) {
+  return page.locator(selector).evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return box.top + box.height / 2;
+  });
+}
+
+// The break this catches: the mode left in the status line, missing from the composer's foot or
+// pushed onto a row of its own there on the narrowest iPhone, or a tap on it that switches nothing
+test("on a phone the mode switches from the composer's foot", async () => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const mode = page.locator(".composer-tools .mode");
+  await mode.waitFor();
+  assert.equal(await page.locator(".status-line .mode").count(), 0, "the status line doesn't repeat it");
+  const apart = Math.abs((await middleOf(".composer-tools .mode")) - (await middleOf(".composer-tools .send")));
+  assert.ok(apart < 2, `in one row with Send, ${apart}px apart`);
+  await mode.click();
+  await page.locator(".composer-tools .mode-plan").waitFor();
+  await page.locator(".composer-tools .mode").click();
+  await page.locator(".composer-tools .mode-build").waitFor();
   await page.setViewportSize(playwright.devices["iPad Pro 11 landscape"].viewport);
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });

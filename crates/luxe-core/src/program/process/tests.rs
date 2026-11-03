@@ -138,28 +138,48 @@ async fn a_spawned_command_leads_its_own_session_and_group() {
     assert_ne!(session, ours, "not luxe's");
 }
 
+/// Asks for `pgid`'s members every 50ms until `done` holds, giving up after 2.5s.
 #[cfg(unix)]
-#[tokio::test]
-async fn a_live_group_reports_its_stopped_member() {
-    let mut command =
-        captured_command("sh", &["-c", "sleep 30 & kill -STOP $!; sleep 30"], Path::new("."));
-    command.kill_on_drop(true);
-    let child = command.spawn().expect("sh runs");
-    let pgid = child.id().expect("a pid");
+async fn poll_group(pgid: u32, done: impl Fn(&[GroupMember]) -> bool) -> Vec<GroupMember> {
     let mut members = Vec::new();
     for _ in 0..50 {
         members = group_members(pgid).await;
-        if members.iter().any(GroupMember::is_stopped) {
+        if done(&members) {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
+    members
+}
+
+#[cfg(unix)]
+fn send_stop(pid: u32) {
+    let pid = rustix::process::Pid::from_raw(pid as i32).expect("ps lists no pid 0");
+    rustix::process::kill_process(pid, rustix::process::Signal::STOP).expect("the sleep is ours");
+}
+
+// The break this catches: `is_stopped` misreading `ps`'s `T`, or `group_members` dropping a member
+// of the group. The test sends the stop itself once `ps` shows the child has become `sleep`: a
+// `kill -STOP $!` straight after the fork can land while the child is still starting, and macOS
+// drops it about one time in a hundred.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_live_group_reports_its_stopped_member() {
+    let mut command = captured_command("sh", &["-c", "sleep 30 & sleep 30"], Path::new("."));
+    command.kill_on_drop(true);
+    let child = command.spawn().expect("sh runs");
+    let pgid = child.id().expect("a pid");
+    let is_sleep = |member: &GroupMember| member.pid != pgid && member.command.starts_with("sleep");
+    let started = poll_group(pgid, |members| members.iter().any(is_sleep)).await;
+    let Some(sleeper) = started.iter().find(|member| is_sleep(member)) else {
+        kill_tree(pgid);
+        panic!("no sleep started: {started:?}");
+    };
+    send_stop(sleeper.pid);
+    let members = poll_group(pgid, |members| members.iter().any(GroupMember::is_stopped)).await;
     kill_tree(pgid);
     assert!(members.iter().any(|member| member.pid == pgid), "the shell: {members:?}");
-    assert!(
-        members.iter().any(|member| member.is_stopped() && member.command.contains("sleep")),
-        "{members:?}"
-    );
+    assert!(members.iter().any(|m| m.pid == sleeper.pid && m.is_stopped()), "{members:?}");
 }
 
 /// The process asking is alive; a process id nothing can be using is not.

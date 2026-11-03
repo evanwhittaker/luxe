@@ -5,7 +5,7 @@
 //! dispatcher only routes; each arm moves one of those owners or calls a builder.
 
 use super::fence::FenceBuilder;
-use super::line::MarkdownLine;
+use super::line::{MarkdownLine, QuoteMark};
 use super::table::TableBuilder;
 use super::voice::{
     alert_icon, alert_label, build_alert_style, build_code_style, build_heading_style,
@@ -15,7 +15,7 @@ use super::voice::{
 use crate::theme::styles::ThemeStyles;
 use pulldown_cmark::TagEnd;
 use pulldown_cmark::{BlockQuoteKind, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag};
-use ratatui::style::Modifier;
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
 /// True when a rendered line carries no visible content (guards against double blanks).
@@ -114,6 +114,12 @@ impl ListState {
     }
 }
 
+/// A quote still open: where its lines begin, and the style of the rule drawn down them.
+struct OpenQuote {
+    start: usize,
+    rule: Style,
+}
+
 /// One walk's state, and the lines it has laid out so far.
 struct MarkdownRenderer<'a> {
     theme: &'a ThemeStyles,
@@ -124,7 +130,8 @@ struct MarkdownRenderer<'a> {
     fence: FenceBuilder,
     table: TableBuilder,
     heading_level: Option<HeadingLevel>,
-    in_blockquote: bool,
+    /// The quotes open, outermost first
+    quotes: Vec<OpenQuote>,
     /// Right after an alert's word, so its gap is suppressed
     alert_just_labeled: bool,
 }
@@ -140,7 +147,7 @@ impl<'a> MarkdownRenderer<'a> {
             fence: FenceBuilder::default(),
             table: TableBuilder::default(),
             heading_level: None,
-            in_blockquote: false,
+            quotes: Vec::new(),
             alert_just_labeled: false,
         }
     }
@@ -152,7 +159,6 @@ impl<'a> MarkdownRenderer<'a> {
             Event::Code(text) => self.code(&text),
             Event::Html(html) => {
                 let span = Span::styled(html.to_string(), build_text_style(self.theme, self.voice));
-                self.quote_prefix();
                 self.append_inline(span, false);
             }
             Event::Text(text) => self.text(&text),
@@ -243,12 +249,7 @@ impl<'a> MarkdownRenderer<'a> {
     fn end(&mut self, tag: TagEnd) {
         match tag {
             TagEnd::Paragraph if !self.inline.line.is_empty() => self.flush_prose(),
-            TagEnd::BlockQuote(_) => {
-                if !self.inline.line.is_empty() {
-                    self.flush_prose();
-                }
-                self.in_blockquote = false;
-            }
+            TagEnd::BlockQuote(_) => self.end_quote(),
             TagEnd::List(_) => self.list.end(),
             TagEnd::Heading { .. } => {
                 // Flush pending inline spans before clearing heading state
@@ -274,31 +275,46 @@ impl<'a> MarkdownRenderer<'a> {
         }
     }
 
-    /// Opens a quote, writing out an alert's word on a line of its own.
+    /// Opens a quote, and labels it if it's an alert.
+    ///
+    /// An item's bullet already waiting on the line stays there, so a quote that opens an item
+    /// reads on the bullet's row, inside the quote's rule.
     fn begin_quote(&mut self, kind: Option<BlockQuoteKind>) {
-        let opens_an_item = self.list.item_just_started && !self.inline.line.is_empty();
         if !self.list.item_just_started {
             self.flush_prose();
         }
         push_block_gap(&mut self.lines);
-        self.in_blockquote = true;
-        // the item's bullet is already on the line, which is where the marker normally goes
-        if opens_an_item && kind.is_none() {
-            let style = build_quote_style(self.theme, self.voice);
-            self.inline.line.push(Span::styled("> ".to_string(), style));
-        }
-        // An alert carries its severity in the tag rather than in its prose, so dropping
-        // the kind renders `> [!CAUTION]` as an ordinary quote and loses the only thing
-        // that made it one. The word is written out — the color is the polish.
+        let rule = match kind {
+            Some(kind) => build_alert_style(self.theme, self.voice, kind),
+            None => build_quote_style(self.theme, self.voice),
+        };
+        self.quotes.push(OpenQuote { start: self.lines.len(), rule });
         if let Some(kind) = kind {
-            self.lines.push(MarkdownLine::prose(Line::from(vec![
-                Span::styled("> ".to_string(), build_quote_style(self.theme, self.voice)),
-                Span::styled(
-                    crate::glyphs::icon_label(alert_icon(kind).glyph(), alert_label(kind)),
-                    build_alert_style(self.theme, self.voice, kind),
-                ),
-            ])));
-            self.alert_just_labeled = true;
+            self.label_alert(kind);
+        }
+    }
+
+    /// Writes an alert's word on a line of its own.
+    ///
+    /// An alert carries its severity in the tag rather than in its prose, so dropping the kind
+    /// renders `> [!CAUTION]` as an ordinary quote and loses the only thing that made it one. The
+    /// word is written out, and the color is the polish.
+    fn label_alert(&mut self, kind: BlockQuoteKind) {
+        self.lines.push(MarkdownLine::prose(Line::from(Span::styled(
+            crate::glyphs::icon_label(alert_icon(kind).glyph(), alert_label(kind)),
+            build_alert_style(self.theme, self.voice, kind),
+        ))));
+        self.alert_just_labeled = true;
+    }
+
+    /// Closes the innermost quote, ruling every line laid out since it opened, the gaps between
+    /// its blocks included, so the rule runs unbroken down the whole quote.
+    fn end_quote(&mut self) {
+        self.flush_prose();
+        let Some(quote) = self.quotes.pop() else { return };
+        let plate = self.theme.tool_call_bg;
+        for line in self.lines.iter_mut().skip(quote.start) {
+            line.quote = Some(QuoteMark::around(line.quote.take(), quote.rule, plate));
         }
     }
 
@@ -306,7 +322,6 @@ impl<'a> MarkdownRenderer<'a> {
     fn begin_item(&mut self) {
         self.flush_prose();
         let prefix = self.list.next_prefix();
-        self.quote_prefix();
         self.inline.line.push(Span::styled(prefix, build_text_style(self.theme, self.voice)));
         self.list.item_just_started = true;
     }
@@ -333,7 +348,6 @@ impl<'a> MarkdownRenderer<'a> {
         if let Some(level) = self.heading_level {
             style = build_heading_style(self.theme, level, self.voice);
         }
-        self.quote_prefix();
         // a table cell holds its code too, or the identifier leaks out as prose later
         self.append_inline(Span::styled(text.to_string(), style), true);
     }
@@ -341,8 +355,6 @@ impl<'a> MarkdownRenderer<'a> {
     fn text(&mut self, text: &str) {
         // First text in a list item clears the "just started" flag
         self.list.item_just_started = false;
-        // One-time blockquote prefix at start of line (before any styled spans)
-        self.quote_prefix();
         let mut style =
             build_style(&self.inline.style_stack, build_text_style(self.theme, self.voice));
         if let Some(level) = self.heading_level {
@@ -353,14 +365,6 @@ impl<'a> MarkdownRenderer<'a> {
             self.inline.link_text.push_str(text);
         }
         self.append_inline(Span::styled(text.to_string(), style), true);
-    }
-
-    /// The one-time `> ` that opens a line inside a quote.
-    fn quote_prefix(&mut self) {
-        if self.in_blockquote && self.inline.line.is_empty() {
-            let style = build_quote_style(self.theme, self.voice);
-            self.inline.line.push(Span::styled("> ".to_string(), style));
-        }
     }
 
     /// Routes inline content to where it belongs: a fence collects its text, a table cell its

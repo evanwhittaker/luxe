@@ -65,7 +65,8 @@ const DEFAULTS: &[(UiAction, &[&str])] = &[
     (UiAction::ToggleDock, &["alt+d"]),
     // Shift+Tab, as the other agents that have a plan mode bind it. Every surface that already
     // uses it (the `@` picker's tabs, GitHub, the review) is drawn over the composer and takes
-    // the key first, so this only ever fires from the composer itself.
+    // the key first; the FILES tree and the preview let it through, so it switches the mode
+    // wherever the keyboard is in chat.
     (UiAction::CycleMode, &["shift+tab"]),
     (UiAction::ToggleStatusline, &["alt+s"]),
     // `Ctrl+P` for the preview, which also leaves `Alt+P` free to mean "previous" inside it. It is the
@@ -86,15 +87,11 @@ const DEFAULTS: &[(UiAction, &[&str])] = &[
     (UiAction::ChangesToggleView, &["alt+m"]),
     // `L` for lines. `Alt+A` would have read better and selects the draft.
     (UiAction::AskAboutSelection, &["alt+l"]),
-    // `T` for tree. The composer reads `Ctrl+T` as nothing, and every fuzzy finder that binds
-    // it means files by it.
-    (UiAction::FocusFiles, &["ctrl+t"]),
-    // The keyboard goes where the arrow points: the FILES tree, the preview, the composer, in the
-    // order they're drawn. The composer's word jumps keep Ctrl+arrows, and macOS's Option+arrows
-    // arrive as Alt+B/F. Alt+Left is also Guided Review's way back to chat, which a review resolves
-    // to instead (`KeyMap::resolve_chord_preferring`).
-    (UiAction::FocusLeft, &["alt+left"]),
-    (UiAction::FocusRight, &["alt+right"]),
+    // Tab, the key every form moves focus with, walks the composer, the FILES tree and the
+    // preview in a loop. Pickers drawn over the composer take it first, so it only moves focus
+    // when none is open. `Ctrl+T` (`T` for tree) does the same walk; the composer reads it as
+    // nothing, and every fuzzy finder that binds it means files by it.
+    (UiAction::FocusFiles, &["tab", "ctrl+t"]),
     // Guided Review workspace. Contextual routing owns these while review is active.
     // ReviewOpen is the entry point from chat ("g" for Guided review); it no-ops in review.
     (UiAction::ReviewOpen, &["ctrl+g"]),

@@ -128,43 +128,82 @@ fn test_ordered_list() {
     }
 }
 
-#[test]
-fn test_blockquote() {
-    let theme = luxe_core::theme::builtin_themes()[0].clone();
-    let theme = theme_to_styles(&theme);
-    // Blockquote (pulldown-cmark treats "\n> " as SoftBreak within one Paragraph)
-    let input = "> This is a quote\n> with multiple lines";
-    let lines = render_markdown(input, &theme);
-    assert_eq!(lines.len(), 1, "should produce 1 quoted line (SoftBreak -> space)");
-    // Line should start with "> " prefix with md_quote styling (non-default fg)
-    let spans = &lines[0].spans;
-    assert!(spans.len() >= 2, "line should have prefix span + text span: {:?}", spans);
-    assert_eq!(spans[0].content.as_ref(), "> ", "first span is the prefix");
-    let quote_fg = spans[0].style.fg;
-    assert!(quote_fg.is_some(), "prefix span should carry md_quote fg (not default)");
-    // Body text after prefix
-    let body: String = spans.iter().skip(1).map(|s| s.content.as_ref()).collect();
-    assert_eq!(body, "This is a quote with multiple lines");
+/// Each laid-out line's text behind a `▎` for every quote that holds it.
+fn quoted_text(input: &str, theme: &ThemeStyles) -> Vec<String> {
+    layout_markdown_in(input, theme, MarkdownVoice::Answer)
+        .iter()
+        .map(|layout| {
+            let depth = layout.quote.as_ref().map_or(0, |quote| quote.rules.len());
+            let text: String = layout.line.spans.iter().map(|span| span.content.as_ref()).collect();
+            format!("{}{text}", "▎".repeat(depth))
+        })
+        .collect()
 }
 
-/// A quote that opens with a list, and a list item that opens with a quote, each keep the quote's
-/// `> ` marker.
+/// A quote's words come through bare, with the quote carried as a mark: the quote color's rule over
+/// the raised plate.
 ///
-/// The break this catches: the marker is written before a line's first text, and an item's bullet
-/// had already made the line non-empty by then, so the quote read as plain list text.
+/// The break this catches: a `> ` written back into the words, or a quote that marks none of its
+/// lines, or one ruled or plated in some other color.
 #[test]
-fn a_quote_and_a_list_keep_the_quote_marker_when_one_opens_the_other() {
+fn a_quote_marks_its_lines_and_keeps_its_words_bare() {
+    let theme = theme_to_styles(&luxe_core::theme::builtin_themes()[0].clone());
+    // pulldown-cmark reads "\n> " as a soft break inside one paragraph
+    let lines = layout_markdown_in(
+        "> This is a quote\n> with multiple lines",
+        &theme,
+        MarkdownVoice::Answer,
+    );
+    assert_eq!(
+        quoted_text("> This is a quote\n> with multiple lines", &theme),
+        ["▎This is a quote with multiple lines"]
+    );
+    let quote = lines[0].quote.as_ref().expect("a quoted line carries its quote");
+    assert_eq!(quote.rules, [theme.md_quote]);
+    assert_eq!(quote.plate, theme.tool_call_bg);
+}
+
+/// The lines between a quote's blocks are ruled like its words, so the rule runs unbroken down the
+/// quote, and a quote in a quote adds a rule of its own. The gaps around a quote stay outside it.
+///
+/// The break this catches: a quote that marks only the lines holding words, or a nested quote
+/// that replaces the outer one's rule instead of adding to it.
+#[test]
+fn a_quotes_rule_runs_through_its_gaps_and_nests() {
+    let theme = theme_to_styles(&luxe_core::theme::builtin_themes()[0].clone());
+    assert_eq!(
+        quoted_text("before\n\n> one\n>\n> two\n\nafter", &theme),
+        ["before", "", "▎one", "▎", "▎two", "", "after"]
+    );
+    assert_eq!(quoted_text("> outer\n>\n> > inner", &theme), ["▎outer", "▎", "▎▎inner"]);
+}
+
+/// A screen that draws markdown without knowing its width still shows a quote, by its rules ahead
+/// of every line of it, one per level.
+///
+/// The break this catches: the quote left behind in the layout, so its words read as the text's
+/// own on every screen outside the transcript.
+#[test]
+fn markdown_drawn_without_a_width_keeps_a_quotes_rules() {
+    let theme = theme_to_styles(&luxe_core::theme::builtin_themes()[0].clone());
+    let text: Vec<String> =
+        render_markdown("> outer\n>\n> > inner", &theme).iter().map(Line::to_string).collect();
+    assert_eq!(text, ["▎ outer", "▎ ", "▎ ▎ inner"]);
+}
+
+/// A quote that opens with a list, and a list item that opens with a quote, each keep the quote.
+///
+/// The break this catches: an item's bullet waiting on the line when the quote opens, so the
+/// bullet's row is laid out before the quote begins and reads as plain list text.
+#[test]
+fn a_quote_and_a_list_keep_the_quote_when_one_opens_the_other() {
     let theme = theme_to_styles(&luxe_core::theme::builtin_themes()[0].clone());
     let text = |input: &str| -> Vec<String> {
-        render_markdown(input, &theme)
-            .iter()
-            .map(|line| line.spans.iter().map(|span| span.content.as_ref()).collect::<String>())
-            .filter(|row| !row.is_empty())
-            .collect()
+        quoted_text(input, &theme).into_iter().filter(|row| !row.is_empty()).collect()
     };
-    assert_eq!(text("> - one\n> - two"), ["> • one", "> • two"], "a list in a quote");
-    assert_eq!(text("- > quoted"), ["• > quoted"], "a quote in an item");
-    assert_eq!(text("> 1. first"), ["> 1. first"], "an ordered list in a quote");
+    assert_eq!(text("> - one\n> - two"), ["▎• one", "▎• two"], "a list in a quote");
+    assert_eq!(text("- > quoted"), ["▎• quoted"], "a quote in an item");
+    assert_eq!(text("> 1. first"), ["▎1. first"], "an ordered list in a quote");
 }
 
 /// An alert carries its severity in a tag rather than in its prose, so the tag has to become
@@ -191,7 +230,7 @@ fn an_alert_writes_its_kind_out_above_the_quote() {
             .unwrap_or_else(|| panic!("no line says {word:?}: {rendered:?}"));
         assert_eq!(
             rendered.get(labeled + 1).map(String::as_str),
-            Some("> mind this"),
+            Some("▎ mind this"),
             "the quote follows its own word without a gap: {rendered:?}"
         );
         assert!(
@@ -224,21 +263,32 @@ fn an_alerts_word_is_colored_by_severity_except_in_the_reasoning_voice() {
     assert!(reasoning.add_modifier.contains(Modifier::BOLD | Modifier::ITALIC));
 }
 
+/// An alert's rule takes its severity's color, as its word does, where a plain quote's is muted.
+///
+/// The break this catches: an alert ruled like any quote, so its color shows only in the word.
+#[test]
+fn an_alerts_rule_takes_its_severitys_color() {
+    let theme = theme_to_styles(&luxe_core::theme::builtin_themes()[0].clone());
+    let rule = |input: &str| {
+        layout_markdown_in(input, &theme, MarkdownVoice::Answer)[0]
+            .quote
+            .as_ref()
+            .map(|quote| quote.rules[0].fg)
+    };
+    assert_eq!(rule("> [!CAUTION]\n> careful"), Some(theme.error.fg));
+    assert_eq!(rule("> [!TIP]\n> handy"), Some(theme.success.fg));
+    assert_eq!(rule("> plain"), Some(theme.md_quote.fg));
+}
+
 #[test]
 fn test_blockquote_inline_formatting() {
     let theme = luxe_core::theme::builtin_themes()[0].clone();
     let theme = theme_to_styles(&theme);
-    // Inline bold inside blockquote: one prefix, BOLD modifier preserved
+    // Inline bold inside blockquote: BOLD modifier preserved
     let input = "> **bold** and normal";
     let lines = render_markdown(input, &theme);
     assert_eq!(lines.len(), 1, "should produce 1 quoted line");
     let spans = &lines[0].spans;
-    // First span is the prefix (exactly one)
-    assert_eq!(spans[0].content.as_ref(), "> ", "single prefix span");
-    assert!(
-        spans[0].style.fg.is_some(),
-        "prefix should have a foreground color (DarkGray fallback or md_quote token)"
-    );
     // Find the "bold" text and verify BOLD modifier
     let bold_span =
         spans.iter().find(|s| s.content.as_ref() == "bold").expect("'bold' span missing");

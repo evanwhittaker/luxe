@@ -1,8 +1,9 @@
 use super::{holding, Pane};
-use crate::app::{App, Msg};
+use crate::app::{App, Msg, ViewMode};
 use crate::fixture::{seed_file_view, seeded_app, FixtureScenario};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use luxe_core::config::DockPosition;
+use luxe_core::Action;
+use tokio::sync::mpsc;
 
 fn chatting() -> App {
     seeded_app("nord", FixtureScenario::ChatIdle).expect("chat fixture")
@@ -14,60 +15,19 @@ fn previewing() -> App {
     app
 }
 
-fn alt(app: &mut App, code: KeyCode) {
-    app.update(Msg::Key(KeyEvent::new(code, KeyModifiers::ALT)));
+/// A previewing app whose actions can be read, for the keys that reach the engine.
+fn previewing_with_actions() -> (App, mpsc::Receiver<Action>) {
+    let (tx, rx) = mpsc::channel(16);
+    let keymap = luxe_core::keymap::KeyMap::defaults();
+    let mut app = App::new(tx, keymap, luxe_core::config::Config::default());
+    app.dashboard = None;
+    app.current_view = ViewMode::Chat;
+    seed_file_view(&mut app, "src/lib.rs", "one\ntwo\n", None);
+    (app, rx)
 }
 
-/// The break this catches: a step that skips the preview, wraps around at the edge, or goes the
-/// way the arrow doesn't point.
-#[test]
-fn steps_follow_the_panes_left_to_right_and_stop_at_the_edges() {
-    let mut app = previewing();
-    app.update(Msg::StepFocus(true));
-    assert_eq!(holding(&app), Pane::Composer, "nothing right of the conversation");
-    app.update(Msg::StepFocus(false));
-    assert_eq!(holding(&app), Pane::Preview);
-    app.update(Msg::StepFocus(false));
-    assert_eq!(holding(&app), Pane::Files);
-    app.update(Msg::StepFocus(false));
-    assert_eq!(holding(&app), Pane::Files, "nothing left of the dock");
-    app.update(Msg::StepFocus(true));
-    assert_eq!(holding(&app), Pane::Preview);
-    app.update(Msg::StepFocus(true));
-    assert_eq!(holding(&app), Pane::Composer);
-}
-
-/// The break this catches: the arrows keeping the left-dock order with the dock on the right, so
-/// Alt+Left from the conversation lands on a pane to its right.
-#[test]
-fn a_dock_on_the_right_mirrors_the_steps() {
-    let mut app = previewing();
-    app.dock.position = DockPosition::Right;
-    app.update(Msg::StepFocus(false));
-    assert_eq!(holding(&app), Pane::Composer, "nothing left of the conversation");
-    app.update(Msg::StepFocus(true));
-    assert_eq!(holding(&app), Pane::Preview);
-    app.update(Msg::StepFocus(true));
-    assert_eq!(holding(&app), Pane::Files);
-}
-
-/// The break this catches: a step into a preview that isn't open, which strands the keyboard on
-/// nothing.
-#[test]
-fn without_a_preview_the_step_goes_straight_to_the_tree() {
-    let mut app = chatting();
-    app.update(Msg::StepFocus(false));
-    assert_eq!(holding(&app), Pane::Files);
-}
-
-/// The break this catches: a step into a tree the config hides.
-#[test]
-fn a_hidden_tree_is_no_stop() {
-    let mut app = previewing();
-    app.config.dock.sections = Some(vec!["plan".to_string()]);
-    app.update(Msg::StepFocus(false));
-    app.update(Msg::StepFocus(false));
-    assert_eq!(holding(&app), Pane::Preview, "the preview is the leftmost stop");
+fn press(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
+    app.update(Msg::Key(KeyEvent::new(code, modifiers)));
 }
 
 /// The break this catches: Ctrl+T's walk looping between the tree and the preview with no way
@@ -98,31 +58,41 @@ fn the_walk_passes_a_hidden_tree_for_the_preview() {
     assert_eq!(holding(&app), Pane::Preview);
 }
 
-/// The break this catches: the pane move taking Alt+Left in a review too, which strands a reader
-/// who learned it as the way back to chat.
+/// The break this catches: Tab doing nothing from the composer, the tree sending it straight back
+/// to the composer past an open preview, the preview handing it back to the tree, or Tab landing
+/// in the draft.
+#[test]
+fn tab_walks_every_pane_and_types_nothing() {
+    let mut app = previewing();
+    app.editor.insert_text("half a thought");
+    let mut seen = Vec::new();
+    for _ in 0..3 {
+        press(&mut app, KeyCode::Tab, KeyModifiers::NONE);
+        seen.push(holding(&app));
+    }
+    assert_eq!(seen, [Pane::Files, Pane::Preview, Pane::Composer]);
+    assert_eq!(app.editor.current_input(), "half a thought");
+}
+
+/// The break this catches: shift+Tab still trading the keyboard between the tree and the preview,
+/// or handing it to the composer, instead of switching the mode where the keyboard is.
+#[test]
+fn shift_tab_switches_the_mode_from_the_tree_and_the_preview() {
+    let (mut app, mut rx) = previewing_with_actions();
+    for pane in [Pane::Files, Pane::Preview] {
+        app.update(Msg::WalkFocus);
+        assert_eq!(holding(&app), pane);
+        press(&mut app, KeyCode::BackTab, KeyModifiers::SHIFT);
+        assert_eq!(holding(&app), pane, "the keyboard stayed put");
+        assert!(matches!(rx.try_recv(), Ok(Action::SetMode(_))), "from {pane:?}");
+    }
+}
+
+/// The break this catches: a review losing Alt+Left, its way back to chat.
 #[test]
 fn alt_left_still_leaves_a_review() {
     let mut app = seeded_app("nord", FixtureScenario::GuidedReviewReady).expect("review");
-    assert_eq!(app.current_view, crate::app::ViewMode::GuidedReview);
-    alt(&mut app, KeyCode::Left);
-    assert_eq!(app.current_view, crate::app::ViewMode::Chat);
-}
-
-/// The break this catches: Alt+Left still jumping a word in the composer, the review's way back
-/// to chat winning the chord in chat, or the composer losing Ctrl+Left's word jump.
-#[test]
-fn alt_arrows_move_the_keyboard_in_chat_and_ctrl_arrows_still_jump_words() {
-    let mut app = previewing();
-    app.editor.insert_text("one two");
-    alt(&mut app, KeyCode::Left);
-    assert_eq!(holding(&app), Pane::Preview);
-    assert_eq!(app.editor.cursor(), "one two".len(), "the draft's cursor stayed put");
-    alt(&mut app, KeyCode::Left);
-    assert_eq!(holding(&app), Pane::Files, "the preview passes the key on");
-    alt(&mut app, KeyCode::Right);
-    assert_eq!(holding(&app), Pane::Preview, "so does the tree");
-    alt(&mut app, KeyCode::Right);
-    assert_eq!(holding(&app), Pane::Composer);
-    app.update(Msg::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::CONTROL)));
-    assert_eq!(app.editor.cursor(), "one ".len());
+    assert_eq!(app.current_view, ViewMode::GuidedReview);
+    press(&mut app, KeyCode::Left, KeyModifiers::ALT);
+    assert_eq!(app.current_view, ViewMode::Chat);
 }

@@ -2,10 +2,10 @@
 //!
 //! `Ctrl+T` puts the keyboard in the tree and `Esc` gives it back to the composer. In between the
 //! keys are the ones every file tree answers to: `j`/`k` or the arrows move, `l` opens, `h` closes
-//! or climbs, `Enter` shows a file, and a handful of letters act on the row. `l` on a file, or
-//! `Tab` while one is showing, takes the keyboard on into the preview. A key the tree does
-//! not know hands the keyboard back and goes to the composer, so typing a message never needs
-//! leaving the tree first.
+//! or climbs, `Enter` shows a file, and a handful of letters act on the row. `l` on a file takes
+//! the keyboard on into the preview. `Tab` and `Shift+Tab` are the app's, as chords are: the walk
+//! to the next pane and the mode switch. A key the tree does not know hands the keyboard back and
+//! goes to the composer, so typing a message never needs leaving the tree first.
 //!
 //! `/` opens a filter over the whole project (see [`crate::files::filter`]). While it is being
 //! typed every printable key goes into it and the arrows move through the matches; `Enter` shows
@@ -24,9 +24,13 @@ pub(super) fn files_took(app: &mut App, key: KeyEvent) -> bool {
         // A chord is the app's, not the tree's; the tree lets it through and keeps the keyboard
         return false;
     }
-    if app.files.filter.as_ref().is_some_and(|filter| filter.typing) && typed_into_filter(app, key)
-    {
+    let typing = app.files.filter.as_ref().is_some_and(|filter| filter.typing);
+    if typing && typed_into_filter(app, key) {
         return true;
+    }
+    // The walk and the mode switch are the app's too, once the filter has had Tab
+    if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) {
+        return false;
     }
     let tree = Tree::read(app);
     if tree.moves(app, key.code) || tree.opens(app, key.code) || tree.acts_on_path(app, key.code) {
@@ -167,8 +171,7 @@ fn switch(app: &mut App, code: KeyCode) -> bool {
             app.files.refresh_all();
             crate::app::messages::files::sync(app);
         }
-        KeyCode::Tab | KeyCode::BackTab if app.changes.is_some() => app.update(Msg::FocusPeek),
-        KeyCode::Esc | KeyCode::Tab | KeyCode::BackTab => app.files.focused = false,
+        KeyCode::Esc => app.files.focused = false,
         _ => {
             app.files.focused = false;
             return false;

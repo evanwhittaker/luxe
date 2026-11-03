@@ -1,7 +1,7 @@
 //! Conversation wrapping — cell-aware transcript wrapping and canvas indentation.
 
 use super::{ConversationCanvasWidths, SAFE_GUTTER_WIDTH};
-use crate::markdown::{FenceRule, MarkdownBlockKind, MarkdownLine};
+use crate::markdown::{FenceRule, MarkdownBlockKind, MarkdownLine, QuoteMark};
 use crate::tabstop::TAB_WIDTH;
 use ratatui::{
     style::Style,
@@ -10,26 +10,78 @@ use ratatui::{
 use unicode_width::UnicodeWidthChar;
 
 pub(super) fn conversation_line(
-    layout: MarkdownLine,
+    mut layout: MarkdownLine,
     canvas: ConversationCanvasWidths,
 ) -> Vec<Line<'static>> {
+    if let Some(quote) = layout.quote.take() {
+        return quoted_rows(layout, &quote, canvas);
+    }
     let (width, x) = match layout.kind {
         MarkdownBlockKind::Prose => (canvas.prose_width, canvas.prose_x),
         MarkdownBlockKind::Wide => (canvas.wide_width, canvas.wide_x),
     };
+    rows(layout, width).into_iter().map(|line| indent(line, x)).collect()
+}
+
+/// A quoted line's rows: wrapped inside its rules, then each one ruled and set on the plate out to
+/// the width.
+///
+/// A quote sits in the prose column whatever it holds, so its rule runs straight down past a fence
+/// or a table in it rather than jumping out to the wide canvas and back.
+fn quoted_rows(
+    mut layout: MarkdownLine,
+    quote: &QuoteMark,
+    canvas: ConversationCanvasWidths,
+) -> Vec<Line<'static>> {
+    let width = usize::from(canvas.prose_width);
+    let ruled = quote.cells();
+    let inner = u16::try_from(width.saturating_sub(ruled)).unwrap_or(u16::MAX);
+    // too narrow to rule: the words matter more than the decoration
+    if usize::from(inner) < ruled {
+        layout.kind = MarkdownBlockKind::Prose;
+        return conversation_line(layout, canvas);
+    }
+    rows(layout, inner)
+        .into_iter()
+        .map(|row| indent(on_the_plate(row, quote, width), canvas.prose_x))
+        .collect()
+}
+
+/// `row` behind its quote's rules, on the plate out to `width`. A span with its own background, a
+/// highlighted word, keeps it.
+fn on_the_plate(row: Line<'static>, quote: &QuoteMark, width: usize) -> Line<'static> {
+    let plated = |style: Style| match style.bg {
+        Some(_) => style,
+        None => Style { bg: quote.plate.bg, ..style },
+    };
+    let mut spans: Vec<Span<'static>> = quote.rule_spans(quote.plate).collect();
+    let filled = quote.cells() + row.width();
+    let row_style = row.style;
+    spans.extend(
+        row.spans
+            .into_iter()
+            .map(|span| Span::styled(span.content, plated(row_style.patch(span.style)))),
+    );
+    spans.push(Span::styled(" ".repeat(width.saturating_sub(filled)), quote.plate));
+    Line::from(spans)
+}
+
+/// `layout`'s rows at `width`, before the canvas indents them.
+fn rows(layout: MarkdownLine, width: u16) -> Vec<Line<'static>> {
     // A rule is one line by construction -- built to the width it is handed, so there is nothing
     // for the wrapper to do to it.
     if let Some(rule) = layout.fence_rule {
-        return vec![indent(fence_rule(rule, width), x)];
+        return vec![fence_rule(rule, width)];
     }
     // A table lays itself out to the width: handed to the wrapper whole, its rows split mid-grid
     if let Some(table) = layout.table {
-        return table
-            .lines_at(usize::from(width))
-            .into_iter()
-            .map(|line| indent(line, x))
-            .collect();
+        return table.lines_at(usize::from(width));
     }
+    text_rows(layout, width)
+}
+
+/// A line of text's rows at `width`, hanging where its kind or its own column says.
+fn text_rows(layout: MarkdownLine, width: u16) -> Vec<Line<'static>> {
     let line = match layout.ends_at {
         Some(column) => ends_at(layout.line, column.min(usize::from(width))),
         None => layout.line,
@@ -41,7 +93,7 @@ pub(super) fn conversation_line(
         (None, MarkdownBlockKind::Prose) => hanging_indent(&line, usize::from(width)),
         (None, MarkdownBlockKind::Wide) => None,
     };
-    wrap_rows(line, width, hang).into_iter().map(|line| indent(line, x)).collect()
+    wrap_rows(line, width, hang)
 }
 
 /// Where a prose line's wrapped rows should start: under the text, past its indent and marker.
@@ -330,81 +382,4 @@ fn push_styled_char(spans: &mut Vec<Span<'static>>, character: char, style: Styl
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn rows(text: &str, width: u16, kind: MarkdownBlockKind) -> Vec<String> {
-        let line = Line::from(text.to_string());
-        let hang = match kind {
-            MarkdownBlockKind::Prose => hanging_indent(&line, usize::from(width)),
-            MarkdownBlockKind::Wide => None,
-        };
-        wrap_rows(line, width, hang).iter().map(Line::to_string).collect()
-    }
-
-    /// A line that names its own hang keeps it whatever its kind, every row, but never past half the
-    /// width.
-    #[test]
-    fn a_named_hang_holds_on_every_row_of_a_wide_line() {
-        let line = Line::from("question  one two three four five six seven");
-        let hang = named_hang(&line, 10, 22);
-        let rows: Vec<String> =
-            wrap_rows(line.clone(), 22, hang).iter().map(Line::to_string).collect();
-        assert_eq!(
-            rows,
-            ["question  one two", "          three four", "          five six", "          seven"]
-        );
-        assert_eq!(named_hang(&line, 11, 22), None, "half the width or more is too far");
-    }
-
-    /// A wrapped list item carries on under its own first word, not back at the margin.
-    #[test]
-    fn a_wrapped_list_item_hangs_under_its_text() {
-        let bullet = rows("• alpha beta gamma delta", 14, MarkdownBlockKind::Prose);
-        assert_eq!(bullet, ["• alpha beta", "  gamma delta"]);
-        let numbered = rows("12. alpha beta gamma", 14, MarkdownBlockKind::Prose);
-        assert_eq!(numbered, ["12. alpha beta", "    gamma"]);
-        let nested = rows("  - [ ] alpha beta gamma", 20, MarkdownBlockKind::Prose);
-        assert_eq!(nested, ["  - [ ] alpha beta", "        gamma"]);
-    }
-
-    /// An indented run of names, the way `/tools` lists them, keeps its indent on every row.
-    #[test]
-    fn an_indented_run_keeps_its_indent() {
-        let tools = rows("    read  write  edit  bash  grep", 21, MarkdownBlockKind::Prose);
-        assert_eq!(tools, ["    read  write  edit", "    bash  grep"]);
-    }
-
-    /// A long word still splits at the width, and the split half hangs too.
-    #[test]
-    fn a_hard_split_word_hangs_and_fits() {
-        let split = rows("• abcdefghijklmnop", 10, MarkdownBlockKind::Prose);
-        assert_eq!(split, ["• abcdefgh", "  ijklmnop"]);
-    }
-
-    /// Code and wide rows keep exactly the columns they were drawn with.
-    #[test]
-    fn wide_rows_and_plain_prose_do_not_hang() {
-        assert_eq!(rows("    alpha beta gamma", 12, MarkdownBlockKind::Wide)[1], "beta gamma");
-        assert_eq!(rows("alpha beta gamma", 12, MarkdownBlockKind::Prose)[1], "gamma");
-        assert_eq!(rows("-5 is alpha beta", 10, MarkdownBlockKind::Prose)[1], "alpha beta");
-    }
-
-    /// Past half the width a hang would leave too little row to be worth it.
-    #[test]
-    fn a_deep_indent_does_not_hang_on_a_narrow_row() {
-        let deep = rows("          alpha beta", 16, MarkdownBlockKind::Prose);
-        assert_eq!(deep[1], "beta");
-    }
-
-    /// The indent wears the style the line began in, so a card's band has no hole in it.
-    #[test]
-    fn the_indent_carries_the_leading_style() {
-        let band = Style::default().bg(ratatui::style::Color::Blue);
-        let line = Line::from(Span::styled("• alpha beta gamma delta", band));
-        let hang = hanging_indent(&line, 14);
-        let wrapped = wrap_rows(line, 14, hang);
-        assert!(wrapped[1].spans[0].content.starts_with("  gamma"), "{:?}", wrapped[1]);
-        assert_eq!(wrapped[1].spans[0].style, band);
-    }
-}
+mod tests;

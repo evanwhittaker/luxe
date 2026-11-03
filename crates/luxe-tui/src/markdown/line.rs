@@ -53,6 +53,49 @@ pub(crate) struct MarkdownLine {
     /// When set, this line is a whole table, laid out once the width it lands in is known; see
     /// [`TableBlock`].
     pub(crate) table: Option<std::sync::Arc<TableBlock>>,
+    /// When set, the quotes this line sits in; see [`QuoteMark`].
+    pub(crate) quote: Option<QuoteMark>,
+}
+
+/// The quotes a line sits in, drawn as a rule down every row it wraps into, over a plate.
+///
+/// Carried rather than drawn into the line because the rule belongs on each of the line's rows, and
+/// only the transcript knows the width that decides how many there are.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct QuoteMark {
+    /// Each quote's rule, outermost first: a nested quote draws one rule per level
+    pub(crate) rules: Vec<Style>,
+    /// What's behind the quote's rows
+    pub(crate) plate: Style,
+}
+
+/// The glyph a quote's rule is drawn with: a block element every terminal draws against the cell's
+/// left edge, so the rows of a quote join into one unbroken line down its side.
+const QUOTE_RULE: &str = "\u{258e}";
+
+/// Cells each quote's rule takes: the rule, then a space before the words.
+const QUOTE_RULE_CELLS: usize = 2;
+
+impl QuoteMark {
+    /// The rules, outermost first, each a rule and a space on `behind`.
+    pub(crate) fn rule_spans(&self, behind: Style) -> impl Iterator<Item = Span<'static>> + '_ {
+        self.rules.iter().flat_map(move |rule| {
+            [Span::styled(QUOTE_RULE, rule.patch(behind)), Span::styled(" ", behind)]
+        })
+    }
+
+    /// Cells the rules take ahead of the words.
+    pub(crate) fn cells(&self) -> usize {
+        self.rules.len() * QUOTE_RULE_CELLS
+    }
+
+    /// The mark for a line in the quote ruled `rule`: that rule first, then the rules of any quote
+    /// nested in it that holds the line too, which `inner` carries.
+    pub(crate) fn around(inner: Option<Self>, rule: Style, plate: Style) -> Self {
+        let mut rules = vec![rule];
+        rules.extend(inner.into_iter().flat_map(|inner| inner.rules));
+        Self { rules, plate }
+    }
 }
 
 /// A fenced code block's frame line: a rule, with labels sitting on its ends.
@@ -97,6 +140,7 @@ impl MarkdownLine {
             fence_rule: None,
             hang: None,
             table: None,
+            quote: None,
         }
     }
 

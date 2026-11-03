@@ -55,6 +55,26 @@ pub fn code_line(text: &str, lang: Option<&str>) -> String {
     out
 }
 
+/// A block of source highlighted as HTML, its lines joined by newlines. Highlighted whole, as a
+/// fence is, so a string or heredoc that spans lines keeps its color. Everything in `text` comes
+/// back escaped.
+pub fn code_block(text: &str, lang: Option<&str>) -> String {
+    let mut out = String::new();
+    highlighted_into(&mut out, text, lang);
+    out
+}
+
+fn highlighted_into(out: &mut String, text: &str, lang: Option<&str>) {
+    for (index, line) in highlight_roles(text, lang).iter().enumerate() {
+        if index > 0 {
+            out.push('\n');
+        }
+        for (role, part) in line {
+            role_span_into(out, *role, part);
+        }
+    }
+}
+
 /// `text` in the span for its highlight role, or bare when the role is body text.
 fn role_span_into(out: &mut String, role: Role, text: &str) {
     let Some(class) = role_class(role) else { return escape_into(out, text) };
@@ -241,15 +261,7 @@ impl HtmlWriter {
         if self.voice == Voice::Reasoning {
             return escape_into(&mut self.out, fence.code.trim_end_matches('\n'));
         }
-        let lines = highlight_roles(&fence.code, fence.lang.as_deref());
-        for (index, line) in lines.iter().enumerate() {
-            if index > 0 {
-                self.out.push('\n');
-            }
-            for (role, text) in line {
-                role_span_into(&mut self.out, *role, text);
-            }
-        }
+        highlighted_into(&mut self.out, &fence.code, fence.lang.as_deref());
     }
 
     fn open_table(&mut self, alignments: Vec<Alignment>) {

@@ -136,6 +136,38 @@ impl QuestionPromptState {
         self.custom_checked = true;
     }
 
+    /// Whether row `index` is the typed answer's.
+    pub(crate) fn is_answer_row(&self, index: usize) -> bool {
+        index == self.custom_row()
+    }
+
+    /// Puts the caret back in the typed answer, where it was left, as a click on its row does.
+    pub(crate) fn resume_answer(&mut self) {
+        self.start_typing();
+    }
+
+    /// Whether `key`, with the typed answer highlighted but not being typed in, goes into it: any
+    /// key that edits text, digits included, once there is text to edit. Without that, a digit
+    /// after coming back to a half-written answer picks an option, and Backspace does nothing.
+    /// Space in a multi-select still toggles the row.
+    fn resumes_answer(&self, key: &KeyEvent, ctrl: bool) -> bool {
+        let on_answer = self.selected == self.custom_row() && !self.custom().is_empty();
+        let edits = match key.code {
+            KeyCode::Char(' ') => !self.multi,
+            KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Delete => true,
+            KeyCode::Left | KeyCode::Right | KeyCode::Home | KeyCode::End => true,
+            _ => false,
+        };
+        on_answer && !ctrl && edits
+    }
+
+    /// Takes `key` into the typed answer, which it picks.
+    fn type_into_answer(&mut self, key: &KeyEvent) -> QuestionPromptOutcome {
+        self.start_typing();
+        self.custom.handle_key(*key);
+        QuestionPromptOutcome::Consumed
+    }
+
     fn move_up(&mut self) {
         let n = self.row_count();
         self.selected = if self.selected == 0 { n - 1 } else { self.selected - 1 };
@@ -177,6 +209,7 @@ impl QuestionPromptState {
             return self.on_key_editing(key, ctrl);
         }
         match key.code {
+            _ if self.resumes_answer(key, ctrl) => self.type_into_answer(key),
             KeyCode::Esc => QuestionPromptOutcome::Cancel,
             KeyCode::Char('c') if ctrl => QuestionPromptOutcome::Cancel,
             KeyCode::Up => {
@@ -232,11 +265,7 @@ impl QuestionPromptState {
                 }
             }
             // Start typing anywhere jumps into the free-text row.
-            KeyCode::Char(_) if !ctrl => {
-                self.start_typing();
-                self.custom.handle_key(*key);
-                QuestionPromptOutcome::Consumed
-            }
+            KeyCode::Char(_) if !ctrl => self.type_into_answer(key),
             _ => QuestionPromptOutcome::Consumed,
         }
     }

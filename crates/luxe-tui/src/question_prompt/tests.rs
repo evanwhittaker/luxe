@@ -108,8 +108,7 @@ fn a_single_answer_leaves_an_abandoned_draft_behind() {
     assert_eq!(s.on_key(&key(KeyCode::Enter)), QuestionPromptOutcome::Answer(vec!["Rust".into()]));
 }
 
-/// The pointer resting on the row being typed into keeps the caret; moving to another row
-/// puts it away.
+/// Selecting the row being typed into keeps the caret; a click on another row puts it away.
 #[test]
 fn hovering_the_row_being_typed_keeps_it_open() {
     let mut s = state(false);
@@ -118,6 +117,33 @@ fn hovering_the_row_being_typed_keeps_it_open() {
     assert!(s.editing());
     s.select(0);
     assert!(!s.editing());
+}
+
+fn typed(s: &mut QuestionPromptState, code: KeyCode) -> String {
+    assert_eq!(s.on_key(&key(code)), QuestionPromptOutcome::Consumed, "{code:?} answered nothing");
+    s.on_key(&key(KeyCode::Esc));
+    s.custom().to_string()
+}
+
+/// The break this catches: coming back to a half-written answer, a digit picking an option instead
+/// of going into it, or Backspace and the arrows doing nothing; or, with nothing written, the digit
+/// shortcuts no longer working from the answer's row.
+#[test]
+fn a_half_written_answer_takes_its_keys_again_once_highlighted() {
+    let mut s = state(false);
+    s.on_key(&key(KeyCode::Char('x')));
+    s.on_key(&key(KeyCode::Esc));
+    assert!(!s.editing() && s.selected() == s.custom_row());
+    assert_eq!(typed(&mut s, KeyCode::Char('2')), "x2");
+    assert_eq!(typed(&mut s, KeyCode::Backspace), "x");
+    assert_eq!(typed(&mut s, KeyCode::Char(' ')), "x ");
+    s.on_key(&key(KeyCode::Left));
+    assert!(s.editing(), "an arrow went into the answer too");
+
+    let mut s = state(false);
+    s.select(s.custom_row());
+    let digit = s.on_key(&key(KeyCode::Char('1')));
+    assert_eq!(digit, QuestionPromptOutcome::Answer(vec!["Rust".into()]));
 }
 
 #[test]

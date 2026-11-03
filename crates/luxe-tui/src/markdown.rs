@@ -21,7 +21,7 @@ use ratatui::text::Line;
 
 use crate::theme::styles::ThemeStyles;
 pub(crate) use layout::layout_markdown_in;
-pub(crate) use line::{FenceRule, ImageRow, MarkdownBlockKind, MarkdownLine};
+pub(crate) use line::{FenceRule, ImageRow, MarkdownBlockKind, MarkdownLine, QuoteMark};
 pub(crate) use voice::MarkdownVoice;
 
 /// Render markdown source into styled `Line`s — one per block.
@@ -30,12 +30,22 @@ pub(crate) use voice::MarkdownVoice;
 /// inline code (`` ` ``), fenced code blocks (with syntect highlighting via `highlight_code`),
 /// blockquotes, lists (ordered and unordered), horizontal rules, and task list markers.
 pub fn render_markdown(src: &str, theme: &ThemeStyles) -> Vec<Line<'static>> {
-    // Nothing here knows the width it will be drawn at, so a table takes its natural one
-    layout_markdown(src, theme)
+    layout_markdown(src, theme).into_iter().flat_map(unwrapped_lines).collect()
+}
+
+/// A laid-out line as lines to be drawn at a width nothing here knows: a table at its natural
+/// width, and a quoted line behind its rules but off the plate, which only a known width can fill.
+fn unwrapped_lines(layout: MarkdownLine) -> Vec<Line<'static>> {
+    let lines = match layout.table {
+        Some(table) => table.lines_at(usize::MAX),
+        None => vec![layout.line],
+    };
+    let Some(quote) = layout.quote else { return lines };
+    lines
         .into_iter()
-        .flat_map(|layout| match layout.table {
-            Some(table) => table.lines_at(usize::MAX),
-            None => vec![layout.line],
+        .map(|line| {
+            let rules = quote.rule_spans(ratatui::style::Style::default());
+            Line::from(rules.chain(line.spans).collect::<Vec<_>>()).style(line.style)
         })
         .collect()
 }

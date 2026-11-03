@@ -123,7 +123,7 @@ fn reduce_inner(app: &mut App, msg: Msg) {
         | Msg::ToggleIgnoredFiles
         | Msg::FocusFiles
         | Msg::ChooseMenuItem(_) => files::reduce(app, msg),
-        Msg::FocusPeek | Msg::WalkFocus | Msg::StepFocus(_) => focus::reduce(app, msg),
+        Msg::FocusPeek | Msg::WalkFocus => focus::reduce(app, msg),
         Msg::Key(key) => app.handle_key(key),
         Msg::Engine(event) => events::reduce(app, event),
         Msg::Tick => tick(app),

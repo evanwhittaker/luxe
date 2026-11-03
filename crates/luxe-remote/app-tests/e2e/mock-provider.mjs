@@ -5,8 +5,11 @@
 
 import { createServer } from "node:http";
 
-/** The file the scripted model writes, and what it writes in it. */
-export const WRITTEN = { path: "hello.txt", content: "hello from the mock\n" };
+/**
+ * The file the scripted model writes, and what it writes in it: one line, in a language to color,
+ * that rustfmt leaves as one line when the write formats it.
+ */
+export const WRITTEN = { path: "hello.rs", content: 'const HELLO: &str = "hello from the mock";\n' };
 
 /** A picture in the host's project, one pixel, which the scripted model reads when asked to. */
 export const PICTURE = {

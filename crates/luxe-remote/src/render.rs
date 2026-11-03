@@ -11,6 +11,7 @@ mod diff;
 mod file;
 mod github;
 mod review;
+mod tool_code;
 mod tree;
 mod workspace;
 
@@ -46,6 +47,11 @@ pub trait Renderer: Send + Sync {
     }
     /// One line of source as HTML, highlighted for `language`. It must come back escaped.
     fn code_line(&self, text: &str, _language: Option<&str>) -> String {
+        escape(text)
+    }
+    /// Lines of source as HTML, highlighted together for `language` and joined by newlines. It
+    /// must come back escaped.
+    fn code_block(&self, text: &str, _language: Option<&str>) -> String {
         escape(text)
     }
     /// The mark the dock puts beside a todo, as plain text.
@@ -198,6 +204,9 @@ pub(crate) enum Piece {
     User { content: Vec<WireBlock> },
     /// A tool, by name
     Tool { name: String },
+    /// Code a tool's card shows: a command, or the content a `write` wrote. Args: `label`, the
+    /// card's, which names the file a `write` wrote
+    ToolCode { tool: String, label: String, text: String },
     /// The status line
     Status(Box<StatusFacts>),
     /// The todos from `workspace_updated`, as the dock's PLAN shows them
@@ -286,6 +295,7 @@ pub(crate) fn render(renderer: &dyn Renderer, piece: &Piece) -> String {
         Piece::Reasoning { text } => renderer.markdown(text, Voice::Reasoning),
         Piece::User { content } => user_message(content) + &images_attached(renderer, content),
         Piece::Tool { name } => escape(&renderer.tool_glyph(name)),
+        Piece::ToolCode { tool, label, text } => tool_code::html(renderer, tool, label, text),
         Piece::Status(facts) => renderer.status(facts).iter().map(status_segment).collect(),
         Piece::Plan { todos } => workspace::plan(renderer, todos),
         Piece::Diff { diff } => diff::file(renderer, diff),

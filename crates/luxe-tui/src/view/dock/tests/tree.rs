@@ -76,7 +76,7 @@ fn the_committed_review_hint_is_a_row_that_opens_the_review() {
     app.review.last_turn = Some(("session-1".into(), "turn-1".into()));
     let section = file_lines(None, &app, 8);
     let last = section.lines.len() - 1;
-    assert_eq!(text(&section.lines[last]), "ctrl+t browse · ctrl+g review");
+    assert_eq!(text(&section.lines[last]), "tab browse · ctrl+g review");
     assert!(section
         .hits
         .iter()
@@ -151,7 +151,7 @@ fn the_tree_says_how_to_move_through_it_with_keys() {
     let mut app = app();
     let section = file_lines(None, &app, 8);
     let last = section.lines.len() - 1;
-    assert_eq!(text(&section.lines[last]), "ctrl+t browse");
+    assert_eq!(text(&section.lines[last]), "tab browse");
     assert!(section
         .hits
         .iter()

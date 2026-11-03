@@ -1,11 +1,11 @@
-//! Focus — which pane has the keyboard, and the two ways it moves between them.
+//! Focus — which pane has the keyboard, and how it moves between them.
 //!
-//! `Alt+←` and `Alt+→` step by where the panes are drawn: the FILES tree in the dock, the preview
-//! beside it, then the conversation, mirrored when the dock is on the right. `Ctrl+T` walks the
-//! same three in a loop, for a reader who'd rather not think about sides.
+//! `Tab` (or `Ctrl+T`) walks the composer, the FILES tree and the preview in a loop, whichever pane
+//! has the keyboard. Three stops at most, so going back is one or two more presses; `Shift+Tab`
+//! stays the mode switch everywhere rather than meaning "back" in some panes and not others.
 
 use crate::app::{App, Msg};
-use luxe_core::config::{DockPosition, DockSectionName};
+use luxe_core::config::DockSectionName;
 
 /// Somewhere the keyboard can be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,7 +20,6 @@ pub(super) fn reduce(app: &mut App, msg: Msg) {
     match msg {
         Msg::FocusPeek => focus_preview(app),
         Msg::WalkFocus => walk(app),
-        Msg::StepFocus(rightward) => step(app, rightward),
         _ => {}
     }
 }
@@ -40,29 +39,6 @@ fn holding(app: &App) -> Pane {
         return Pane::Files;
     }
     Pane::Composer
-}
-
-/// The panes the keyboard can go to, left to right as they're drawn.
-fn screen_order(app: &App) -> Vec<Pane> {
-    let files = app.config.dock.shows(&DockSectionName::Files).then_some(Pane::Files);
-    let preview = app.changes.is_some().then_some(Pane::Preview);
-    let mut panes: Vec<Pane> =
-        [files, preview, Some(Pane::Composer)].into_iter().flatten().collect();
-    if app.dock.position == DockPosition::Right {
-        panes.reverse();
-    }
-    panes
-}
-
-/// The keyboard to the pane beside it, or nowhere at the edge: a step that wrapped around would
-/// land it on the far side of the screen from where the arrow pointed.
-fn step(app: &mut App, rightward: bool) {
-    let order = screen_order(app);
-    let Some(at) = order.iter().position(|pane| *pane == holding(app)) else { return };
-    let next = if rightward { at.checked_add(1) } else { at.checked_sub(1) };
-    if let Some(&pane) = next.and_then(|next| order.get(next)) {
-        focus(app, pane);
-    }
 }
 
 /// The composer, then the tree, then the preview when one is open, then the composer again. A tree

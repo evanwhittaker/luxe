@@ -69,7 +69,7 @@ fn a_mode_switch_leaves_the_transcript_alone() {
 
 /// Shift+Tab from the composer moves to the next mode; the `/` menu keeps it for itself.
 #[test]
-fn shift_tab_switches_mode_from_the_composer_only() {
+fn shift_tab_switches_mode_unless_a_menu_wants_it() {
     let (mut app, mut rx) = mode_app();
     in_mode(&mut app, "build");
     let back_tab = || Msg::Key(KeyEvent::new(KeyCode::BackTab, KeyModifiers::SHIFT));
