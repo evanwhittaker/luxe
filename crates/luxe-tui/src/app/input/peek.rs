@@ -1,7 +1,7 @@
 //! Preview keys — the File view and the diff, while the keyboard is in them.
 //!
-//! `Ctrl+T` walks the keyboard from the composer to the FILES tree to here and back, and `Tab`
-//! trades it between the tree and the pane. In the File view a cursor moves line by line, the way
+//! `Tab` (or `Ctrl+T`) walks the keyboard from the composer to the FILES tree to here and back, and
+//! `←` or `h` returns it to the tree. In the File view a cursor moves line by line, the way
 //! the review's diff does, so a pick can be made from the keyboard as well as with a drag: `v` or
 //! `V` is vim's visual-line mode, where every move grows the pick until `y`, `Enter` or `Esc`. In
 //! the diff the cursor moves row by row and picks nothing. `Ctrl+D` and `Ctrl+U` move half a page
@@ -31,13 +31,15 @@ pub(super) fn peek_took(app: &mut App, key: KeyEvent) -> bool {
     if half_page_took(view, key, page) {
         return true;
     }
-    if key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) {
-        // A chord is the app's, not the pane's; it passes through and the keyboard stays here
+    // A chord is the app's, not the pane's, and so are the walk and the mode switch; each passes
+    // through and the keyboard stays here
+    let apps = key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
+    if apps || matches!(key.code, KeyCode::Tab | KeyCode::BackTab) {
         return false;
     }
     let shift = key.modifiers.contains(KeyModifiers::SHIFT);
     match key.code {
-        KeyCode::Tab | KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
+        KeyCode::Left | KeyCode::Char('h') => {
             view.focused = false;
             app.update(Msg::FocusFiles);
             return true;

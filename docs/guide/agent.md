@@ -36,7 +36,9 @@ recommends is marked and selected, so agreeing is one keypress. The last option 
 
 ![A question from the agent, with its recommended answer selected](images/agent-question.svg)
 
-Number keys pick an option, and in a question with one answer they send it. Your answer stays in
+Number keys pick an option, and in a question with one answer they send it. While you type your
+own answer the pointer can pass over the options without taking it; come back to it, with the
+arrows or a click, and you carry on writing where you left off. Your answer stays in
 the conversation as a card, like the one above the picker. In runs with nobody to answer, such as
 `--headless`, the agent takes the default it named, or else its recommended option.
 

@@ -156,7 +156,7 @@ function ToolCard({ card, waiting }) {
   const output = call.output_preview;
   const head = html`${spins(call, waiting) ? html`<${Spinner} />` : html`<${ToolGlyph} name=${call.name} />`}
     <span class="tool-name">${call.name}</span>
-    <span class="tool-label">${call.label}</span>
+    <span class="tool-label">${commandInHeader(call) ? html`<${ToolCode} call=${call} text=${call.label} />` : call.label}</span>
     <span class="tool-time">${standing(call)}</span>
     ${body(call)}`;
   const outcome = call.name === "question" && output ? questionOutcome(output) : null;
@@ -199,6 +199,15 @@ function ToolGlyph({ name }) {
   return html`<span class="tool-glyph" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: glyph }} />`;
 }
 
+/**
+ * Whether the header's label is the command the call ran, as the TUI's card has it: a `bash` call
+ * with no body, so no description to stand in its place.
+ * @param {Card} call
+ */
+export function commandInHeader(call) {
+  return call.name === "bash" && !call.card_body?.text;
+}
+
 /** @param {Card} call */
 function body(call) {
   const card = call.card_body;
@@ -206,7 +215,19 @@ function body(call) {
   const lines = card.text.split("\n");
   const shown = lines.slice(0, Math.max(1, card.collapsed_lines || 3));
   const more = lines.length - shown.length;
-  return html`<pre class="tool-body">${shown.join("\n")}${more > 0 ? html`<span class="dim">\n… ${more} more lines</span>` : null}</pre>`;
+  return html`<pre class="tool-body"><${ToolCode} call=${call} text=${shown.join("\n")} />${more > 0 ? html`<span class="dim">\n… ${more} more lines</span>` : null}</pre>`;
+}
+
+/**
+ * Code a card shows (a command, a written file), highlighted by the host as the TUI's card is, and
+ * plain until the host answers. While the call is still being written it grows, so it isn't kept.
+ * @param {{ call: Card, text: string }} props
+ */
+function ToolCode({ call, text }) {
+  const piece = { kind: /** @type {const} */ ("tool_code"), tool: call.name, label: call.label, text };
+  const rendered = useRendered(piece, call.state === "composing");
+  if (rendered === undefined) return html`${text}`;
+  return html`<span class="tool-code" dangerouslySetInnerHTML=${{ __html: rendered }} />`;
 }
 
 /**

@@ -126,7 +126,7 @@ fn shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<Shortcut>
         action: ChangesFooterAction::OpenInEditor,
     });
     shortcuts.push(Shortcut {
-        chord: toward_the_preview(app),
+        chord: chord(UiAction::FocusFiles, "tab"),
         label: "navigate",
         action: ChangesFooterAction::Focus,
     });
@@ -136,17 +136,6 @@ fn shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<Shortcut>
         action: ChangesFooterAction::Close,
     });
     shortcuts
-}
-
-/// The arrow that steps the keyboard into the preview from where it is: the preview sits left of
-/// the conversation on either side, and right of the tree only when the dock is on the left.
-fn toward_the_preview(app: &App) -> String {
-    use luxe_core::keymap::UiAction;
-    let dock_left = app.dock.position != luxe_core::config::DockPosition::Right;
-    if dock_left && app.files.focused {
-        return chord(app, UiAction::FocusRight, "alt+right");
-    }
-    chord(app, UiAction::FocusLeft, "alt+left")
 }
 
 /// The first key bound to `action`, or `fallback` when nothing is.

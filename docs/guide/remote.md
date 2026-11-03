@@ -110,8 +110,9 @@ In a session, the app can:
   file goes in as its path, which is what the interface sends the model for one.
 - Answer permission prompts and questions. As in the interface, every answer but Reject waits a
   moment after a prompt appears, so a stray tap can't grant anything.
-- Switch the mode with a tap on the status line, which also shows the context, thinking level and
-  model. Tap those for the session's details: switch the mode, the thinking level or the model
+- Switch the mode with a tap on **build** or **plan**, beside the paperclip in the message box. The
+  status line under the box shows the context, thinking level and model. Tap those for the
+  session's details: switch the mode, the thinking level or the model
   (from the same list as `/model`, with the levels each model honors), and see the cost. The
   details also set the **Text size**, small, medium or large, for this device alone; the session
   list has the same setting.

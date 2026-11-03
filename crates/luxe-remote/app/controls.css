@@ -48,11 +48,21 @@
   outline: none;
 }
 
+/* A faint rule between what's written and the buttons, so a long draft doesn't read as running into
+   the mode's name */
 .composer-tools {
   display: flex;
   align-items: center;
   gap: 1ch;
   padding: 0.25lh;
+  margin-top: 0.5lh;
+  border-top: 1px solid color-mix(in srgb, var(--luxe-border-muted, #2e2b27) 60%, transparent);
+}
+
+/* The mode, as tall as the buttons beside it so it takes a tap as readily */
+.composer-tools .mode {
+  min-height: var(--button);
+  padding-inline: 0.5ch;
 }
 
 /* Boxes and controls round their corners as the TUI's panels do; filled blocks in the transcript
@@ -254,10 +264,14 @@
   color: var(--luxe-accent, #ddc084);
 }
 
+/* One line, cut short before it wraps, now that it shares the foot with the mode */
 .steering {
   flex: 1;
   min-width: 0;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--luxe-muted, #97938c);
 }
 
@@ -267,9 +281,8 @@
   text-decoration: underline;
 }
 
-/* The status line, the TUI's bar's right-hand side, in one row: the mode, then the facts in the
-   bar's order. On a phone the cost waits in the details sheet and the model's name gives way
-   first. */
+/* The status line, the TUI's bar's right-hand side, in one row: the facts in the bar's order. On a
+   phone the cost waits in the details sheet and the model's name gives way first. */
 
 .status-line {
   display: flex;
@@ -287,18 +300,6 @@
 
 .mode-plan {
   color: var(--luxe-accent-secondary, #d2a5cd);
-}
-
-/* The turn at work, as the TUI's activity segment: the spinner in the accent, the words muted */
-.status-line .activity {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.status-line .activity .spinner {
-  color: var(--luxe-accent, #ddc084);
 }
 
 .status-line .segments {

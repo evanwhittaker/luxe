@@ -239,13 +239,13 @@ pub(super) fn built_in() -> Vec<Command> {
             .keywords(&["ask", "lines", "selection", "mention"]),
         Command::action(UiAction::FocusFiles)
             .needs(&[Chat])
-            .summary("Moves the keyboard into the dock's file tree.")
+            .summary("Moves the keyboard on: composer, file tree, preview, and around again.")
             .detail(
-                "`j`/`k` move, `l` opens, `h` closes, `enter` shows a file, `/` filters, `o` opens \
-                 it in your editor, `@` mentions it, `y` copies its path, `a` shows only what \
-                 changed, `esc` goes back to the composer.",
+                "In the tree `j`/`k` move, `l` opens, `h` closes, `enter` shows a file, `/` \
+                 filters, `o` opens it in your editor, `@` mentions it, `y` copies its path, `a` \
+                 shows only what changed, `esc` goes back to the composer.",
             )
-            .keywords(&["files", "tree", "explorer", "browse"]),
+            .keywords(&["files", "tree", "explorer", "browse", "focus", "pane"]),
         Command::action(UiAction::ReviewOpenInEditor)
             .needs(&[Review])
             .summary("Opens the file under the cursor in your editor, at its line.")

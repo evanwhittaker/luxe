@@ -296,13 +296,13 @@ pub(super) fn change_hints(app: &App) -> Vec<ChangeHint> {
     ]
 }
 
-/// `Ctrl+T browse` — the way into the tree from the keyboard.
+/// `tab browse` — the way into the tree from the composer.
 fn browse_hint(app: &App) -> ChangeHint {
     let chord = app
         .keymap
         .chords_for(luxe_core::keymap::UiAction::FocusFiles)
         .and_then(|chords| chords.first())
-        .map_or_else(|| "ctrl+t".to_string(), ToString::to_string);
+        .map_or_else(|| "tab".to_string(), ToString::to_string);
     ChangeHint {
         text: format!("{chord} browse"),
         target: crate::mouse::MouseTarget::DockFocusFiles,

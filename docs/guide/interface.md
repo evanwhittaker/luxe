@@ -176,7 +176,8 @@ top and MODEL, USAGE and SESSION at the bottom, so the order you give them appli
 groups: `["session", "model"]` puts SESSION above MODEL. luxe skips a name it doesn't know.
 
 Hiding **MODEL** still shows its **approvals** row while auto-approve is on, so you can't lose
-sight of it. With **FILES** hidden, `ctrl+t` says so instead of moving into a tree you can't see.
+sight of it. With **FILES** hidden, `tab` goes from the composer straight to the file showing, and
+with no file showing it says so instead of moving into a tree you can't see.
 
 ### Your own sections
 
@@ -288,10 +289,10 @@ permissions and shows up in the review, or press `O` to open the folder in your 
 terminal one such as yazi takes the screen until you quit it, as your editor does; the tree reads
 its folders again when you come back.
 
-`alt+←` and `alt+→` move the keyboard between the tree, the file showing and the composer, in the
-order they sit on screen. `ctrl+t` goes round the same three: into the tree, then into the file
-showing, then back to the composer. `tab` trades the keyboard between the tree and the file. The
-file's title lights up while the keyboard is in it.
+`tab` moves the keyboard round the tree, the file showing and the composer: into the tree, then
+into the file, then back to the composer. `ctrl+t` does the same. `shift+tab` switches between
+build and plan mode wherever the keyboard is. The file's title lights up while the keyboard is in
+it.
 
 | In the tree | Key |
 | --- | --- |
@@ -367,8 +368,8 @@ The preview is not a review: looking at a file does not count it as reviewed.
 
 With the keyboard in the file, a cursor marks the line you are on with a `›` and a lighter band,
 and the file scrolls to keep it in view. Clicking a file under `FILES` or a line in the file puts
-the keyboard there, as do `alt+←` or `alt+→` toward it, `ctrl+t` twice, and `tab` from the tree. In a diff the cursor moves the
-same way, row by row, and picks nothing.
+the keyboard there, as does `tab` from the tree. In a diff the cursor moves the same way, row by
+row, and picks nothing.
 
 | In the file | Key |
 | --- | --- |

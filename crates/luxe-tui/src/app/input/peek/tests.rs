@@ -14,8 +14,8 @@ fn previewing() -> crate::app::App {
     app
 }
 
-/// The walk: Ctrl+T's message takes the keyboard from the composer to the tree to the preview,
-/// and Tab trades it back to the tree.
+/// The walk takes the keyboard from the composer to the tree to the preview; from there Tab goes
+/// on to the composer and `h` goes back to the tree.
 #[test]
 fn the_keyboard_walks_from_the_composer_to_the_tree_to_the_preview() {
     let mut app = previewing();
@@ -26,10 +26,11 @@ fn the_keyboard_walks_from_the_composer_to_the_tree_to_the_preview() {
     assert!(view.focused && !app.files.focused);
     assert_eq!(view.cursor, Some(1), "the cursor starts on the first line showing");
 
-    press(&mut app, KeyCode::Tab, KeyModifiers::NONE);
+    press(&mut app, KeyCode::Char('h'), KeyModifiers::NONE);
     assert!(app.files.focused && !app.changes.as_ref().expect("a preview").focused);
+    app.update(Msg::WalkFocus);
     press(&mut app, KeyCode::Tab, KeyModifiers::NONE);
-    assert!(app.changes.as_ref().expect("a preview").focused);
+    assert!(!app.files.focused && !app.changes.as_ref().expect("a preview").focused);
 }
 
 /// The break this catches: Esc in the pane only handing the keyboard back, leaving a preview a

@@ -64,9 +64,9 @@ ChatTurn@64x20: frame=1efbb636d43223a5 hits=72df4390987d7ad2
 ChatPermission@140x44: frame=a02c51d79d0e842d hits=ddd7b36fd94b6b0b
 ChatPermission@100x30: frame=b9b1576fac8edffc hits=50e1f77f55960584
 ChatPermission@64x20: frame=dbb408089d778820 hits=8afd1db4c47a0a9c
-ChatPalette@140x44: frame=bf861983bf03164f hits=3a6ea3a3138eaf14
-ChatPalette@100x30: frame=a65f0019254d0d8e hits=f3b28c50ede92892
-ChatPalette@64x20: frame=e53c1ad3fb3aef15 hits=52dfa888c2e73dae
+ChatPalette@140x44: frame=ff73747ecafa08ea hits=3a6ea3a3138eaf14
+ChatPalette@100x30: frame=b0a72d3f035aa3b2 hits=f3b28c50ede92892
+ChatPalette@64x20: frame=22c9c2ff83dbe16b hits=52dfa888c2e73dae
 ChatScreenshot@140x44: frame=6c1530dbef3a8b2f hits=c8e14a63097d7a07
 ChatScreenshot@100x30: frame=cab39388b54859f9 hits=26f52baec3dee1d2
 ChatScreenshot@64x20: frame=ca6107188a5c7961 hits=221c4d7e7aba3dc2
@@ -184,7 +184,7 @@ StatuslinePlanBars@64x20: frame=30817c2e703ef080 hits=d94b466d1127426a
 DockLmstudio@140x44: frame=634510ed978a6c3b hits=c8ac8571795638e1
 DockLmstudio@100x30: frame=53a0c6b453e9c269 hits=77506b69ebda450a
 DockLmstudio@64x20: frame=12c892f79189392f hits=ab4864f9283e11cb
-ChatTools+palette: frame=564572ab53c3c18c hits=b71abd26ec373248
+ChatTools+palette: frame=454af96a7a50e713 hits=b71abd26ec373248
 ChatTools+slash: frame=5d29276dfc082a01 hits=22690e1cbf99a8e7
 ChatTools+mention: frame=4919b37b0262efc7 hits=de0baa489d037561
 ChatTools+model: frame=b3dc5445132acd71 hits=c0d90d507af031e3

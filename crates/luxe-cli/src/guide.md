@@ -38,7 +38,9 @@ recommends is marked and selected, so agreeing is one keypress. The last option 
 
 ![A question from the agent, with its recommended answer selected](images/agent-question.svg)
 
-Number keys pick an option, and in a question with one answer they send it. Your answer stays in
+Number keys pick an option, and in a question with one answer they send it. While you type your
+own answer the pointer can pass over the options without taking it; come back to it, with the
+arrows or a click, and you carry on writing where you left off. Your answer stays in
 the conversation as a card, like the one above the picker. In runs with nobody to answer, such as
 `--headless`, the agent takes the default it named, or else its recommended option.
 
@@ -669,7 +671,7 @@ the conversation. All three wait for a running turn to finish.
 | Key | Does | Name |
 | --- | --- | --- |
 | `ctrl+k` | Command Palette | `tui.app.open_palette` |
-| `shift+tab` | Switch between build and plan mode, from the composer or the start screen | `tui.app.cycle_mode` |
+| `shift+tab` | Switch between build and plan mode, from the composer, the start screen, the file tree or the file showing | `tui.app.cycle_mode` |
 | `alt+d` | Show or hide the dock | `tui.workspace.toggle_dock` |
 | `alt+s` | Show or hide the statusline | `tui.statusline.toggle` |
 | `ctrl+p` | Preview | `tui.preview.toggle` |
@@ -678,8 +680,7 @@ the conversation. All three wait for a running turn to finish.
 | `alt+o` | Open the file in your editor, in the preview | `tui.preview.open_in_editor` |
 | `alt+m` | Show a changed file whole, or its diff, in the preview | `tui.preview.toggle_view` |
 | `alt+l` | Ask about the lines you picked, in the preview | `tui.preview.ask_about_selection` |
-| `ctrl+t` | Move the keyboard into the dock's file tree, then into the file showing, then back to the composer | `tui.workspace.focus_files` |
-| `alt+←`, `alt+→` | Move the keyboard to the pane on the left or right: the file tree, the file showing, the composer | `tui.workspace.focus_left`, `tui.workspace.focus_right` |
+| `tab`, `ctrl+t` | Move the keyboard into the dock's file tree, then into the file showing, then back to the composer | `tui.workspace.focus_files` |
 | `ctrl+g` | Guided Review | `tui.review.open` |
 | `ctrl+shift+r` | Reload config and keys | `tui.app.reload` |
 | `ctrl+c` | Quit | `tui.app.quit` |
@@ -2590,7 +2591,8 @@ top and MODEL, USAGE and SESSION at the bottom, so the order you give them appli
 groups: `["session", "model"]` puts SESSION above MODEL. luxe skips a name it doesn't know.
 
 Hiding **MODEL** still shows its **approvals** row while auto-approve is on, so you can't lose
-sight of it. With **FILES** hidden, `ctrl+t` says so instead of moving into a tree you can't see.
+sight of it. With **FILES** hidden, `tab` goes from the composer straight to the file showing, and
+with no file showing it says so instead of moving into a tree you can't see.
 
 ### Your own sections
 
@@ -2702,10 +2704,10 @@ permissions and shows up in the review, or press `O` to open the folder in your 
 terminal one such as yazi takes the screen until you quit it, as your editor does; the tree reads
 its folders again when you come back.
 
-`alt+←` and `alt+→` move the keyboard between the tree, the file showing and the composer, in the
-order they sit on screen. `ctrl+t` goes round the same three: into the tree, then into the file
-showing, then back to the composer. `tab` trades the keyboard between the tree and the file. The
-file's title lights up while the keyboard is in it.
+`tab` moves the keyboard round the tree, the file showing and the composer: into the tree, then
+into the file, then back to the composer. `ctrl+t` does the same. `shift+tab` switches between
+build and plan mode wherever the keyboard is. The file's title lights up while the keyboard is in
+it.
 
 | In the tree | Key |
 | --- | --- |
@@ -2781,8 +2783,8 @@ The preview is not a review: looking at a file does not count it as reviewed.
 
 With the keyboard in the file, a cursor marks the line you are on with a `›` and a lighter band,
 and the file scrolls to keep it in view. Clicking a file under `FILES` or a line in the file puts
-the keyboard there, as do `alt+←` or `alt+→` toward it, `ctrl+t` twice, and `tab` from the tree. In a diff the cursor moves the
-same way, row by row, and picks nothing.
+the keyboard there, as does `tab` from the tree. In a diff the cursor moves the same way, row by
+row, and picks nothing.
 
 | In the file | Key |
 | --- | --- |
@@ -4332,8 +4334,9 @@ In a session, the app can:
   file goes in as its path, which is what the interface sends the model for one.
 - Answer permission prompts and questions. As in the interface, every answer but Reject waits a
   moment after a prompt appears, so a stray tap can't grant anything.
-- Switch the mode with a tap on the status line, which also shows the context, thinking level and
-  model. Tap those for the session's details: switch the mode, the thinking level or the model
+- Switch the mode with a tap on **build** or **plan**, beside the paperclip in the message box. The
+  status line under the box shows the context, thinking level and model. Tap those for the
+  session's details: switch the mode, the thinking level or the model
   (from the same list as `/model`, with the levels each model honors), and see the cost. The
   details also set the **Text size**, small, medium or large, for this device alone; the session
   list has the same setting.

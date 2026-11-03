@@ -26,7 +26,7 @@ import { batch, signal } from "@preact/signals";
  * @typedef {{
  *   items: Signal<Item[]>, busy: Signal<boolean>,
  *   cards: Map<string, ToolItem>, live: Map<string, TextItem>, serial: number,
- *   compacting: Signal<boolean>, compactionLine?: TextItem | null,
+ *   compactionLine?: TextItem | null,
  * }} State
  * @typedef {{
  *   call_id: string, name: string, label: string, state: string, revision: number,
@@ -40,11 +40,11 @@ import { batch, signal } from "@preact/signals";
 export function createTranscript() {
   /** @type {State} */
   const state = {
-    items: signal([]), busy: signal(false), compacting: signal(false), cards: new Map(), live: new Map(), serial: 0,
+    items: signal([]), busy: signal(false), cards: new Map(), live: new Map(), serial: 0,
   };
   /** @param {Frame} frame */
   const fold = (frame) => batch(() => apply(state, frame));
-  return { items: state.items, busy: state.busy, compacting: state.compacting, apply: fold };
+  return { items: state.items, busy: state.busy, apply: fold };
 }
 
 // The engine says a turn started with turn_started; the message that opened it, or anything it
@@ -73,11 +73,10 @@ function apply(state, { kind, content }) {
   }
 }
 
-// A summary takes a minute and nothing else streams meanwhile, so it's said as it starts, the
-// status line spins until it ends, and the same line becomes how it ended
+// A summary takes a minute and nothing else streams meanwhile, so it's said as it starts and the
+// same line becomes how it ended
 /** @param {State} state @param {number} tokens */
 function startCompaction(state, tokens) {
-  state.compacting.value = true;
   state.compactionLine = textItem(state, "notice", `Compacting the conversation — ${formatTokens(tokens)} of context…`);
   push(state, state.compactionLine);
 }
@@ -86,7 +85,6 @@ function startCompaction(state, tokens) {
 function settleCompaction(state, text) {
   const line = state.compactionLine;
   state.compactionLine = null;
-  state.compacting.value = false;
   if (line && state.items.value.includes(line)) line.text.value = text;
   else push(state, textItem(state, "notice", text));
 }
@@ -106,7 +104,6 @@ export function formatTokens(count) {
 /** @param {State} state @param {{ message: Message }[]} messages */
 function load(state, messages) {
   // a summary still running comes again after the history, in the joiner's snapshot
-  state.compacting.value = false;
   state.compactionLine = null;
   state.items.value = [];
   state.cards.clear();

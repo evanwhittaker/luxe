@@ -40,6 +40,10 @@ impl luxe_remote::Renderer for TuiRenderer {
         html::code_line(text, language)
     }
 
+    fn code_block(&self, text: &str, language: Option<&str>) -> String {
+        html::code_block(text, language)
+    }
+
     fn todo_mark(&self, status: luxe_core::TodoSummaryStatus) -> String {
         luxe_tui::marks::todo(status, luxe_tui::glyphs::GlyphTier::Nerd).to_string()
     }
@@ -163,6 +167,19 @@ mod tests {
         assert!(code.starts_with("<span class=\"t-accent-secondary\">fn</span>"), "{code}");
         let modified = luxe_core::workspace::FileChangeStatus::Modified;
         assert_eq!(TuiRenderer.change_mark(modified), "M");
+    }
+
+    /// The break this catches: a tool card's code left plain, as the bridge's own fallback draws
+    /// it, or its lines run together.
+    #[test]
+    fn a_cards_code_reaches_the_tui_highlighter() {
+        let code = TuiRenderer.code_block("fn a() {}\nfn b() {}", Some("rs"));
+        assert_eq!(
+            code.matches("<span class=\"t-accent-secondary\">fn</span>").count(),
+            2,
+            "{code}"
+        );
+        assert_eq!(code.matches('\n').count(), 1, "{code}");
     }
 
     /// The break this catches: a file's mark read from the whole name or a cased extension, a

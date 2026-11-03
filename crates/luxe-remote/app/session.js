@@ -22,7 +22,7 @@ import { PairWithLink } from "./pairing.js";
 import { PanelButton, ProjectName, ProjectPanel, createPanel } from "./panel.js";
 import { PromptCard } from "./prompt.js";
 import { folderName } from "./sessions.js";
-import { StatusLine, activityLabel, createStatus } from "./status.js";
+import { StatusLine, createStatus } from "./status.js";
 import { createTranscript } from "./transcript.js";
 import { createWorkspace, diffRequest } from "./workspace.js";
 
@@ -183,15 +183,13 @@ function Footer({ view }) {
   /** @param {string} text */
   const run = (text) => runCommand(commandAction(text, view.statusLine.mode.value), hooks);
   if (view.status.value === "ended" || view.status.value === "unpaired") return null;
-  const { busy, items, compacting } = view.transcript;
-  const activity = activityLabel(busy.value, items.value, compacting.value);
   return html`<footer class="controls">
     <${PromptCard} prompts=${pending.prompts.value} send=${send} />
     <${Composer} busy=${view.transcript.busy.value} live=${view.status.value === "live"} steering=${pending.steering.value}
-      listings=${view.listings} send=${send} run=${run} onSteered=${pending.steered} onDropped=${pending.dropSteering}
+      listings=${view.listings} mode=${view.statusLine.mode.value} send=${send} run=${run}
+      onSteered=${pending.steered} onDropped=${pending.dropSteering}
       mention=${view.mentioned.value} taken=${() => (view.mentioned.value = null)} />
-    <${StatusLine} facts=${view.statusLine.facts.value} mode=${view.statusLine.mode.value} send=${send}
-      activity=${activity} details=${() => openDetails(view)} />
+    <${StatusLine} facts=${view.statusLine.facts.value} details=${() => openDetails(view)} />
   </footer>`;
 }
 

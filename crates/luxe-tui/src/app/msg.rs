@@ -213,13 +213,9 @@ pub enum Msg {
     /// Puts the keyboard in the tree, showing the dock if it's hidden.
     FocusFiles,
     FocusPeek,
-    /// `Ctrl+T`'s walk: from the composer to the tree, from the tree to the preview when one is
-    /// open, and from there back to the composer.
+    /// `Tab`'s and `Ctrl+T`'s walk: from the composer to the tree, from the tree to the preview
+    /// when one is open, and from there back to the composer.
     WalkFocus,
-    /// Moves the keyboard to the pane beside the one that has it, as they're drawn.
-    ///
-    /// Args: whether the move is to the right.
-    StepFocus(bool),
     /// Does what an open context menu's item at this index offers, and closes the menu.
     ChooseMenuItem(usize),
     /// Opens the tab a click landed on.

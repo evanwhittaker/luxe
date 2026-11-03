@@ -220,7 +220,7 @@ impl Tool for BashTool {
         let timeout_secs = timeout_secs(&args);
         debug!(command, timeout = timeout_secs, "executing bash command");
         let timeout = Duration::from_secs(timeout_secs);
-        match crate::process::run_captured(command, &cx.cwd, timeout).await {
+        let result = match crate::process::run_captured(command, &cx.cwd, timeout).await {
             Ok(crate::process::Outcome::Finished(output)) => self.finish(command, cx, output),
             Ok(crate::process::Outcome::TimedOut(stopped)) => {
                 warn!(command, timeout = timeout_secs, "command timed out");
@@ -230,8 +230,29 @@ impl Tool for BashTool {
                 warn!(command, %error, "failed to run command");
                 ToolResultData::error(format!("Error running command: {error}"))
             }
-        }
+        };
+        with_description_hint(&args, result)
     }
+}
+
+/// What a call without a `description` hears back. The schema already asks for one, but a model
+/// moving fast skips it, and the card then shows the bare command to someone trying to keep up.
+/// A fact about what happened, said on every call that skips it, short enough to cost little.
+const NO_DESCRIPTION_HINT: &str = "\n\n[hint] This call had no `description`, so its card showed \
+     the bare command. The person following along reads that title to keep up: give the next one a \
+     few plain words on what it's for.";
+
+/// `result`, with [`NO_DESCRIPTION_HINT`] after it when `args` carry no description worth showing.
+fn with_description_hint(args: &serde_json::Value, mut result: ToolResultData) -> ToolResultData {
+    let description = args.get("description").and_then(|value| value.as_str());
+    if description.is_some_and(|text| !text.trim().is_empty()) {
+        return result;
+    }
+    match result.content.last_mut() {
+        Some(ContentBlock::Text(text)) => text.push_str(NO_DESCRIPTION_HINT),
+        _ => result.content.push(ContentBlock::Text(NO_DESCRIPTION_HINT.trim_start().to_string())),
+    }
+    result
 }
 
 /// The model's `timeout`, defaulted and clamped.

@@ -1,4 +1,4 @@
-use super::{code_line, render, Voice};
+use super::{code_block, code_line, render, Voice};
 
 fn answer(src: &str) -> String {
     render(src, Voice::Answer)
@@ -70,6 +70,20 @@ fn a_line_of_code_is_highlighted_and_escaped() {
     assert!(html.contains("&lt;"), "{html}");
     assert!(!html.contains(" < "), "{html}");
     assert_eq!(code_line("a < b", None), "a &lt; b");
+}
+
+/// The break this catches: a tool card's code highlighted a line at a time, so a string that runs
+/// onto a second line is drawn there as code; or its lines run together, or come back unescaped.
+#[test]
+fn a_block_of_code_is_highlighted_whole() {
+    let html = code_block("let s = \"a <\nb\";", Some("rs"));
+    let (first, second) = html.split_once('\n').expect("two lines, still two");
+    let string_class = |line: &str| line.rsplit("<span class=\"").next().map(str::to_owned);
+    assert!(first.ends_with("&quot;a &lt;</span>"), "{html}");
+    assert!(second.starts_with("<span class=\""), "the string's second line is colored: {html}");
+    let second_class = second.trim_start_matches("<span class=\"").split('"').next();
+    let first_class = string_class(first);
+    assert_eq!(second_class, first_class.as_deref().and_then(|class| class.split('"').next()));
 }
 
 /// A fence that says it is plain text names no language, and an empty one draws nothing.
