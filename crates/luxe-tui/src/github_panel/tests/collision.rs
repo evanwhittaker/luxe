@@ -17,6 +17,7 @@ fn colliding(draft: bool) -> GithubPanel {
             error: None,
             total: None,
             next: None,
+            query: None,
         }]),
         clock: Some(0),
         ..GithubPanel::with_searches(&searches(), searches())

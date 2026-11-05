@@ -1,0 +1,219 @@
+/* The status line under the composer and the row over it, as the TUI draws both. */
+
+/* The status line, the TUI's bar, in one row. The host fits it to the cells the line has and cuts
+   the slabs; this paints them. On the right the context reading rides bare, its color the datum;
+   then a band steps up from the canvas, three cells to each change of color, to the model lit in
+   the accent against the edge. The left mirrors it: the pull request's slab against the edge,
+   fading out, then the plan and the change count bare. The depths are the TUI's own, from the
+   theme's derived properties, with a mix of the accent standing in where a theme came without
+   them. */
+
+.status-line {
+  --canvas: var(--luxe-background, #12100e);
+  --hero: var(--luxe-slab-hero, var(--luxe-accent, #ddc084));
+  --raised: var(--luxe-slab-raised, color-mix(in srgb, var(--luxe-accent, #ddc084) 60%, var(--canvas)));
+  --recessed: var(--luxe-slab-recessed, color-mix(in srgb, var(--luxe-accent, #ddc084) 30%, var(--canvas)));
+  position: relative;
+  display: flex;
+  margin-top: 0.5lh;
+  white-space: nowrap;
+  line-height: var(--cell);
+  color: var(--luxe-muted, #97938c);
+}
+
+/* ten cells, measured for the fit and never seen */
+.cell-probe {
+  position: absolute;
+  visibility: hidden;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.status-line .segments {
+  display: flex;
+  flex: 1;
+  gap: 2ch;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.status-line .cluster {
+  display: flex;
+  gap: 1ch;
+  min-width: 0;
+}
+
+/* with no left side, the right still rests against the edge */
+.status-line .cluster.right {
+  margin-left: auto;
+}
+
+/* clipped rather than drawn under the right side, should the fit ever misjudge a cell */
+.status-line .cluster.left {
+  overflow: hidden;
+}
+
+.seg {
+  flex: none;
+}
+
+.status-line .band {
+  display: flex;
+  min-width: 0;
+}
+
+.status-line .slab {
+  padding-inline: 1ch;
+  color: var(--luxe-text, #e4dfd6);
+}
+
+.status-line .slab-hero {
+  color: var(--luxe-slab-ink, var(--canvas));
+  background: var(--hero);
+}
+
+.status-line .slab-raised {
+  background: var(--raised);
+}
+
+.status-line .slab-recessed {
+  background: var(--recessed);
+}
+
+/* On a slab the words stay neutral and the tint only draws the eye, as the TUI's pull request
+   module tints its mark for a failing check or a request for changes */
+.status-line .slab:not(.slab-hero).tone-warning .seg-glyph {
+  color: var(--luxe-warning, #faaa51);
+}
+
+.status-line .slab:not(.slab-hero).tone-error .seg-glyph {
+  color: var(--luxe-error, #e68485);
+}
+
+.status-line .dot {
+  color: var(--luxe-muted, #97938c);
+}
+
+/* Each step mixes a further quarter of the next color in, as the TUI's `ramp` does */
+.status-line .fade,
+.status-line .ramp {
+  flex: none;
+  width: 3ch;
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--to) 25%, var(--from)) 0 1ch,
+    color-mix(in srgb, var(--to) 50%, var(--from)) 1ch 2ch,
+    color-mix(in srgb, var(--to) 75%, var(--from)) 2ch);
+}
+
+.status-line .fade:not(.fade-out) {
+  --from: var(--canvas);
+}
+
+.status-line .fade-out {
+  --to: var(--canvas);
+}
+
+.from-raised { --from: var(--raised); }
+.from-recessed { --from: var(--recessed); }
+.to-hero { --to: var(--hero); }
+.to-raised { --to: var(--raised); }
+.to-recessed { --to: var(--recessed); }
+
+.seg-model {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--luxe-text, #e4dfd6);
+  font-weight: bold;
+}
+
+/* A flat statusline style draws every module bare, two cells apart, as the TUI's flat bar does */
+:root[data-headings="flat"] .status-line .segments,
+:root[data-headings="flat"] .status-line .cluster,
+:root[data-headings="flat"] .status-line .band {
+  gap: 2ch;
+}
+
+:root[data-headings="flat"] .status-line :is(.fade, .ramp, .dot) {
+  display: none;
+}
+
+:root[data-headings="flat"] .status-line .slab {
+  padding: 0;
+  color: var(--luxe-muted, #97938c);
+  background: none;
+}
+
+:root[data-headings="flat"] .status-line .slab-hero {
+  color: var(--luxe-text, #e4dfd6);
+}
+
+/* The row over the composer, as the TUI's: the mode, then the turn's activity bar and how long it's
+   run. The mode wears its own color, and its slab when pressed, as the TUI's does under a pointer */
+.activity-row {
+  display: flex;
+  gap: 1ch;
+  align-items: center;
+  min-height: var(--button);
+  white-space: nowrap;
+  line-height: var(--cell);
+}
+
+.mode {
+  flex: none;
+  padding-inline: 1ch;
+  font-weight: bold;
+  color: var(--mode);
+}
+
+.mode:hover,
+.mode:active,
+.mode:focus-visible {
+  outline: none;
+  color: var(--luxe-slab-ink, var(--luxe-background, #12100e));
+  background: var(--mode);
+}
+
+.activity {
+  display: flex;
+  gap: 2ch;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.activity .elapsed {
+  color: var(--luxe-muted, #97938c);
+}
+
+/* The model and thinking buttons, drawn as the photo's is */
+.quick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  margin-block: calc((var(--button) - var(--tap)) / 2);
+  color: var(--mode);
+}
+
+.quick:disabled {
+  opacity: 0.4;
+}
+
+/* the status line's glyph, drawn up to the drawn icons' size beside it */
+.quick-mark {
+  font-size: 1.35em;
+  line-height: 1;
+}
+
+/* Over the box, as the TUI's pickers open over its composer */
+.quick-flyout {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  z-index: 2;
+  margin-bottom: 0.25lh;
+  background: var(--luxe-background, #12100e);
+}

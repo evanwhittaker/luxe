@@ -186,7 +186,7 @@ fn focused_shortcuts(app: &App, view: &ChangesView, side_by_side: bool) -> Vec<S
     }
     let layout =
         split_shortcut(app, view, side_by_side).into_iter().chain([wrap_shortcut(app, view)]);
-    // Ahead of `tab files` and `esc close`, which stay last
+    // Ahead of `tab chat` and `esc close`, which stay last
     let at = shortcuts.len().saturating_sub(2);
     shortcuts.splice(at..at, layout);
     shortcuts
@@ -200,7 +200,7 @@ fn focused_keys(view: &ChangesView) -> Vec<Shortcut> {
         .map(|&(chord, label, action)| Shortcut { chord: chord.to_string(), label, action })
         .collect();
     if let Some(source) = source_shortcut(view).filter(|_| !view.visual) {
-        // Ahead of `tab files` and `esc close`, which stay last
+        // Ahead of `tab chat` and `esc close`, which stay last
         shortcuts.insert(shortcuts.len().saturating_sub(2), source);
     }
     shortcuts
@@ -234,14 +234,14 @@ fn focused_key_table(view: &ChangesView) -> &'static [FocusedKey] {
 const SVG_KEYS: [FocusedKey; 4] = [
     ("enter", "full size", A::Enlarge),
     ("o", "editor", A::OpenInEditor),
-    ("tab", "files", A::Files),
+    ("tab", "chat", A::Walk),
     ("esc", "close", A::Escape),
 ];
 
 const PICTURE_KEYS: [FocusedKey; 4] = [
     ("enter", "full size", A::Enlarge),
     ("o", "open", A::OpenInEditor),
-    ("tab", "files", A::Files),
+    ("tab", "chat", A::Walk),
     ("esc", "close", A::Escape),
 ];
 
@@ -259,7 +259,7 @@ const FILE_KEYS: [FocusedKey; 7] = [
     ("enter", "ask", A::Ask),
     ("y", "copy", A::Copy),
     ("o", "editor", A::OpenInEditor),
-    ("tab", "files", A::Files),
+    ("tab", "chat", A::Walk),
     ("esc", "close", A::Escape),
 ];
 
@@ -268,7 +268,7 @@ const DIFF_KEYS: [FocusedKey; 6] = [
     ("space", "page", A::Page),
     ("g G", "ends", A::Hint),
     ("o", "editor", A::OpenInEditor),
-    ("tab", "files", A::Files),
+    ("tab", "chat", A::Walk),
     ("esc", "close", A::Escape),
 ];
 

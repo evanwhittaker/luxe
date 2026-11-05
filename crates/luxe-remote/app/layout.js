@@ -1,28 +1,29 @@
 // @ts-check
 // Whether the sidebar shows, and on which side: started from your config's dock, which the bridge
 // writes on the page, as the TUI starts from it. `/dock` and the header's button change them while
-// the app is open, as `/dock` does in the TUI. The sidebar is the plan with the project's views
-// under it: a rail beside the conversation on a wide screen, a sheet over it on a
-// phone, behind the header's one button either way.
+// the app is open, as `/dock` does in the TUI. The sidebar is the TUI dock's sections in one
+// column: a rail beside the conversation on a wide screen, a sheet over it on a phone, behind the
+// header's one button either way.
 
 import { signal } from "@preact/signals";
 import { useEffect, useState } from "preact/hooks";
 
 /**
  * @typedef {"auto" | "shown" | "hidden"} DockMode
- * @typedef {"plan" | "files" | "github" | "review"} Part
+ * @typedef {"plan" | "files" | "model" | "session"} Part
  */
 
 /**
- * The sidebar's parts, top to bottom, and whether each starts unfolded. GitHub and Review start
- * folded: unfolding one asks the host for it, and GitHub's listing goes out to GitHub, which a
- * rail showing on every iPad session shouldn't do unasked.
+ * The sidebar's parts, top to bottom, in the TUI dock's order, and how each is headed. The host
+ * draws a part that doesn't fold whole, heading and all, and it's left out while there's nothing to
+ * show, as the TUI leaves out a PLAN before there's a plan. GitHub and Review aren't here: the TUI
+ * opens each over the whole screen, and so does the app (views.js).
  */
-export const SIDEBAR_PARTS = /** @type {{ id: Part, title: string, unfolded: boolean }[]} */ ([
-  { id: "plan", title: "Plan", unfolded: true },
-  { id: "files", title: "Files", unfolded: true },
-  { id: "github", title: "GitHub", unfolded: false },
-  { id: "review", title: "Review", unfolded: false },
+export const SIDEBAR_PARTS = /** @type {{ id: Part, title: string, folds: boolean, unfolded: boolean }[]} */ ([
+  { id: "plan", title: "Plan", folds: false, unfolded: true },
+  { id: "files", title: "Files", folds: true, unfolded: true },
+  { id: "model", title: "Model", folds: false, unfolded: true },
+  { id: "session", title: "Session", folds: false, unfolded: true },
 ]);
 
 /**
@@ -91,12 +92,18 @@ export function theDock() {
 
 /** Whether the screen is wide, following a rotation or a resized window. */
 export function useWide() {
-  const [wide, setWide] = useState(() => matchMedia(WIDE).matches);
+  return useMedia(WIDE);
+}
+
+/** Whether `media` matches, following a rotation or a resized window. @param {string} media */
+export function useMedia(media) {
+  const [matches, setMatches] = useState(() => matchMedia(media).matches);
   useEffect(() => {
-    const query = matchMedia(WIDE);
-    const change = () => setWide(query.matches);
+    const query = matchMedia(media);
+    const change = () => setMatches(query.matches);
+    change();
     query.addEventListener("change", change);
     return () => query.removeEventListener("change", change);
-  }, []);
-  return wide;
+  }, [media]);
+  return matches;
 }

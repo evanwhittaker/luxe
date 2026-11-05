@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createWorkspace, diffRequest, planScroll } from "../app/workspace.js";
+import { createWorkspace, diffRequest, leftFacts, planScroll } from "../app/workspace.js";
 
 /** Ten todos a line (10px) each, in `statuses` order, then pending. @param {string[]} statuses */
 const plan = (...statuses) => Array.from({ length: 10 }, (_, index) => ({ bottom: (index + 1) * 10, status: statuses[index] ?? "pending" }));
@@ -58,6 +58,31 @@ test("the latest snapshot's project is the one the panel names", () => {
   workspace.apply(frame("workspace_updated", { todos: TODOS, changes: CHANGES, project: project("main", true) }));
   workspace.apply(frame("workspace_updated", { todos: TODOS, changes: CHANGES, project: project("remote-access", false) }));
   assert.deepEqual(workspace.project.value, project("remote-access", false));
+});
+
+// The break this catches: the status line's left side never told of the branch's pull request, or
+// told of one while GitHub is still being asked, which the bar doesn't draw
+test("the status line hears of a pull request once one is found", () => {
+  const workspace = createWorkspace();
+  const found = { kind: "found", number: 138, title: "Groundwork" };
+  workspace.apply(frame("workspace_updated", { todos: TODOS, changes: CHANGES, pull_request: found }));
+  assert.equal(leftFacts({ todos: null, changes: null, pullRequest: workspace.pullRequest.value }).pull_request, found);
+  workspace.apply(frame("workspace_updated", { todos: TODOS, changes: CHANGES, pull_request: { kind: "unknown" } }));
+  assert.equal(leftFacts({ todos: null, changes: null, pullRequest: workspace.pullRequest.value }).pull_request, undefined);
+});
+
+// The break this catches: the plan sent whole a few times a minute, or its subject or counts lost on
+// the way, so the left side reads a plan the dock doesn't
+test("the status line hears of the plan as its counts and the subject in hand", () => {
+  const todos = { total: 8, completed: 3, current: { id: "4", subject: "Fix the parser" }, items: [{}, {}] };
+  const facts = leftFacts({ todos, changes: { total_files: 5 }, pullRequest: null });
+  assert.deepEqual(facts, {
+    pull_request: undefined,
+    todos: { completed: 3, total: 8, current: "Fix the parser" },
+    changed_files: 5,
+  });
+  const quiet = leftFacts({ todos: null, changes: null, pullRequest: null });
+  assert.deepEqual(quiet, { pull_request: undefined, todos: undefined, changed_files: 0 });
 });
 
 // The break this catches: another request's answer (a TUI's, or one this page gave up on) shown

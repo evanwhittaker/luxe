@@ -113,6 +113,41 @@ test("only the transcript scrolls, and it follows new output", async () => {
   assert.ok(page_.foot <= page_.screen, `the composer is the screen's foot: ${JSON.stringify(page_)}`);
 });
 
+// The break this catches: what you're reading jumping when something above it changes height, as a
+// reply does when its rendered HTML replaces its plain text, which WebKit doesn't anchor for
+test("scrolled back, the item being read holds still as one above it grows", async () => {
+  const filler = await page.evaluateHandle(() => {
+    const tall = Object.assign(document.createElement("div"), { className: "item", style: "height: 300vh" });
+    return document.querySelector(".transcript")?.appendChild(tall);
+  });
+  // at the end first, as a reader is, so the scroll below is one up and away from it
+  await page.waitForFunction(() => {
+    const main = /** @type {HTMLElement} */ (document.querySelector("main"));
+    return main.scrollTop + main.clientHeight >= main.scrollHeight - 48;
+  });
+  const reading = await page.evaluate(async () => {
+    const main = /** @type {HTMLElement} */ (document.querySelector("main"));
+    const items = [...document.querySelectorAll(".transcript > .item")];
+    const frames = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    // the scroll to the end lands as an event a frame after the page is there; scrolling up
+    // before it would read as a scroll down from where the page was before the filler
+    await frames();
+    // the second item just under the top, so the first is wholly above it
+    main.scrollTop += items[1].getBoundingClientRect().top - main.getBoundingClientRect().top - 4;
+    await frames();
+    const before = items[1].getBoundingClientRect().top;
+    /** @type {HTMLElement} */ (items[0]).style.paddingTop = "200px";
+    await frames();
+    const after = items[1].getBoundingClientRect().top;
+    /** @type {HTMLElement} */ (items[0]).style.paddingTop = "";
+    main.scrollTop = main.scrollHeight;
+    await frames();
+    return { before, after };
+  });
+  await filler.evaluate((tall) => tall?.remove());
+  assert.ok(Math.abs(reading.after - reading.before) < 2, `held in place: ${JSON.stringify(reading)}`);
+});
+
 // The break this catches: the Files part's chain (the rail, `list_directory` and
 // `read_project_file` through the bridge, the file piece's rendering, Mention into the composer)
 // broken in Safari's engine, or the iPad's header keeping a second button for the project
@@ -123,10 +158,12 @@ test("the rail lists the project, shows a file and mentions it", async () => {
   await header.locator(".project-branch").waitFor();
   assert.match((await header.textContent()) ?? "", new RegExp(`${basename(host.project)}.*\\S+ \\*$`));
   assert.equal(await page.locator(".panel-button").count(), 0, "one header button on a wide screen");
+  // The break this catches: a PLAN drawn before there's a plan, the parts out of the dock's order,
+  // or MODEL not drawn by the host from the status line's facts
+  await page.locator('.part[data-part="model"] .badge', { hasText: "MODEL" }).waitFor();
   const parts = await page.$$eval(".panel .part", (all) => all.map((part) => part.getAttribute("data-part")));
-  assert.deepEqual(parts, ["plan", "files", "github", "review"], "the plan, then the project, in one rail");
-  // every jump lands on a heading, the plan's too before there's a plan
-  assert.equal(await page.locator('.part[data-part="plan"] .badge').textContent(), "PLAN");
+  assert.deepEqual(parts.slice(0, 3), ["files", "model", "session"], "no plan yet, then the dock's order");
+  assert.match((await page.locator('.part[data-part="model"] .telemetry').textContent()) ?? "", /model.*mode.*build/s);
   // the file the turn wrote wears its change, as it does in the TUI's tree
   await page.locator(`button.tree-row[data-file="${WRITTEN.path}"] .tree-name[class*="change-"]`).waitFor();
   await page.locator("button.tree-row", { hasText: "README.md" }).click();
@@ -145,22 +182,22 @@ test("the rail lists the project, shows a file and mentions it", async () => {
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });
 
-/** Where `selector`'s box ends, top to bottom. */
-async function bottomOf(/** @type {string} */ selector) {
-  return page.locator(selector).evaluate((element) => element.getBoundingClientRect().bottom);
+/** Where `selector`'s first box starts, top to bottom. */
+async function topOf(/** @type {string} */ selector) {
+  return page.locator(selector).first().evaluate((element) => element.getBoundingClientRect().top);
 }
 
-// The break this catches: the rail's jumps and the conversation's bar sized by different rules,
-// so the rules under them sit at different heights side by side, at any of the text sizes
-test("the rail's top and the conversation's bar end on one line", async () => {
+// The break this catches: the rail's first heading and the conversation bar's title set by
+// different rules, so the two sit at different heights side by side, at any of the text sizes
+test("the rail's first heading and the conversation's title share a line", async () => {
   await page.setViewportSize({ width: 951, height: 669 });
-  await page.locator(".panel .jumps").waitFor();
+  await page.locator(".panel .part").first().waitFor();
   const chosen = await page.evaluate(() => document.documentElement.dataset.textSize);
   for (const size of ["small", "medium", "large"]) {
     await page.evaluate((size) => (document.documentElement.dataset.textSize = size), size);
-    const rail = await bottomOf(".panel-top");
-    const bar = await bottomOf("header.bar:has(.back)");
-    assert.ok(Math.abs(rail - bar) < 0.5, `${size} text: the rail's top ends at ${rail}px, the bar at ${bar}px`);
+    const heading = await topOf(".panel .part .badge");
+    const title = await topOf("header.bar:has(.back) .title");
+    assert.ok(Math.abs(heading - title) < 0.5, `${size} text: the heading starts at ${heading}px, the title at ${title}px`);
   }
   await page.evaluate((size) => (document.documentElement.dataset.textSize = size), chosen);
   await page.setViewportSize(playwright.devices["iPad Pro 11 landscape"].viewport);
@@ -210,33 +247,46 @@ async function openWrittenDiff() {
   await row.click();
 }
 
-/** Unfolds the rail's Review part by its jump, as a reader reaches it. */
-async function jumpToReview() {
-  await page.locator('.jumps button:has-text("Review")').click();
-  await page.locator('.part[data-part="review"] .part-head button[aria-expanded="true"]').waitFor();
+/** Opens the Review view by the header's button, its guide drawn. */
+async function openReview() {
+  await page.locator('header.bar .view-button[aria-label="Review changes"]').click();
+  await page.locator('.view-review[role="dialog"]').waitFor();
 }
 
-// The break this catches: the Review part's chain (its jump, `show_open_review` through the engine
-// to the review desk, `load_guided_review` of the working changes, the guide and chapter pieces,
-// and `record_review_progress` kept in the session the next ask reads) broken in Safari's engine
-test("the review part reviews the changes and keeps a chapter marked", async () => {
-  const head = page.locator('.part[data-part="review"] .part-head button');
-  assert.equal(await head.getAttribute("aria-expanded"), "false", "Review starts folded, unasked");
-  await jumpToReview();
-  await page.locator('.panel button.retry:has-text("Review changes")').click();
+/** Closes the open view by Escape, as the TUI's Escape leaves the desk. */
+async function closeView() {
+  await page.keyboard.press("Escape");
+  await page.locator(".view").waitFor({ state: "detached" });
+}
+
+// The break this catches: the Review view's chain (the header's button, `show_open_review` through
+// the engine to the review desk, `load_guided_review` of the working changes, the guide and
+// chapter pieces side by side on an iPad, and `record_review_progress` kept in the session the
+// next ask reads, here by `/diff`) broken in Safari's engine
+test("the review view reviews the changes and keeps a chapter marked", async () => {
+  await openReview();
+  await page.locator('.view-review button.retry:has-text("Review changes")').click();
   await page.locator(".rv-target", { hasText: "Working changes" }).waitFor();
-  await page.locator(".rv-chapter .rv-title").first().click();
-  await page.locator(".peek .rv-chapter-view .rv-file", { hasText: WRITTEN.path }).waitFor();
-  await page.locator('.peek button.mention:has-text("Reviewed")').click();
-  await page.locator('.peek button.mention[aria-pressed="true"]').waitFor();
-  // Escape closes the chapter, as it closes a file
-  await page.keyboard.press("Escape");
-  await page.locator(".peek").waitFor({ state: "detached" });
-  // folded and unfolded, the part asks afresh, and the host's session says which chapter was walked
-  await head.click();
-  await head.click();
-  await page.locator(".rv-chapter .rv-walked").first().waitFor();
-  await page.keyboard.press("Escape");
+  // split, the first chapter opens beside the guide, its title on the cursor's slab
+  await page.locator(".rv-chapter-pane .rv-chapter-view .rv-file", { hasText: WRITTEN.path }).waitFor();
+  await page.locator(".rv-guide-pane .rv-chapter[aria-current]").waitFor();
+  await page.locator(".view-review .hint", { hasText: "mark reviewed" }).click();
+  await page.locator(".view-review .hint.hint-accent", { hasText: "reviewed" }).waitFor();
+  await closeView();
+  await runCommand("/diff");
+  await page.locator(".view-review .rv-chapter .rv-walked").first().waitFor();
+  await closeView();
+  assert.deepEqual(troubles, [], "the page ran without errors or refusals");
+});
+
+// The break this catches: `/github` sent to the agent rather than opening the view, the frame not
+// titled as the TUI's, or the view's close hint not closing it
+test("github opens its own view, framed and titled as the TUI's", async () => {
+  await runCommand("/github");
+  await page.locator('.view-github[role="dialog"] .view-frame.framed').waitFor();
+  assert.match((await page.locator(".view-github .view-title").textContent()) ?? "", /GitHub/);
+  await page.locator(".view-github .hint", { hasText: "close" }).click();
+  await page.locator(".view").waitFor({ state: "detached" });
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });
 
@@ -298,24 +348,22 @@ async function saveComment(/** @type {string} */ words, question = false) {
 // session not redrawn as cards, a card's Delete not reaching the desk, or the guide not counting
 // what's unsent)
 test("a review chapter takes comments on its lines and on itself, kept by the host", async () => {
-  await jumpToReview();
+  await openReview();
   await page.locator(".rv-chapter .rv-title").first().click();
-  await page.locator('.peek .dl[data-line="1"] .ln').first().click();
+  await page.locator('.rv-chapter-pane .dl[data-line="1"] .ln').first().click();
   await page.locator(".line-ask button", { hasText: /^Comment$/ }).click();
   await page.locator(".rv-compose", { hasText: "Comment on line 1" }).waitFor();
   await saveComment("Why this file?", true);
-  const asked = page.locator(".peek .rv-finding", { hasText: "Why this file?" });
+  const asked = page.locator(".rv-chapter-pane .rv-finding", { hasText: "Why this file?" });
   await asked.locator(".rv-state", { hasText: "unsent" }).waitFor();
   assert.match((await asked.locator(".rv-finding-head").textContent()) ?? "", /question.*line 1/);
   await page.locator(".line-ask button", { hasText: "Comment on the chapter" }).click();
   await saveComment("Split this up.");
-  await page.locator(".peek .rv-finding", { hasText: "Split this up." }).waitFor();
+  await page.locator(".rv-chapter-pane .rv-finding", { hasText: "Split this up." }).waitFor();
   await asked.locator('button[data-act="delete"]').click();
   await asked.waitFor({ state: "detached" });
-  await page.keyboard.press("Escape");
-  await page.locator(".peek").waitFor({ state: "detached" });
-  await page.locator(".rv-unsent", { hasText: "1 unsent comment" }).waitFor();
-  await page.keyboard.press("Escape");
+  await page.locator(".rv-guide-pane .rv-unsent", { hasText: "1 unsent comment" }).waitFor();
+  await closeView();
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });
 
@@ -331,11 +379,11 @@ async function openSheet() {
   await page.locator('.panel[role="dialog"]').waitFor();
 }
 
-// The break this catches: a phone keeping two header buttons, the button not reaching the plan,
-// the sheet's bar not naming the project and its branch, its jumps wrapping to a second row on the
-// narrowest iPhone, a diff opened from the tree drawn under the sheet, Escape closing the sheet
-// with the diff or not armed the moment the sheet shows, or `/dock` on a phone doing nothing
-test("on a phone one header button opens the plan and the project", async () => {
+// The break this catches: a phone keeping two header buttons, the button not opening the sheet,
+// the sheet's bar not naming the project and its branch, a diff opened from the tree drawn under
+// the sheet, Escape closing the sheet with the diff or not armed the moment the sheet shows, or
+// `/dock` on a phone doing nothing
+test("on a phone one header button opens the sidebar", async () => {
   await page.setViewportSize({ width: 375, height: 812 });
   // no rail and no rail button, once the app sees the narrow screen
   await page.locator(".dock-toggle").waitFor({ state: "detached", timeout: 2000 });
@@ -346,8 +394,6 @@ test("on a phone one header button opens the plan and the project", async () => 
   assert.ok(await named.locator(".project-mark").first().textContent(), "behind the tree's folder mark");
   // the project is a git repository the turn wrote into, so its branch shows, starred
   assert.match((await named.locator(".project-branch").textContent()) ?? "", /\S+ \*$/);
-  const rows = await page.$$eval(".jumps button", (jumps) => new Set(jumps.map((jump) => jump.getBoundingClientRect().top)).size);
-  assert.equal(rows, 1, "the jumps fit one row");
   await openWrittenDiff();
   await page.locator(".peek .dl-addition").waitFor();
   const onTop = await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest(".peek") !== null);
@@ -368,6 +414,22 @@ test("on a phone one header button opens the plan and the project", async () => 
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });
 
+// The break this catches: a phone squeezing the guide and the chapter side by side, a chapter tap
+// not taking the guide's place, or the hint line's way back not returning to it
+test("on a phone the review shows the guide, then a chapter in its place", async () => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openReview();
+  assert.equal(await page.locator(".rv-chapter-pane").isVisible(), false, "the guide alone");
+  await page.locator(".rv-chapter .rv-title").first().click();
+  await page.locator(".rv-chapter-pane .rv-file", { hasText: WRITTEN.path }).waitFor();
+  assert.equal(await page.locator(".rv-guide-pane").isVisible(), false, "the chapter in its place");
+  await page.locator(".view-review .hint", { hasText: "guide" }).click();
+  await page.locator(".rv-guide-pane").waitFor({ state: "visible" });
+  await closeView();
+  await page.setViewportSize(playwright.devices["iPad Pro 11 landscape"].viewport);
+  assert.deepEqual(troubles, [], "the page ran without errors or refusals");
+});
+
 /** The middle of `selector`'s box, top to bottom. */
 async function middleOf(/** @type {string} */ selector) {
   return page.locator(selector).evaluate((element) => {
@@ -376,20 +438,37 @@ async function middleOf(/** @type {string} */ selector) {
   });
 }
 
-// The break this catches: the mode left in the status line, missing from the composer's foot or
-// pushed onto a row of its own there on the narrowest iPhone, or a tap on it that switches nothing
-test("on a phone the mode switches from the composer's foot", async () => {
+// The break this catches: the mode left in the status line or the composer's foot rather than
+// leading the row over the box as the TUI's does, a tap on it that switches nothing, the box not
+// taking plan's color with it, or the status line wrapping on the narrowest iPhone
+test("on a phone the mode leads the row over the composer and colors it", async () => {
   await page.setViewportSize({ width: 375, height: 812 });
-  const mode = page.locator(".composer-tools .mode");
+  const mode = page.locator(".activity-row .mode");
   await mode.waitFor();
-  assert.equal(await page.locator(".status-line .mode").count(), 0, "the status line doesn't repeat it");
-  const apart = Math.abs((await middleOf(".composer-tools .mode")) - (await middleOf(".composer-tools .send")));
-  assert.ok(apart < 2, `in one row with Send, ${apart}px apart`);
+  assert.equal(await page.locator(".status-line .mode, .composer-tools .mode").count(), 0, "nowhere else");
+  assert.ok((await middleOf(".activity-row .mode")) < (await middleOf(".composer textarea")), "over the box");
   await mode.click();
-  await page.locator(".composer-tools .mode-plan").waitFor();
-  await page.locator(".composer-tools .mode").click();
-  await page.locator(".composer-tools .mode-build").waitFor();
+  await page.locator(".composer.mode-plan .activity-row .mode-plan").waitFor();
+  const send = await page.locator(".send").evaluate((button) => getComputedStyle(button).color);
+  await page.locator(".activity-row .mode").click();
+  await page.locator(".composer.mode-build .activity-row .mode-build").waitFor();
+  assert.notEqual(await page.locator(".send").evaluate((button) => getComputedStyle(button).color), send, "Send wears the mode");
+  const line = await page.locator(".status-line").evaluate((element) => element.getBoundingClientRect().height);
+  const cell = await page.locator(".status-line .seg").first().evaluate((element) => element.getBoundingClientRect().height);
+  assert.ok(line < cell * 1.5, `the status line is one row: ${line}px for a ${cell}px cell`);
   await page.setViewportSize(playwright.devices["iPad Pro 11 landscape"].viewport);
+  assert.deepEqual(troubles, [], "the page ran without errors or refusals");
+});
+
+// The break this catches: the status line's left side missing, so the bar's mirror (the change
+// count the dock also keeps) never reaches the app, or drawn away from the line's left edge
+test("the status line's left side counts the changed files", async () => {
+  const changes = page.locator(".status-line .cluster.left .seg-changes");
+  await changes.waitFor();
+  assert.match((await changes.textContent()) ?? "", /\b1 file$/);
+  const [line, left] = await Promise.all([".status-line", ".status-line .cluster.left"].map((selector) =>
+    page.locator(selector).evaluate((element) => element.getBoundingClientRect().left)));
+  assert.ok(Math.abs(line - left) < 1, `the left side rests on the edge: ${left}px against ${line}px`);
   assert.deepEqual(troubles, [], "the page ran without errors or refusals");
 });
 

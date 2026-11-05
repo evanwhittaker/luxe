@@ -168,9 +168,14 @@ fn changes_segment(app: &App) -> Option<Segment> {
     Some(segment(
         SegmentKind::Changes,
         Some((Icon::Changes.glyph(), Ink::Neutral)),
-        format!("{files} {} · {opener}", if files == 1 { "file" } else { "files" }),
+        format!("{} · {opener}", files_text(files)),
         Ink::Neutral,
     ))
+}
+
+/// `5 files`, the count the changes module leads with.
+pub(super) fn files_text(files: usize) -> String {
+    format!("{files} {}", if files == 1 { "file" } else { "files" })
 }
 
 /// How far the session's checklist has got, or `None` when there is no checklist.
@@ -185,14 +190,20 @@ fn changes_segment(app: &App) -> Option<Segment> {
 /// cells.
 fn live_plan(app: &App) -> Option<String> {
     let todos = &app.workspace.as_ref()?.todos;
-    if todos.total == 0 {
+    let current = todos.current.as_ref().map(|item| item.subject.as_str());
+    plan_text(todos.completed, todos.total, current)
+}
+
+/// `3/8 · Fix the parser`, cut to the module's width; `None` for a session with no plan.
+pub(super) fn plan_text(completed: usize, total: usize, current: Option<&str>) -> Option<String> {
+    if total == 0 {
         return None;
     }
-    let progress = format!("{}/{}", todos.completed, todos.total);
-    Some(match todos.current.as_ref().filter(|item| !item.subject.is_empty()) {
-        Some(item) => {
+    let progress = format!("{completed}/{total}");
+    Some(match current.filter(|subject| !subject.is_empty()) {
+        Some(subject) => {
             let room = MAX_TODO_WIDTH.saturating_sub(progress.chars().count() + 3);
-            format!("{progress} · {}", truncate_to_width(&item.subject, room))
+            format!("{progress} · {}", truncate_to_width(subject, room))
         }
         None => progress,
     })
@@ -306,28 +317,12 @@ fn right_segment(module: &StatuslineModule, app: &App, palette: Palette) -> Opti
         StatuslineModule::Tokens
             if app.status.prompt_tokens > 0 || app.status.completion_tokens > 0 =>
         {
-            // `↺N` shows cached input reused this turn (billed ~10x cheaper) — a visible signal
-            // of prompt-cache efficiency; omitted when nothing was served from cache.
-            let cache = if app.status.cache_read_tokens > 0 {
-                format!(
-                    " {}{}",
-                    crate::glyphs::Mark::CacheReuse,
-                    compact_number(app.status.cache_read_tokens)
-                )
-            } else {
-                String::new()
-            };
-            Some(segment(
-                SegmentKind::Tokens,
-                None,
-                format!(
-                    "↑{} ↓{}{}",
-                    compact_number(app.status.prompt_tokens),
-                    compact_number(app.status.completion_tokens),
-                    cache
-                ),
-                Ink::Neutral,
-            ))
+            let label = tokens_text(
+                (app.status.prompt_tokens, app.status.completion_tokens),
+                app.status.cache_read_tokens,
+                &crate::glyphs::Mark::CacheReuse.to_string(),
+            );
+            Some(segment(SegmentKind::Tokens, None, label, Ink::Neutral))
         }
         StatuslineModule::Context if app.status.context_window > 0 => {
             // The dock's ramp, not one of its own: below the warning mark this is body text, so a
@@ -379,6 +374,21 @@ pub(super) fn cost_text(plan: Option<&PlanUsage>, session: &SessionUsage) -> Opt
     plan.and_then(PlanUsage::compact)
         .or_else(|| session.total.cost_label())
         .or_else(|| session.total.plan_label())
+}
+
+/// The turn's tokens: `↑12k ↓1.2k ↺98k`. The `↺N` is cached input reused (billed ~10x cheaper),
+/// a visible signal of prompt-cache efficiency, left out when nothing was served from cache;
+/// `reuse` is its mark at whatever tier the surface draws.
+pub(super) fn tokens_text(
+    (prompt, completion): (u64, u64),
+    cache_read: u64,
+    reuse: &str,
+) -> String {
+    let mut text = format!("↑{} ↓{}", compact_number(prompt), compact_number(completion));
+    if cache_read > 0 {
+        text += &format!(" {reuse}{}", compact_number(cache_read));
+    }
+    text
 }
 
 /// The context reading: `4.8%/200k`.

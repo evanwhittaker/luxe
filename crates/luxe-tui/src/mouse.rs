@@ -330,8 +330,8 @@ pub enum ChangesFooterAction {
     OtherEnd,
     /// Move the cursor down a page (`space`).
     Page,
-    /// Hand the keyboard to the FILES tree (`tab`).
-    Files,
+    /// Walk the keyboard on to the next pane, which from the preview is the composer (`tab`).
+    Walk,
     /// Drop the pick, or give the keyboard back when there is none (`esc`).
     Escape,
     /// Keys named as a pair, like `j k`; a hint rather than a button, so it has no click region.

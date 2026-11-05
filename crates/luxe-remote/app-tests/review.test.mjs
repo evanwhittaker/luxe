@@ -191,17 +191,15 @@ test("a review says what it's of", () => {
   assert.equal(targetName({ kind: "base", reference: "main" }), "Changes since main");
 });
 
-// The break this catches: a chapter tap leaving a file or pull request in the pane, or a tap
-// between chapters opening something
-test("tapping a chapter opens it in place of the other panes", () => {
-  const closed = /** @type {string[]} */ ([]);
+// The break this catches: a chapter tap opening nothing, or a tap between chapters opening one
+test("tapping a chapter opens it", () => {
   const state = createReview();
-  const hooks = /** @type {any} */ ({ review: state, files: { close: () => closed.push("file") }, github: { close: () => closed.push("item") } });
+  const hooks = /** @type {any} */ ({ review: state });
   const event = (/** @type {any} */ found) => /** @type {any} */ ({ target: { closest: () => found } });
   tapChapter(event(null), hooks);
-  assert.deepEqual([state.open.value, closed], [null, []]);
+  assert.equal(state.open.value, null);
   tapChapter(event({ dataset: { chapter: "chapter:2" } }), hooks);
-  assert.deepEqual([state.open.value, closed], ["chapter:2", ["file", "item"]]);
+  assert.equal(state.open.value, "chapter:2");
 });
 
 // The break this catches: a frame for nothing this tab asked changing it

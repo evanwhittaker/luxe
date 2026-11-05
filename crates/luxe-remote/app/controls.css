@@ -13,17 +13,25 @@
   border-top: 1px solid var(--luxe-border-muted, #2e2b27);
 }
 
-/* The picker over one panel: any photos, the box across the whole width, then a foot of buttons
-   with the steering line between them. The buttons are drawn at --button, in scale with the box,
-   and answer taps across --tap, Apple's 44 points */
+/* The picker and the activity row over one panel: any photos, the box across the whole width, then
+   a foot of buttons. The buttons are drawn at --button, in scale with the box, and answer taps
+   across --tap, Apple's 44 points */
 .composer {
   --button: 1.9lh;
+  --mode: var(--luxe-mode-build, var(--luxe-accent, #ddc084));
   display: flex;
   flex-direction: column;
   gap: 0.5lh;
 }
 
+/* The mode's color, as the TUI paints its box, the mode and the comet in it */
+.composer.mode-plan {
+  --mode: var(--luxe-mode-plan, var(--luxe-accent-secondary, #d2a5cd));
+}
+
+/* the anchor the quick picks' lists open over */
 .composer-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--luxe-user-msg-bg, #201e1a);
@@ -31,7 +39,7 @@
 }
 
 .composer-panel:focus-within {
-  border-color: var(--luxe-accent, #ddc084);
+  border-color: var(--mode);
 }
 
 .composer textarea {
@@ -49,7 +57,7 @@
 }
 
 /* A faint rule between what's written and the buttons, so a long draft doesn't read as running into
-   the mode's name */
+   them */
 .composer-tools {
   display: flex;
   align-items: center;
@@ -57,12 +65,6 @@
   padding: 0.25lh;
   margin-top: 0.5lh;
   border-top: 1px solid color-mix(in srgb, var(--luxe-border-muted, #2e2b27) 60%, transparent);
-}
-
-/* The mode, as tall as the buttons beside it so it takes a tap as readily */
-.composer-tools .mode {
-  min-height: var(--button);
-  padding-inline: 0.5ch;
 }
 
 /* Boxes and controls round their corners as the TUI's panels do; filled blocks in the transcript
@@ -140,7 +142,7 @@
 }
 
 .send {
-  color: var(--luxe-accent, #ddc084);
+  color: var(--mode);
 }
 
 .send:disabled {
@@ -188,7 +190,7 @@
 .attach {
   position: relative;
   overflow: hidden;
-  color: var(--luxe-accent, #ddc084);
+  color: var(--mode);
 }
 
 .attach.off {
@@ -264,70 +266,10 @@
   color: var(--luxe-accent, #ddc084);
 }
 
-/* One line, cut short before it wraps, now that it shares the foot with the mode */
-.steering {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--luxe-muted, #97938c);
-}
-
 .withdraw {
   margin-inline-start: 1ch;
   color: var(--luxe-accent, #ddc084);
   text-decoration: underline;
-}
-
-/* The status line, the TUI's bar's right-hand side, in one row: the facts in the bar's order. On a
-   phone the cost waits in the details sheet and the model's name gives way first. */
-
-.status-line {
-  display: flex;
-  gap: 2ch;
-  align-items: baseline;
-  margin-top: 0.5lh;
-  white-space: nowrap;
-  color: var(--luxe-muted, #97938c);
-}
-
-.mode {
-  flex: none;
-  color: var(--luxe-accent, #ddc084);
-}
-
-.mode-plan {
-  color: var(--luxe-accent-secondary, #d2a5cd);
-}
-
-.status-line .segments {
-  display: flex;
-  flex: 1;
-  gap: 2ch;
-  justify-content: flex-end;
-  align-items: baseline;
-  min-width: 0;
-}
-
-.seg {
-  flex: none;
-}
-
-.seg-model {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--luxe-text, #e4dfd6);
-  font-weight: bold;
-}
-
-@media (max-width: 40rem) {
-  .status-line .seg-cost {
-    display: none;
-  }
 }
 
 /* The details sheet: each choice a button, the current one in the accent */
@@ -385,10 +327,15 @@
   margin: 0;
 }
 
-/* the sheet has its own pickers for these */
+/* the sheet has its own pickers for these, and lists the rest bare */
 .readings .seg-model,
-.readings .seg-thinking {
+.readings .seg-thinking,
+.readings :is(.fade, .ramp, .dot) {
   display: none;
+}
+
+.readings .band {
+  display: contents;
 }
 
 .close .icon {

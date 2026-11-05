@@ -161,10 +161,13 @@ a {
   height: calc(100dvh - var(--bottom-inset));
 }
 
+/* The browser's own scroll anchoring is off: WebKit has none, so anchor.js holds the place in
+   every engine, one way, rather than two systems correcting the same shift twice */
 main {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   padding: 1lh 1ch;
 }
@@ -390,7 +393,9 @@ h2 {
   content: "● ";
 }
 
-/* The transcript: one blank row between items, as in the terminal */
+/* The transcript: one blank row between items, as in the terminal. Each is laid out at its own
+   height from the start, not skipped at a guessed one until it nears the screen: the window
+   (items.js) keeps the count small enough, and a guess corrected mid-scroll is a jump */
 
 .item {
   display: block;
@@ -399,8 +404,6 @@ h2 {
   margin-block-end: 1lh;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 3lh;
 }
 
 /* A long session's history waits above the latest items until it's asked for */

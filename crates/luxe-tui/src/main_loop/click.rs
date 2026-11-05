@@ -259,10 +259,9 @@ fn changes_footer_message(action: crate::mouse::ChangesFooterAction) -> Option<M
         A::Close => Msg::CloseChanges,
         A::ToggleView => Msg::TogglePeekView,
         A::Focus => Msg::FocusPeek,
-        A::Files => Msg::FocusFiles,
         A::Enlarge => Msg::DispatchUiAction(luxe_core::keymap::UiAction::OpenImage),
         A::ToggleSource => Msg::TogglePeekSource,
-        A::Select | A::Ask | A::Copy | A::OtherEnd | A::Page | A::Escape | A::Hint => {
+        A::Select | A::Ask | A::Copy | A::OtherEnd | A::Page | A::Walk | A::Escape | A::Hint => {
             synthetic_key(focused_pane_key(action)?)
         }
     })
@@ -281,6 +280,8 @@ fn focused_pane_key(
         A::Copy => KeyCode::Char('y'),
         A::OtherEnd => KeyCode::Char('o'),
         A::Page => KeyCode::Char(' '),
+        // the walk's own key, so the button goes wherever the walk does
+        A::Walk => KeyCode::Tab,
         A::Escape => KeyCode::Esc,
         _ => return None,
     })

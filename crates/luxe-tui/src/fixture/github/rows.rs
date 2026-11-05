@@ -39,7 +39,7 @@ fn row(pull_request: bool, number: u64, title: &str, author: &str, ago: u64) -> 
 pub(super) fn listed(name: &str, items: Vec<ListItem>, total: Option<u64>) -> ListedSection {
     let total = total.unwrap_or(items.len() as u64);
     let next = (total > items.len() as u64).then(|| "Y3Vyc29yOjMw".to_string());
-    ListedSection { name: name.into(), items, error: None, total: Some(total), next }
+    ListedSection { name: name.into(), items, error: None, total: Some(total), next, query: None }
 }
 
 pub(super) fn review_requested() -> Vec<ListItem> {

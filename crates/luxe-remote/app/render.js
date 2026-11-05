@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
  * @typedef {{ kind: "answer" | "reasoning", text: string }
  *   | { kind: "user", content: { type: string, content?: string }[] }
  *   | { kind: "tool", name: string } | { kind: "tool_code", tool: string, label: string, text: string }
- *   | { kind: "status", [fact: string]: any }
+ *   | { kind: "status" | "session", [fact: string]: any } | { kind: "model", mode: string, [fact: string]: any }
  *   | { kind: "plan", todos: any } | { kind: "changes", changes: any }
  *   | { kind: "diff", diff: any } | { kind: "diff_failed", error: any }
  *   | { kind: "file", file: any } | { kind: "file_failed", error: any }
@@ -21,6 +21,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
  *   | { kind: "github_conversation", entries: any, now: number | undefined, opened_by_you: boolean }
  *   | { kind: "project_name", name: string, branch: string | null, dirty: boolean }
  *   | { kind: "mode_name", mode: string }
+ *   | { kind: "chrome_mark", mark: import("./marks.js").MarkName }
+ *   | { kind: "github_tabs", tabs: { name: string, query: string | null, count: number }[], shown: string }
  *   | { kind: "review_guide", review: any, reading: any[], walked: string[] }
  *   | { kind: "review_chapter", chapter: any, files: any[], place: { number: number, total: number, walked: boolean }, reading: any,
  *       findings: any[] }} Piece

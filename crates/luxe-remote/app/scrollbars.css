@@ -1,0 +1,29 @@
+/* Scrollbars as the TUI draws its one scroll indicator: a thin lane with a muted track that recedes
+   into the chrome and an accent thumb, there to be found at a glance, with no arrow caps. A browser
+   that takes `scrollbar-color` gets the thin bar in those colors; Safari before it gets the lane
+   drawn, the track an eighth of a cell at the edge and the thumb half a cell, as the TUI's `▕` and
+   `▐` are. iOS draws its own overlay bars over a touch scroll and leaves these alone. */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--luxe-accent, #ddc084) var(--luxe-border-muted, #2e2b27);
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 0.5ch;
+    height: 0.5ch;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: linear-gradient(to left, var(--luxe-border-muted, #2e2b27) 0.125ch, transparent 0.125ch);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--luxe-accent, #ddc084);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}

@@ -21,6 +21,7 @@ fn a_signed_out_github_tab_says_why_and_asks_again() {
                 error: error.map(str::to_string),
                 total: None,
                 next: None,
+                query: None,
             }],
         })
     };
@@ -249,6 +250,7 @@ async fn slash_github_lists_and_each_row_leads_somewhere() {
                     error: None,
                     total: None,
                     next: None,
+                    query: None,
                 },
                 luxe_core::github::ListedSection {
                     name: "Assigned issues".into(),
@@ -256,6 +258,7 @@ async fn slash_github_lists_and_each_row_leads_somewhere() {
                     error: None,
                     total: None,
                     next: None,
+                    query: None,
                 },
             ],
         })
@@ -276,6 +279,7 @@ async fn slash_github_lists_and_each_row_leads_somewhere() {
                 error: None,
                 total: None,
                 next: None,
+                query: None,
             },
             luxe_core::github::ListedSection {
                 name: "Mine".into(),
@@ -294,6 +298,7 @@ async fn slash_github_lists_and_each_row_leads_somewhere() {
                 error: None,
                 total: None,
                 next: None,
+                query: None,
             },
         ],
     }));
@@ -309,6 +314,7 @@ async fn slash_github_lists_and_each_row_leads_somewhere() {
                 error: None,
                 total: None,
                 next: None,
+                query: None,
             },
             luxe_core::github::ListedSection {
                 name: "Mine".into(),
@@ -316,6 +322,7 @@ async fn slash_github_lists_and_each_row_leads_somewhere() {
                 error: None,
                 total: None,
                 next: None,
+                query: None,
             },
         ],
     }));
@@ -390,6 +397,7 @@ async fn an_edited_search_lands_in_its_tab_and_lasts_the_session() {
                 error: None,
                 total: Some(0),
                 next: None,
+                query: None,
             })
             .collect();
         app.update(Msg::Engine(luxe_core::event::Event::GithubListed {
@@ -423,6 +431,7 @@ async fn an_edited_search_lands_in_its_tab_and_lasts_the_session() {
         error: None,
         total: Some(40),
         next: Some("c".into()),
+        query: None,
     };
     app.update(Msg::Engine(luxe_core::event::Event::GithubSearched {
         request: request + 100,

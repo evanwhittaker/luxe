@@ -27,11 +27,24 @@ pub(in crate::render) fn list(
         return "<p class=\"gh-note dim\">Nothing matches this search</p>".to_owned();
     }
     let rows: String = section.items.iter().map(|item| row(cx, item, repository)).collect();
-    format!("<div class=\"gh-list\"><p class=\"gh-count dim\">{}</p>{rows}</div>", shown(section))
+    format!("<div class=\"gh-list\">{}{rows}</div>", search_line(section))
 }
 
-/// How many are here of how many there are. The rest are GitHub's to show: paging needs the
-/// section's query, which the listing doesn't carry.
+/// The search over the rows as the TUI's line shows it, without the scope it never says, then how
+/// many are here; only the count for a section that didn't say what it searched.
+fn search_line(section: &ListedSection) -> String {
+    let count = format!("<span class=\"gh-count dim\">{}</span>", shown(section));
+    let Some(query) = section.query.as_deref() else {
+        return format!("<p class=\"gh-search\">{count}</p>");
+    };
+    format!(
+        "<p class=\"gh-search\"><span class=\"gh-slash\">/</span> \
+         <span class=\"gh-query\">{}</span>{count}</p>",
+        escape(&luxe_core::github::query::shown(query))
+    )
+}
+
+/// How many are here of how many there are. The rest are GitHub's to show: the app doesn't page.
 fn shown(section: &ListedSection) -> String {
     let loaded = section.items.len() as u64;
     match section.total {

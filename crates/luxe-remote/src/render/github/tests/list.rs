@@ -116,10 +116,27 @@ fn a_row_names_its_repository_only_when_it_is_elsewhere() {
 fn the_count_says_how_many_of_how_many() {
     let cx = an_hour_after(0);
     let count = |total| list(&cx, HERE, &section(vec![item()], total));
-    assert!(count(Some(3250)).contains(">1 of 3,250</p>"), "{}", count(Some(3250)));
-    assert!(count(Some(120_000)).contains(">1 of 120,000</p>"), "{}", count(Some(120_000)));
-    assert!(count(Some(1)).contains(">1 shown</p>"), "{}", count(Some(1)));
-    assert!(count(None).contains(">1 shown</p>"), "{}", count(None));
+    assert!(count(Some(3250)).contains(">1 of 3,250</span>"), "{}", count(Some(3250)));
+    assert!(count(Some(120_000)).contains(">1 of 120,000</span>"), "{}", count(Some(120_000)));
+    assert!(count(Some(1)).contains(">1 shown</span>"), "{}", count(Some(1)));
+    assert!(count(None).contains(">1 shown</span>"), "{}", count(None));
+}
+
+/// The break this catches: the search over the rows missing, saying the scope the TUI's line never
+/// says, or written unescaped; or a section from an older host, which didn't say its search,
+/// drawing an empty one.
+#[test]
+fn the_search_heads_the_rows_as_the_tuis_line() {
+    let cx = an_hour_after(0);
+    let mut searched = section(vec![item()], Some(1));
+    searched.query = Some("is:open is:pr author:@me label:<b> repo:{repo}".into());
+    let expected = "<p class=\"gh-search\"><span class=\"gh-slash\">/</span> \
+        <span class=\"gh-query\">is:open is:pr author:@me label:&lt;b&gt;</span>\
+        <span class=\"gh-count dim\">1 shown</span></p>";
+    assert!(list(&cx, HERE, &searched).contains(expected), "{}", list(&cx, HERE, &searched));
+    let unsaid = list(&cx, HERE, &section(vec![item()], Some(1)));
+    let count_only = "<p class=\"gh-search\"><span class=\"gh-count dim\">1 shown</span></p>";
+    assert!(unsaid.contains(count_only), "{unsaid}");
 }
 
 /// The break this catches: an empty tab drawn as a blank, or a failed search's reason lost or

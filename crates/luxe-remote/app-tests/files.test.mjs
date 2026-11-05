@@ -3,8 +3,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { applyRead, changedPaths, childPath, createFiles, entriesNote, fileMention, readFaces, toggled, treeRows, withMention } from "../app/files.js";
-import { createGithub } from "../app/github.js";
-import { createReview } from "../app/review.js";
 import { tapRow } from "../app/files-view.js";
 
 /** @import { OpenFile } from "../app/files.js" */
@@ -125,29 +123,23 @@ function tap(dataset, unfolded = [], changes = null) {
   const listings = /** @type {any} */ ({ ask: (/** @type {any[]} */ ...args) => asked.push(args) });
   const event = /** @type {any} */ ({ target: { closest: () => ({ dataset }) } });
   const send = () => true;
-  const github = createGithub();
-  github.open.value = /** @type {any} */ ({ subject: { number: 1 } });
-  const review = createReview();
-  review.open.value = "chapter:1";
   /** @type {string[]} */
   const diffs = [];
   const openDiff = (/** @type {string} */ path) => diffs.push(path);
   const closeDiff = () => diffs.push("closed");
-  tapRow(event, /** @type {any} */ ({ files, github, review, listings, send, changes, openDiff, closeDiff }));
-  return { files, github, review, asked, send, diffs };
+  tapRow(event, /** @type {any} */ ({ files, listings, send, changes, openDiff, closeDiff }));
+  return { files, asked, send, diffs };
 }
 
 /** A turn's changes: `notes.txt` added and `old.rs` deleted. */
 const CHANGED = { files: [{ path: "notes.txt", status: "added" }, { path: "src/old.rs", status: "deleted" }], total_files: 2 };
 
 // The break this catches: a changed file read as it stands rather than its diff opened, as the
-// TUI's tree opens one, or an open pull request left over it
+// TUI's tree opens one
 test("tapping a changed file opens its diff", () => {
-  const { files, github, review, diffs } = tap({ file: "src/old.rs" }, [], CHANGED);
+  const { files, diffs } = tap({ file: "src/old.rs" }, [], CHANGED);
   assert.deepEqual(diffs, ["src/old.rs"]);
   assert.equal(files.open.value, null, "not read");
-  assert.equal(github.open.value, null);
-  assert.equal(review.open.value, null);
 });
 
 // The break this catches: an unchanged file read under a diff still open, two panes at once
@@ -202,21 +194,11 @@ test("opening a folder lists it afresh and closing it doesn't", () => {
 });
 
 // The break this catches: a file tap that unfolds nothing but doesn't open the file either, opens
-// the wrong path, or leaves an open pull request in the pane over it
+// the wrong path
 test("tapping a file opens it", () => {
-  const { files, github, review } = tap({ file: "src/lib.rs" });
+  const { files } = tap({ file: "src/lib.rs" });
   assert.equal(files.open.value?.path, "src/lib.rs");
   assert.deepEqual([...files.unfolded.value], []);
-  assert.equal(github.open.value, null);
-  assert.equal(review.open.value, null, "one pane at a time");
-});
-
-// The break this catches: a folder tap that closes the open pull request, which only a file
-// taking the pane should
-test("tapping a folder leaves the pane alone", () => {
-  const { github, review } = tap({ folder: "src" });
-  assert.notEqual(github.open.value, null);
-  assert.equal(review.open.value, "chapter:1");
 });
 
 // The break this catches: a mention run into the word before it, or a file not in the backticks

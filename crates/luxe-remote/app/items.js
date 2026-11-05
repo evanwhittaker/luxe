@@ -5,7 +5,7 @@
 // Text arrives as the host renders it (`render.js`). Until it does, an item shows its plain text,
 // so nothing waits on the round trip to be readable.
 
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import { Answers, questionOutcome } from "./answers.js";
 import { html, landedIn } from "./html.js";
 import { useRendered } from "./render.js";
@@ -49,57 +49,16 @@ export function windowStart(start, length, shown, following) {
 /** @param {{ items: TranscriptItem[], following: boolean, waiting: boolean }} props `waiting`: on a prompt you answer */
 export function Transcript({ items, following, waiting }) {
   const [shown, setShown] = useState(WINDOW);
-  const list = useRef(/** @type {HTMLDivElement | null} */ (null));
   const start = useRef(/** @type {number | null} */ (null));
-  const keepPlace = useKeptPlace(list);
   start.current = windowStart(start.current, items.length, shown, following);
   const { hidden, drawn } = windowOf(items, items.length - start.current);
-  const more = () => keepPlace(() => setShown(items.length - Math.max(0, hidden - WINDOW)));
+  // what's added goes in above the item at the top, and anchor.js holds that item still
+  const more = () => setShown(items.length - Math.max(0, hidden - WINDOW));
   const count = html`<span class="dim">${hidden.toLocaleString()} more</span>`;
-  return html`<div class="transcript" ref=${list} onClick=${copyCode}>
+  return html`<div class="transcript" onClick=${copyCode}>
     ${hidden ? html`<button type="button" class="earlier" onClick=${more}>Show earlier ${count}</button>` : null}
     ${drawn.map((item) => html`<${Item} key=${item.key} item=${item} waiting=${waiting} />`)}
   </div>`;
-}
-
-/**
- * Runs a change that adds items above, then scrolls the item that was first back to where it was.
- * @param {{ current: HTMLElement | null }} list @returns {(change: () => void) => void}
- */
-function useKeptPlace(list) {
-  const held = useRef(/** @type {{ item: Element, top: number } | null} */ (null));
-  useLayoutEffect(() => {
-    const kept = held.current;
-    held.current = null;
-    if (kept) holdInPlace(kept.item, kept.top);
-  });
-  return (change) => {
-    const item = list.current?.querySelector(".item");
-    if (item) held.current = { item, top: item.getBoundingClientRect().top };
-    change();
-  };
-}
-
-/** How many frames an item is held in place while the items drawn above it settle. */
-const HOLD_FRAMES = 45;
-
-/**
- * Keeps `item` at `top` while what was added above settles: items off screen are drawn at a guessed
- * height until they near it, and WebKit doesn't anchor the scroll as they do. A touch or a wheel
- * hands the scroll back.
- * @param {Element} item @param {number} top
- */
-function holdInPlace(item, top) {
-  let frames = HOLD_FRAMES;
-  const release = () => (frames = 0);
-  const kinds = ["touchstart", "wheel"];
-  for (const kind of kinds) addEventListener(kind, release, { once: true, passive: true });
-  const step = () => {
-    if (frames-- <= 0) return kinds.forEach((kind) => removeEventListener(kind, release));
-    scrollBy(0, item.getBoundingClientRect().top - top);
-    requestAnimationFrame(step);
-  };
-  step();
 }
 
 /** @param {{ item: TranscriptItem, waiting: boolean }} props */

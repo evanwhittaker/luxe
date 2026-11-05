@@ -23,18 +23,14 @@
     border-right: 1px solid var(--luxe-border-muted, #2e2b27);
   }
 
-  /* no bar over the rail, so its jumps clear the status bar themselves */
-  .panel-top {
-    padding-top: var(--top-inset);
+  /* No bar over the rail, so its first heading clears the status bar itself, and sits half a line
+     down as the conversation bar's title does, so the two share a line whichever part is first */
+  .panel .sheet-body {
+    padding-top: calc(var(--top-inset) + 0.5lh);
   }
 
-  /* The jumps' row is as tall as the conversation's bar beside it, a line with half a line either
-     side, so the rules under the two meet and their words share a line. Each jump stays a finger
-     tall by spilling past the row's edges, as the bar's icons do */
-  .jumps button {
-    min-height: 0;
-    block-size: var(--tap);
-    margin-block: calc((2lh - var(--tap)) / 2);
+  .panel .sheet-body > .part:first-child :is(.part-head, .dock-head) {
+    margin-top: 0 !important;
   }
 
   :root[data-dock-side="right"] .panel {

@@ -1,4 +1,4 @@
-/* The Review tab and its peek, as the TUI's guide pane draws a review: each chapter's place and
+/* The Review view's guide and chapter, as the TUI's guide pane draws a review: each chapter's place and
    kind dim over its title in the accent, its rationale as prose, its files leaning in under it, and
    a chapter that needs nothing receding to a muted title and one dim line */
 
@@ -144,10 +144,6 @@
 
 .rv-note {
   margin: 0.25lh 0 0.5lh;
-}
-
-.sheet .bar .mention[aria-pressed="true"] {
-  color: var(--luxe-success, #81caa0);
 }
 
 /* A comment is a card washed in its state's hue, as the TUI tints its cards (9% into the

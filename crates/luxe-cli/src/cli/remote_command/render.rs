@@ -1,8 +1,12 @@
 //! The TUI's renderer, handed to the bridge so the phone draws text the way the terminal does.
 
-use luxe_remote::{StatusFacts, StatusSegment, StatusTone};
+use luxe_core::workspace::PullRequestPresence;
+use luxe_remote::{
+    StatusFacts, StatusSegment, StatusSurface, StatusTone, TelemetryRow, TelemetryTone,
+};
 use luxe_tui::markdown::html;
 use luxe_tui::statusline::plain;
+use luxe_tui::statusline::plain::dock;
 
 /// Markdown, highlighting, tool glyphs and the status line's wording from `luxe-tui`.
 pub(super) struct TuiRenderer;
@@ -22,14 +26,26 @@ impl luxe_remote::Renderer for TuiRenderer {
     }
 
     fn status(&self, facts: &StatusFacts) -> Vec<StatusSegment> {
-        let facts = plain::Facts {
-            model: facts.model.as_ref(),
-            thinking: facts.thinking,
-            context: facts.context.map(|usage| (usage.used_tokens, usage.context_window)),
-            plan: facts.plan.as_ref(),
-            session: facts.session.as_ref(),
-        };
-        plain::segments(&facts).into_iter().map(status_segment).collect()
+        plain::segments(&plain_facts(facts)).into_iter().map(status_segment).collect()
+    }
+
+    fn status_left(&self, facts: &StatusFacts) -> Vec<StatusSegment> {
+        plain::left_segments(&plain_facts(facts)).into_iter().map(status_segment).collect()
+    }
+
+    fn theme_properties(
+        &self,
+        theme: &std::collections::HashMap<String, luxe_core::theme::ColorValue>,
+    ) -> String {
+        luxe_tui::theme::web::derived_properties(theme)
+    }
+
+    fn model_rows(&self, facts: &StatusFacts, mode: &str) -> Vec<TelemetryRow> {
+        dock::model_rows(&plain_facts(facts), mode).into_iter().map(telemetry_row).collect()
+    }
+
+    fn session_rows(&self, facts: &StatusFacts) -> Vec<TelemetryRow> {
+        dock::session_rows(&plain_facts(facts)).into_iter().map(telemetry_row).collect()
     }
 
     fn image_glyph(&self) -> String {
@@ -70,6 +86,28 @@ impl luxe_remote::Renderer for TuiRenderer {
 
     fn mode_mark(&self, mode: &str) -> String {
         luxe_tui::modes::icon(mode).at(luxe_tui::glyphs::GlyphTier::Nerd).to_string()
+    }
+
+    /// The TUI's own marks: the status line's beside the same facts, `/github`'s frame and detail
+    /// tabs, and the review desk's outline.
+    fn chrome_mark(&self, mark: luxe_remote::ChromeMark) -> String {
+        use luxe_remote::ChromeMark;
+        use luxe_tui::glyphs::Icon;
+        let icon = match mark {
+            ChromeMark::Model => Icon::Model,
+            ChromeMark::Thinking => Icon::Thinking,
+            ChromeMark::Github => Icon::GitHub,
+            ChromeMark::Review => Icon::Outline,
+            ChromeMark::Overview => Icon::Overview,
+            ChromeMark::Conversation => Icon::Conversation,
+        };
+        icon.at(luxe_tui::glyphs::GlyphTier::Nerd).to_string()
+    }
+
+    fn github_section_mark(&self, query: &str) -> String {
+        luxe_tui::github_panel::section_icon(query)
+            .at(luxe_tui::glyphs::GlyphTier::Nerd)
+            .to_string()
     }
 
     fn github_marks(&self) -> luxe_remote::GithubMarks {
@@ -113,160 +151,76 @@ fn mark_hue(hue: luxe_tui::widgets::LanguageHue) -> luxe_remote::MarkHue {
     }
 }
 
+fn plain_facts(facts: &StatusFacts) -> plain::Facts<'_> {
+    plain::Facts {
+        model: facts.model.as_ref(),
+        thinking: facts.thinking,
+        context: facts.context.map(|usage| (usage.used_tokens, usage.context_window)),
+        plan: facts.plan.as_ref(),
+        session: facts.session.as_ref(),
+        turn: facts.turn.map(|turn| plain::TurnTokens {
+            prompt: turn.prompt,
+            completion: turn.completion,
+            cache_read: turn.cache_read,
+        }),
+        pull_request: found_pull_request(facts),
+        todos: facts.todos.as_ref().map(|todos| plain::TodoProgress {
+            completed: todos.completed,
+            total: todos.total,
+            current: todos.current.as_deref(),
+        }),
+        changed_files: facts.changed_files.unwrap_or_default(),
+    }
+}
+
+/// The pull request the bar draws: only one found, as the TUI's bar draws nothing while it looks.
+fn found_pull_request(facts: &StatusFacts) -> Option<&luxe_core::github::PullRequestStatus> {
+    match &facts.pull_request {
+        Some(PullRequestPresence::Found(pull_request)) => Some(pull_request),
+        _ => None,
+    }
+}
+
+fn telemetry_row(row: dock::Row) -> TelemetryRow {
+    let tone = match row.tone {
+        dock::RowTone::Bar(plain::Tone::Plain) => TelemetryTone::Plain,
+        dock::RowTone::Bar(plain::Tone::Warning) => TelemetryTone::Warning,
+        dock::RowTone::Bar(plain::Tone::Error) => TelemetryTone::Error,
+        dock::RowTone::Dim => TelemetryTone::Dim,
+        dock::RowTone::Mode => TelemetryTone::Mode,
+    };
+    TelemetryRow { label: row.label, glyph: row.glyph.map(str::to_string), value: row.value, tone }
+}
+
 fn status_segment(segment: plain::Segment) -> StatusSegment {
     let kind = match segment.kind {
         plain::Kind::Context => "context",
         plain::Kind::Cost => "cost",
+        plain::Kind::Tokens => "tokens",
         plain::Kind::Thinking => "thinking",
         plain::Kind::Model => "model",
+        plain::Kind::PullRequest => "pull-request",
+        plain::Kind::Todo => "todo",
+        plain::Kind::Changes => "changes",
     };
     let tone = match segment.tone {
         plain::Tone::Plain => StatusTone::Plain,
         plain::Tone::Warning => StatusTone::Warning,
         plain::Tone::Error => StatusTone::Error,
     };
-    StatusSegment { kind, glyph: segment.glyph.map(str::to_string), label: segment.label, tone }
+    let glyph = segment.glyph.map(str::to_string);
+    let surface = status_surface(segment.surface);
+    StatusSegment { kind, glyph, label: segment.label, tone, surface }
+}
+
+fn status_surface(surface: plain::Surface) -> StatusSurface {
+    match surface {
+        plain::Surface::Bare => StatusSurface::Bare,
+        plain::Surface::Hero => StatusSurface::Hero,
+        plain::Surface::Raised => StatusSurface::Raised,
+        plain::Surface::Recessed => StatusSurface::Recessed,
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use luxe_remote::{Renderer, Voice};
-
-    use super::TuiRenderer;
-
-    /// The break this catches: the voices crossed, so reasoning loses its line breaks and an
-    /// answer keeps the model's.
-    #[test]
-    fn each_voice_reaches_the_tui_as_itself() {
-        assert_eq!(TuiRenderer.markdown("a\nb", Voice::Reasoning), "<p>a<br>b</p>");
-        assert_eq!(TuiRenderer.markdown("a\nb", Voice::Answer), "<p>a b</p>");
-    }
-
-    /// The break this catches: the glyph taken at this terminal's tier, which is ASCII or none
-    /// under a plain terminal, though the app's font always has the marks.
-    #[test]
-    fn tool_glyphs_are_the_nerd_font_marks() {
-        let nerd = luxe_tui::widgets::tool_icon("bash").at(luxe_tui::glyphs::GlyphTier::Nerd);
-        luxe_tui::glyphs::set_tier(luxe_tui::glyphs::GlyphTier::Ascii);
-        let glyph = TuiRenderer.tool_glyph("bash");
-        let image = TuiRenderer.image_glyph();
-        let done = TuiRenderer.todo_mark(luxe_core::TodoSummaryStatus::Completed);
-        luxe_tui::glyphs::set_tier(luxe_tui::glyphs::GlyphTier::Nerd);
-        assert_eq!(glyph, nerd);
-        let nerd_image = luxe_tui::glyphs::Icon::Image.at(luxe_tui::glyphs::GlyphTier::Nerd);
-        assert_eq!(image, nerd_image, "an attached image's mark too");
-        let nerd_done = luxe_tui::glyphs::Mark::Yes.at(luxe_tui::glyphs::GlyphTier::Nerd);
-        assert_eq!(done, nerd_done, "a todo's mark too");
-    }
-
-    /// The break this catches: a diff row's code left plain, or a changed file's letter crossed,
-    /// so the phone's dock and diffs stop matching the TUI's.
-    #[test]
-    fn diffs_and_changes_reach_the_tui() {
-        let code = TuiRenderer.code_line("fn a() {}", Some("rs"));
-        assert!(code.starts_with("<span class=\"t-accent-secondary\">fn</span>"), "{code}");
-        let modified = luxe_core::workspace::FileChangeStatus::Modified;
-        assert_eq!(TuiRenderer.change_mark(modified), "M");
-    }
-
-    /// The break this catches: a tool card's code left plain, as the bridge's own fallback draws
-    /// it, or its lines run together.
-    #[test]
-    fn a_cards_code_reaches_the_tui_highlighter() {
-        let code = TuiRenderer.code_block("fn a() {}\nfn b() {}", Some("rs"));
-        assert_eq!(
-            code.matches("<span class=\"t-accent-secondary\">fn</span>").count(),
-            2,
-            "{code}"
-        );
-        assert_eq!(code.matches('\n').count(), 1, "{code}");
-    }
-
-    /// The break this catches: a file's mark read from the whole name or a cased extension, a
-    /// language's hue crossed with another's, or the folder's mark taken at this terminal's tier,
-    /// so the phone's tree stops matching the TUI's.
-    #[test]
-    fn tree_marks_are_the_tui_language_marks() {
-        use luxe_remote::MarkHue;
-        use luxe_tui::glyphs::{GlyphTier, Icon};
-        let nerd = |icon: Icon| icon.at(GlyphTier::Nerd).to_string();
-        luxe_tui::glyphs::set_tier(GlyphTier::Ascii);
-        let rust = TuiRenderer.file_mark("main.RS");
-        let toml = TuiRenderer.file_mark("Cargo.toml");
-        let folder = TuiRenderer.folder_mark();
-        luxe_tui::glyphs::set_tier(GlyphTier::Nerd);
-        assert_eq!(
-            rust,
-            luxe_remote::FileMark { glyph: nerd(Icon::LangRust), hue: MarkHue::Warning }
-        );
-        assert_eq!(
-            toml,
-            luxe_remote::FileMark { glyph: nerd(Icon::LangToml), hue: MarkHue::Error }
-        );
-        assert_eq!(TuiRenderer.file_mark("Makefile").hue, MarkHue::Muted);
-        assert_eq!(folder, nerd(Icon::Folder));
-    }
-
-    /// The break this catches: the project panel's branch drawn with another mark than the TUI's
-    /// project section, or at this terminal's tier rather than the phone's.
-    #[test]
-    fn the_branch_mark_is_the_tui_branch_mark() {
-        use luxe_tui::glyphs::{GlyphTier, Icon};
-        luxe_tui::glyphs::set_tier(GlyphTier::Ascii);
-        let branch = TuiRenderer.branch_mark();
-        luxe_tui::glyphs::set_tier(GlyphTier::Nerd);
-        assert_eq!(branch, Icon::Branch.at(GlyphTier::Nerd));
-    }
-
-    /// The break this catches: a GitHub mark taken at this terminal's tier or crossed with
-    /// another, ages in other words than the TUI's, or a body's HTML left as tags.
-    #[test]
-    fn github_reaches_the_tui_marks_and_words() {
-        use luxe_tui::glyphs::{GlyphTier, Icon, Mark};
-        luxe_tui::glyphs::set_tier(GlyphTier::Ascii);
-        let marks = TuiRenderer.github_marks();
-        luxe_tui::glyphs::set_tier(GlyphTier::Nerd);
-        assert_eq!(marks.pull_request, Icon::PullRequest.at(GlyphTier::Nerd));
-        assert_eq!(marks.issue, Icon::Issue.at(GlyphTier::Nerd));
-        assert_eq!(marks.yes, Mark::Yes.at(GlyphTier::Nerd));
-        assert_eq!(marks.no, Mark::No.at(GlyphTier::Nerd));
-        assert_eq!(marks.waiting, Mark::Waiting.at(GlyphTier::Nerd));
-        assert_eq!(marks.elision, Mark::Elision.at(GlyphTier::Nerd));
-        assert_eq!(TuiRenderer.ago(1_000, 1_000 + 3 * 3600), "3h ago");
-        let body = TuiRenderer.github_readable("<details><summary>Notes</summary>x</details>");
-        assert!(!body.contains('<'), "{body}");
-    }
-
-    /// The break this catches: the bridge's default (no icon) left in place, so the home screen
-    /// gets a screenshot of the page instead of the mark, or the size asked for not passed on.
-    #[test]
-    fn the_icon_is_the_tui_tile_at_the_size_asked_for() {
-        let colors = luxe_remote::TileColors { plate: [0; 3], ink: [0xff; 3] };
-        let png = TuiRenderer.home_icon(180, colors).expect("an icon");
-        assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"), "a PNG");
-        // the header chunk's width and height, big-endian, after the signature and chunk head
-        assert_eq!(png[16..24], [0, 0, 0, 180, 0, 0, 0, 180]);
-    }
-
-    /// The break this catches: facts dropped or crossed on the way to the TUI, so the phone's
-    /// status line misses the context reading, or colors a full window as a roomy one.
-    #[test]
-    fn status_facts_reach_the_tui_and_come_back_as_its_segments() {
-        let facts: luxe_remote::StatusFacts = serde_json::from_value(serde_json::json!({
-            "model": {"provider": "anthropic", "model": "claude-x"},
-            "thinking": "medium",
-            "context": {"used_tokens": 950, "context_window": 1000},
-        }))
-        .expect("the app's status facts parse");
-        let segments = TuiRenderer.status(&facts);
-        let words: Vec<_> = segments.iter().map(|s| (s.kind, s.label.as_str(), s.tone)).collect();
-        assert_eq!(
-            words,
-            [
-                ("context", "95.0%/1.0k", luxe_remote::StatusTone::Error),
-                ("thinking", "med", luxe_remote::StatusTone::Plain),
-                ("model", "claude-x", luxe_remote::StatusTone::Plain),
-            ]
-        );
-    }
-}
+mod tests;

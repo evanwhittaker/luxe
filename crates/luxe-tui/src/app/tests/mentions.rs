@@ -256,6 +256,7 @@ fn the_mention_picker_references_github_rows() {
         error: None,
         total: None,
         next: None,
+        query: None,
     };
     app.update(Msg::Engine(luxe_core::event::Event::GithubListed {
         repository: Some("acme/app".into()),

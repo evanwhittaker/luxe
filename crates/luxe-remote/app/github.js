@@ -1,7 +1,8 @@
 // @ts-check
-// The GitHub tab's state: the sections `list_github` brings, which one is shown, and the one pull
-// request or issue open, its overview and conversation read side by side. Everything here reads;
-// a joined session runs with GitHub writes off, so nothing offers one.
+// The GitHub view's state: the sections `list_github` brings, which one is shown, and the one pull
+// request or issue open, its overview and conversation read side by side, and how the cursor
+// steps through them. Everything here reads; a joined session runs with GitHub writes off, so
+// nothing offers one.
 //
 // An answer is matched to what was asked by its number and repository, so a late answer for an
 // item already closed is dropped. Each answer keeps the moment it came, the clock its ages are
@@ -111,6 +112,47 @@ export function rowSubject(row, here) {
     url: row.dataset.url ?? "",
   };
 }
+
+/**
+ * A listed item's subject, as `rowSubject` reads it from the row the host drew for it.
+ * @param {any} item @param {string | null} here @returns {Subject}
+ */
+export function itemSubject(item, here) {
+  const repository = item.repository || null;
+  return { number: item.number, pull_request: item.pull_request === true, repository: repository === here ? null : repository, url: item.url };
+}
+
+/**
+ * The row `step` rows from the open one in `section`, held at the ends; the first when none of
+ * its rows is open. @param {any} section @param {Subject | null} open @param {number} step
+ */
+export function steppedItem(section, open, step) {
+  const items = section?.items ?? [];
+  const at = items.findIndex((/** @type {any} */ item) => item.url === open?.url);
+  if (at < 0) return items[0] ?? null;
+  return items[Math.min(Math.max(at + step, 0), items.length - 1)];
+}
+
+/** The section `step` tabs from `shown`, round the ends as the TUI's tab key goes. @param {any[]} sections @param {string} shown @param {number} step */
+export function steppedSection(sections, shown, step) {
+  const at = sections.findIndex((section) => section.name === shown);
+  return sections[(at + step + sections.length) % sections.length];
+}
+
+/** Each section as its tab: its name, its search, and how many the search matches. @param {any[]} sections */
+export function tabsOf(sections) {
+  return sections.map(({ name, query, items, total }) => ({ name, query: query ?? null, count: total ?? items?.length ?? 0 }));
+}
+
+/** Where the open row is among `section`'s rows, as the TUI's `1/2`; empty when it isn't one. @param {any} section @param {Subject | null} open */
+export function placeOf(section, open) {
+  const items = section?.items ?? [];
+  const at = items.findIndex((/** @type {any} */ item) => item.url === open?.url);
+  return at < 0 ? "" : `${at + 1}/${items.length}`;
+}
+
+/** Whether a review of `subject` can open here: a pull request in the checkout's own repository. @param {Subject} subject */
+export const reviewable = (subject) => subject.pull_request && subject.repository === null;
 
 /** What a mention of `subject` adds to the draft: what it is and where, which the agent can read. @param {Subject} subject @param {string | null} here */
 export function githubMention({ number, pull_request, repository, url }, here) {

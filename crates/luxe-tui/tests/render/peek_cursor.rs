@@ -66,7 +66,7 @@ fn the_focused_footer_keeps_the_layout_keys_where_they_fit() {
         peek_diff_text(&buffer, row, &app, width).trim().to_string()
     };
     let wide = footer(200);
-    assert!(wide.contains("ctrl+b unified diff · alt+w stop wrapping · tab files"), "{wide}");
+    assert!(wide.contains("ctrl+b unified diff · alt+w stop wrapping · tab chat"), "{wide}");
     assert!(wide.starts_with("j k line") && wide.ends_with("esc close"), "{wide}");
     let narrow = footer(60);
     assert!(

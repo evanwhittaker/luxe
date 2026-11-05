@@ -1,7 +1,7 @@
 // @ts-check
-// The dock's state: the plan, the changed files and the project's branch from `workspace_updated`,
-// and the one diff open, matched to its answer by request id so a late answer for a closed diff is
-// dropped.
+// The dock's state: the plan, the changed files, the project's branch and its pull request from
+// `workspace_updated`, and the one diff open, matched to its answer by request id so a late answer
+// for a closed diff is dropped.
 
 import { batch, signal } from "@preact/signals";
 
@@ -11,8 +11,9 @@ import { batch, signal } from "@preact/signals";
  * @typedef {{ total: number, [field: string]: any }} Todos
  * @typedef {{ total_files: number, [field: string]: any }} Changes
  * @typedef {{ git_branch?: string | null, git_dirty?: boolean, [field: string]: any }} Project
+ * @typedef {{ kind: string, [field: string]: any }} PullRequest
  * @typedef {{ todos: Signal<Todos | null>, changes: Signal<Changes | null>, project: Signal<Project | null>,
- *   diff: Signal<OpenDiff | null> }} State
+ *   pullRequest: Signal<PullRequest | null>, diff: Signal<OpenDiff | null> }} State
  */
 /** @import { Signal } from "@preact/signals" */
 /** @import { Frame } from "./connection.js" */
@@ -22,7 +23,9 @@ let asked = 0;
 /** Nothing known yet, and the function that folds frames into what is. */
 export function createWorkspace() {
   /** @type {State} */
-  const state = { todos: signal(null), changes: signal(null), project: signal(null), diff: signal(null) };
+  const state = {
+    todos: signal(null), changes: signal(null), project: signal(null), pullRequest: signal(null), diff: signal(null),
+  };
   return {
     ...state,
     /** @param {Frame} frame */
@@ -35,6 +38,20 @@ export function createWorkspace() {
   };
 }
 
+/**
+ * What the status line's left side says, as the bar says it: the branch's pull request once one is
+ * found, the plan trimmed to its counts and the subject in hand, and the change count. Trimmed so
+ * the request the line sends a few times a minute stays small.
+ * @param {{ todos: Todos | null, changes: Changes | null, pullRequest: PullRequest | null }} workspace
+ */
+export function leftFacts({ todos, changes, pullRequest }) {
+  return {
+    pull_request: pullRequest?.kind === "found" ? pullRequest : undefined,
+    todos: todos ? { completed: todos.completed ?? 0, total: todos.total, current: todos.current?.subject ?? null } : undefined,
+    changed_files: changes?.total_files ?? 0,
+  };
+}
+
 /** @param {State} state @param {Frame} frame */
 function apply(state, { kind, content }) {
   switch (kind) {
@@ -42,6 +59,7 @@ function apply(state, { kind, content }) {
       state.todos.value = content.todos;
       state.changes.value = content.changes;
       state.project.value = content.project;
+      state.pullRequest.value = content.pull_request ?? null;
       return;
     case "file_diff_loaded": return answer(state, content.request_id, { diff: content.diff });
     case "file_diff_failed": return answer(state, content.request_id, { error: content.error });

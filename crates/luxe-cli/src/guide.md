@@ -2796,7 +2796,8 @@ row, and picks nothing.
 | Open in your editor at the cursor, or an image in your image viewer | `o` |
 | See an image full size | `enter` |
 | An SVG's source, or its picture | `s` |
-| Back to the tree | `tab` or `h` |
+| Back to the tree | `h` or `←` |
+| On to the chat's composer | `tab` |
 | Drop the pick or leave visual mode, then back to the composer | `esc` |
 
 ## Mouse and clipboard
@@ -4334,21 +4335,30 @@ In a session, the app can:
   file goes in as its path, which is what the interface sends the model for one.
 - Answer permission prompts and questions. As in the interface, every answer but Reject waits a
   moment after a prompt appears, so a stray tap can't grant anything.
-- Switch the mode with a tap on **build** or **plan**, beside the paperclip in the message box. The
-  status line under the box shows the context, thinking level and model. Tap those for the
-  session's details: switch the mode, the thinking level or the model
-  (from the same list as `/model`, with the levels each model honors), and see the cost. The
-  details also set the **Text size**, small, medium or large, for this device alone; the session
-  list has the same setting.
-- Keep everything about the project in one sidebar: Plan, Files, GitHub and Review, the
-  [dock](interface.md#the-dock)'s plan at the top and each of the rest under a heading you tap to
-  show or hide it. The links along its top jump to each one. On an iPad or an open iPhone Duo
-  it's a rail beside the conversation: the header's dock button or `/dock` shows and hides it,
-  `/dock left` or `/dock right` moves it, and it starts from your `dock.mode` and `dock.position`
-  [settings](configuration.md), as the interface does. On a phone the header's one menu button
-  opens it over the page, and `/dock` opens it at the plan.
-- See the plan under Plan. A long plan scrolls in a box of its own that keeps the work in hand in
-  view, until you scroll it yourself.
+- Switch the mode with a tap on **build** or **plan**, over the message box, as the interface's
+  composer shows it. The box takes the mode's color, and while a turn runs the row has the
+  activity bar and how long it's run. The robot and the bulb beside the paperclip pick the model
+  and the thinking level.
+- Read the [statusline](interface.md#the-statusline) under the box, cut into the same slabs: the
+  pull request, the plan's progress and the change count on the left; the context, cost, the
+  turn's tokens, thinking level and model on the right. A phone drops facts in the bar's order to
+  keep one row.
+  Tap it for the session's details: switch the mode, the thinking level or the model (from the
+  same list as `/model`, with the levels each model honors), and see the cost. The details also
+  set the **Text size**, small, medium or large, for this device alone; the session list has the
+  same setting.
+- Keep everything about the session in one sidebar that scrolls, with the
+  [dock](interface.md#the-dock)'s sections in its order: Plan, Files, Model and Session. Files sits
+  under a heading you tap to show or hide it, and each section scrolls in a box of its own so the
+  sections under it stay in reach. On an
+  iPad or an open iPhone Duo it's a rail beside the conversation: the header's dock button or
+  `/dock` shows and hides it, `/dock left` or `/dock right` moves it, and it starts from your
+  `dock.mode` and `dock.position` [settings](configuration.md), as the interface does. On a phone
+  the header's one menu button or `/dock` opens it over the page.
+- See the plan under Plan, which shows once the session has one. A long plan scrolls in a box of
+  its own that keeps the work in hand in view, until you scroll it yourself.
+- See the provider, model, thinking level and mode under Model, and the context window, tokens and
+  cost under Session, which shows once a turn has used any.
 - Browse the project's files under Files, in the interface's FILES tree. A changed file wears its
   counts and status, a deleted one included, and a tap opens its diff. Tap any other file to read
   it highlighted as the interface shows it. An image or an SVG shows as its picture, an SVG's
@@ -4360,16 +4370,19 @@ In a session, the app can:
   gets the path and lines the interface would send. Tap anywhere else to let a pick go, and copy a
   selection with the phone's own menu. In a diff, a removed line can't be picked, since the file
   no longer has it.
-- Read the project's pull requests and issues under the sidebar's GitHub heading, by the sections
-  [`/github`](github.md) shows. Tap one for its overview (what stands between it and merged, or
-  who's on an issue) and its conversation. **Mention** adds it to your message. It only reads: a
-  joined session runs with GitHub writes off, so merging, replying and resolving stay in the
-  interface.
-- Walk the open [Guided Review](guided-review.md) under the sidebar's Review heading: the guide's summary and
-  chapters, each one opened beside it with the guide's notes over its diffs. **Reviewed** marks a
-  chapter read, the same progress `/review` keeps, and **Next** opens the one after. The phone
-  joins the review the interface has open rather than starting its own, since a session holds one;
-  with none open, **Review changes** reviews the working changes.
+- Read the project's pull requests and issues on the GitHub screen, by the header's GitHub button
+  or `/github`. It's the [`/github`](github.md) panel: the same tabs, each search over its list,
+  and the open one's overview (what stands between it and merged, or who's on an issue) and
+  conversation beside it, or in its place on a phone. The hints along the foot are buttons:
+  **review** opens a pull request's review, **mention** adds it to your message, and **open** shows
+  it on GitHub. With a keyboard the keys work too. It only reads: a joined session runs with GitHub
+  writes off, so merging, replying and resolving stay in the interface.
+- Walk the open [Guided Review](guided-review.md) on the Review screen, by the header's Review
+  button or `/diff`: the guide's summary and chapters, with the open chapter's notes and diffs
+  beside it, or in its place on a phone. **reviewed** marks a chapter read, the same progress the
+  interface's desk keeps, and **next** opens the one after. The phone joins the review the
+  interface has open rather than starting its own, since a session holds one; with none open,
+  **Review changes** reviews the working changes, and `/diff pr 42` reviews that pull request.
 - Comment on a review chapter: pick a line, or a run of lines, and tap **Comment**, or tap
   **Comment on the chapter** with nothing picked. Make it a question if you want an answer rather
   than a fix, then **Save** it to send later or **Send** it now. Each comment shows under what it's

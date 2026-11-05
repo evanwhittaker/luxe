@@ -52,8 +52,6 @@ export function tapRow(event, hooks) {
   if (folder !== undefined) return unfold(folder, hooks);
   const file = row?.dataset.file;
   if (file === undefined) return;
-  hooks.github.close();
-  hooks.review.close();
   if (changedPaths(hooks.changes).includes(file)) return hooks.openDiff(file);
   hooks.closeDiff();
   hooks.files.read(file, hooks.send);

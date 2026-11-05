@@ -1,0 +1,281 @@
+/* The full-screen views (views.js), as the TUI draws /github and Guided Review over its whole
+   screen. GitHub sits in the TUI's rounded accent frame with its title cut into the top border,
+   the tabs over a rule, the list and the detail split by a line, and the hint line along the foot
+   under a rule of its own. The desk has no frame: the guide on the left, the chapter on the right.
+   A pane only shows beside the other where views.js's SPLIT says so; under it, one at a time */
+
+.view {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  box-sizing: border-box;
+  padding: var(--top-inset, 0) 0 max(var(--bottom-inset, 0px), env(safe-area-inset-bottom));
+  background: var(--luxe-background, #12100e);
+}
+
+.view-frame {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.view-frame.framed {
+  margin: 0.5lh 1ch 0.25lh;
+  border: 1px solid var(--luxe-accent, #ddc084);
+  border-radius: 0.75ch;
+}
+
+.view-title {
+  position: absolute;
+  top: -0.5lh;
+  left: 1ch;
+  margin: 0;
+  padding: 0 0.5ch;
+  font-weight: bold;
+  background: var(--luxe-background, #12100e);
+  white-space: pre;
+}
+
+.view-title .icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+
+.view-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The hint line: keys in the accent, words in body text, dim dots between, and where the cursor
+   is at the far end. Each hint is a button a finger can hit */
+.hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 0 1ch;
+  border-top: 1px solid var(--luxe-border-muted, #2e2b27);
+}
+
+.hint {
+  min-height: var(--tap);
+  padding: 0 0.5ch;
+  border: 0;
+  background: none;
+  color: var(--luxe-text, #e4dfd6);
+  font: inherit;
+}
+
+.hint:active {
+  background: var(--luxe-selected-bg, #2c2925);
+}
+
+.hint-key {
+  font: inherit;
+  color: var(--luxe-accent, #ddc084);
+}
+
+.hint-accent .hint-word {
+  color: var(--luxe-accent, #ddc084);
+}
+
+.hint-dot {
+  color: var(--luxe-dim, #4d4a45);
+}
+
+.hint-place {
+  margin-left: auto;
+  padding-left: 1ch;
+  color: var(--luxe-muted, #97938c);
+}
+
+/* GitHub's tab line: the shown tab a slab on the selection surface in the accent, bold, the rest
+   muted beside their marks. It scrolls sideways rather than wrap, as the TUI's clips */
+.gh-tab-line {
+  flex: none;
+  margin: 0 1ch;
+  padding: 0.25lh 0;
+  border-bottom: 1px solid var(--luxe-border-muted, #2e2b27);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.gh-tab-line::-webkit-scrollbar {
+  display: none;
+}
+
+.gh-tabs {
+  display: flex;
+  gap: 1ch;
+}
+
+.gh-tab {
+  flex: none;
+  min-height: var(--tap);
+  padding: 0 1ch;
+  border: 0;
+  background: none;
+  color: var(--luxe-muted, #97938c);
+  font: inherit;
+  white-space: pre;
+}
+
+/* the slab one line tall, as the TUI's, in a button a finger tall */
+.gh-tab[aria-pressed="true"] {
+  font-weight: bold;
+  color: var(--luxe-accent, #ddc084);
+  background: linear-gradient(var(--luxe-selected-bg, #2c2925), var(--luxe-selected-bg, #2c2925)) center / 100% 1.2lh no-repeat;
+}
+
+.gh-tab-mark {
+  margin-right: 0.5ch;
+}
+
+.gh-tab-mark .icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+
+.gh-detail-tabs {
+  margin: 0.5lh 0 0;
+  padding-bottom: 0.25lh;
+  border-bottom: 1px solid var(--luxe-border-muted, #2e2b27);
+}
+
+.gh-search {
+  display: flex;
+  gap: 1ch;
+  margin: 0.5lh 0;
+  color: var(--luxe-muted, #97938c);
+}
+
+.gh-slash {
+  color: var(--luxe-accent, #ddc084);
+}
+
+/* a long search gives way to the count, cut short as the TUI's */
+.gh-query {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-search .gh-count {
+  flex: none;
+  margin: 0 0 0 auto;
+}
+
+.gh-split,
+.rv-desk {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gh-list-pane,
+.gh-detail-pane,
+.rv-guide-pane,
+.rv-chapter-pane {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* the cursor's row or chapter on the selection slab, as the TUI's */
+.gh-row[aria-current],
+.rv-chapter[aria-current] {
+  background: var(--luxe-selected-bg, #2c2925);
+}
+
+.rv-chapter[aria-current] .rv-title {
+  font-weight: bold;
+}
+
+.rv-desk-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.5lh 1.5ch 0;
+}
+
+.rv-step {
+  color: var(--luxe-muted, #97938c);
+}
+
+.rv-empty {
+  padding: 1lh 1.5ch;
+}
+
+/* the header's way into each view, a finger's square beside the sidebar's button */
+.view-button {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  box-sizing: border-box;
+  inline-size: var(--tap);
+  block-size: var(--tap);
+  margin-block: calc((1lh - var(--tap)) / 2);
+  padding: 0.35lh;
+  border: 0;
+  border-radius: var(--corner);
+  background: none;
+  background-clip: content-box;
+  color: var(--luxe-muted, #97938c);
+  font: inherit;
+}
+
+.view-button:active {
+  background-color: var(--luxe-selected-bg, #2c2925);
+}
+
+/* the host's mark is a glyph, sized to the drawn icons beside it */
+.view-mark {
+  font-size: 1.35em;
+  line-height: 1;
+}
+
+.view-mark .icon {
+  width: 1.1lh;
+  height: 1.1lh;
+}
+
+/* Under the split, one pane at a time: the list (or the guide) until a row (or a chapter) is
+   open, then it alone; and no keys on the hints, where there's likely no keyboard */
+@media not ((min-width: 64rem) and (min-height: 30rem)) {
+  .gh-split:not(.reading) .gh-detail-pane,
+  .gh-split.reading .gh-list-pane,
+  .rv-desk:not(.reading) .rv-chapter-pane,
+  .rv-desk.reading .rv-guide-pane {
+    display: none;
+  }
+
+  .hint-key {
+    display: none;
+  }
+}
+
+/* Side by side: the list two parts in five as the TUI's split, the desk's guide a third, each
+   left pane ruled off from the right */
+@media (min-width: 64rem) and (min-height: 30rem) {
+  .gh-split {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+
+  .rv-desk {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  .gh-list-pane,
+  .rv-guide-pane {
+    border-right: 1px solid var(--luxe-border-muted, #2e2b27);
+  }
+}

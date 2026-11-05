@@ -1,5 +1,4 @@
-// The sidebar's state: the phone's sheet open or not, which parts are unfolded, and where a jump
-// lands.
+// The sidebar's state: the phone's sheet open or not, and which parts are unfolded.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -7,43 +6,34 @@ import { createPanel } from "../app/panel.js";
 
 const unfolded = (/** @type {ReturnType<typeof createPanel>} */ panel) => [...panel.unfolded.value].sort();
 
-// The break this catches: a jump to a folded part landing on its bare heading, or not asking for
-// the part to be brought into view at all
-test("a jump unfolds the part it lands on and asks for it in view", () => {
-  const panel = createPanel();
-  panel.jump("github");
-  assert.deepEqual(unfolded(panel), ["files", "github", "plan"]);
-  assert.equal(panel.target.value, "github");
-});
-
-// The break this catches: the phone's button opening the sheet scrolled to some part, or `/dock`
-// opening it somewhere other than the plan
-test("opening shows the sheet, jumping only when told where", () => {
+// The break this catches: the phone's button or `/dock` not showing the sheet, or a close that
+// doesn't put it away
+test("opening shows the sheet and closing hides it", () => {
   const panel = createPanel();
   panel.open();
   assert.equal(panel.shown.value, true);
-  assert.equal(panel.target.value, null);
-  panel.open("plan");
-  assert.equal(panel.target.value, "plan");
+  panel.close();
+  assert.equal(panel.shown.value, false);
 });
 
 // The break this catches: a heading's tap only ever unfolding, so a long part can't be put away,
 // or folding its neighbors with it
 test("a heading's tap folds an unfolded part and unfolds a folded one", () => {
   const panel = createPanel();
+  const start = unfolded(panel);
   panel.fold("files");
-  assert.deepEqual(unfolded(panel), ["plan"]);
-  panel.fold("review");
+  assert.deepEqual(unfolded(panel), start.filter((part) => part !== "files"));
   panel.fold("files");
-  assert.deepEqual(unfolded(panel), ["files", "plan", "review"]);
+  assert.deepEqual(unfolded(panel), start);
 });
 
-// The break this catches: closing the phone's sheet forgetting what was unfolded, so GitHub is
-// folded again, and asked for again, each time it opens
+// The break this catches: closing the phone's sheet forgetting what was folded, so Files opens
+// unfolded again each time
 test("closing keeps the folds", () => {
   const panel = createPanel();
-  panel.open("review");
+  panel.fold("files");
+  panel.open();
   panel.close();
   assert.equal(panel.shown.value, false);
-  assert.ok(panel.unfolded.value.has("review"));
+  assert.ok(!panel.unfolded.value.has("files"));
 });

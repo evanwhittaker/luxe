@@ -48,6 +48,7 @@ fn panel() -> GithubPanel {
                 error: None,
                 total: None,
                 next: None,
+                query: None,
             },
             ListedSection {
                 name: "Assigned issues".into(),
@@ -58,6 +59,7 @@ fn panel() -> GithubPanel {
                 error: None,
                 total: None,
                 next: None,
+                query: None,
             },
             ListedSection {
                 name: "Review requested".into(),
@@ -65,6 +67,7 @@ fn panel() -> GithubPanel {
                 error: Some("GitHub refused the search.".into()),
                 total: None,
                 next: None,
+                query: None,
             },
         ]),
         clock: Some(0),
@@ -272,6 +275,7 @@ fn the_last_row_brings_the_next_page() {
         error: None,
         total: Some(3),
         next: None,
+        query: None,
     };
     assert_eq!(panel.land_search(request, None, page.clone()), None);
     let numbers: Vec<u64> = panel.rows().iter().map(|row| row.number).collect();
@@ -308,6 +312,7 @@ fn the_last_row_brings_the_next_page() {
         error: Some("GitHub is rate limiting.".into()),
         total: None,
         next: None,
+        query: None,
     };
     assert_eq!(
         failing.land_search(request, None, refused).as_deref(),
@@ -331,6 +336,7 @@ fn a_new_search_replaces_the_rows() {
         error: None,
         total: Some(1),
         next: None,
+        query: None,
     };
     assert_eq!(panel.land_search(request, Some("acme/app".into()), found), None);
     assert_eq!((panel.selected, panel.rows().len()), (0, 1));

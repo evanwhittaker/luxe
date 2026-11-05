@@ -9,10 +9,13 @@
 mod conversation;
 mod list;
 mod overview;
+mod tabs;
 
 pub(super) use conversation::conversation;
 pub(super) use list::list;
 pub(super) use overview::{header, overview};
+pub(super) use tabs::tab_line;
+pub(crate) use tabs::Tab;
 
 use luxe_core::github::PullRequestState;
 

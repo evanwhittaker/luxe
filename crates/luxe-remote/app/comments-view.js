@@ -7,7 +7,7 @@ import { html, landedIn } from "./html.js";
 import { Icon } from "./icons.js";
 import { actEdit, anchorFor, anchorWords, commentEdit, labelOf, unsent } from "./comments.js";
 
-/** @import { PanelHooks } from "./panel.js" */
+/** @import { ReviewHooks } from "./review-view.js" */
 /** @import { LinePick } from "./lines.js" */
 /** @import { ReviewShown } from "./review.js" */
 /**
@@ -23,7 +23,7 @@ export function composeAt(review, chapter, pick) {
 
 /**
  * A tap on a comment card's button: a reply opens the composer, anything else is sent as it is.
- * @param {MouseEvent} event @param {PanelHooks} hooks @param {(composing: Composing) => void} compose
+ * @param {MouseEvent} event @param {ReviewHooks} hooks @param {(composing: Composing) => void} compose
  */
 export function tapCard(event, { review, send }, compose) {
   const button = landedIn(event, "[data-act]");
@@ -64,7 +64,7 @@ export function CommentSheet({ composing, submit, cancel }) {
   </div>`;
 }
 
-/** The guide's line for comments not sent yet, and the button that sends them all. @param {{ shown: ReviewShown, hooks: PanelHooks }} props */
+/** The guide's line for comments not sent yet, and the button that sends them all. @param {{ shown: ReviewShown, hooks: ReviewHooks }} props */
 export function Unsent({ shown, hooks }) {
   const ids = unsent(shown.session);
   if (!ids.length) return null;

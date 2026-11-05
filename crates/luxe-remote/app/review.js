@@ -1,6 +1,6 @@
 // @ts-check
-// The Review tab's state: the review open in the session, joined rather than replaced, and the one
-// chapter open in the peek.
+// The Review view's state: the review open in the session, joined rather than replaced, and the one
+// chapter open on the desk.
 //
 // A session holds one review, and loading one makes a new one with no comments or progress, so the
 // tab asks for whatever is open (`show_open_review`) and offers to review the working changes only
@@ -17,6 +17,7 @@ import { signal } from "@preact/signals";
  * @typedef {{ state: ReviewState, review: any | null, guide: any | null, reading: any[], walked: string[],
  *   session?: any, error?: string, problem?: string }} ReviewShown
  * @typedef {(frame: Frame) => boolean} Send
+ * @typedef {{ kind: "working_tree" } | { kind: "pull_request", number: number }} Target
  */
 
 /** @type {ReviewShown} */
@@ -27,11 +28,12 @@ export function createReview() {
   const shown = signal(NOTHING);
   const open = signal(/** @type {string | null} */ (null));
   /** @type {Asked} */
-  const asked = { id: "", load: "", send: null, edits: new Set() };
+  const asked = { id: "", load: "", send: null, edits: new Set(), target: { kind: "working_tree" } };
   /** @param {Send} send */
   const ask = (send) => (shown.value = { ...shown.value, state: askOpen(asked, send) ? "asking" : "lost" });
-  /** @param {Send} send */
-  const load = (send) => (shown.value = { ...shown.value, state: loadChanges(asked, send) ? "loading" : "lost", error: undefined });
+  /** Loads a review of `target`, the last one asked for unless another is named. @param {Send} send @param {Target} [target] */
+  const load = (send, target = asked.target) =>
+    (shown.value = { ...shown.value, state: loadTarget(asked, send, target) ? "loading" : "lost", error: undefined });
   /** @param {Frame} frame */
   const apply = (frame) => {
     const { next, again } = applyReview(shown.value, frame, asked);
@@ -59,7 +61,8 @@ function edited(shown, asked, send, change) {
 
 /**
  * The requests the next answers must carry, and the send to ask again with when the open review
- * changes. @typedef {{ id: string, load: string, send: Send | null, edits: Set<string> }} Asked
+ * changes, and what the last load was of, which Try again loads again.
+ * @typedef {{ id: string, load: string, send: Send | null, edits: Set<string>, target: Target }} Asked
  */
 
 /** Asks for the open review. @param {Asked} asked @param {Send} send */
@@ -68,10 +71,10 @@ function askOpen(asked, send) {
   return send({ kind: "show_open_review", content: { request_id: asked.id } });
 }
 
-/** Loads a review of the working changes, which becomes the open one. @param {Asked} asked @param {Send} send */
-function loadChanges(asked, send) {
-  Object.assign(asked, { load: requestId("load"), send });
-  return send({ kind: "load_guided_review", content: { request_id: asked.load, target: { kind: "working_tree" } } });
+/** Loads a review of `target`, which becomes the open one. @param {Asked} asked @param {Send} send @param {Target} target */
+function loadTarget(asked, send, target) {
+  Object.assign(asked, { load: requestId("load"), send, target });
+  return send({ kind: "load_guided_review", content: { request_id: asked.load, target } });
 }
 
 /** An id no other phone will send, so each answers only its asker. @param {string} what */
@@ -153,8 +156,13 @@ export function chapterPiece({ review, reading, walked, session }, id) {
 
 /** The chapter after `id`, if there is one. @param {any} review @param {string} id @returns {string | null} */
 export function nextChapter(review, id) {
+  return steppedChapter(review, id, 1);
+}
+
+/** The chapter `step` from `id`, if there is one. @param {any} review @param {string} id @param {number} step @returns {string | null} */
+export function steppedChapter(review, id, step) {
   const index = review.chapters.findIndex((/** @type {any} */ chapter) => chapter.id === id);
-  return review.chapters[index + 1]?.id ?? null;
+  return index < 0 ? null : review.chapters[index + step]?.id ?? null;
 }
 
 /** What the review is of, in a few words. @param {any} target */

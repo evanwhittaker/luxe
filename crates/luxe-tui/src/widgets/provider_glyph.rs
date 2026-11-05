@@ -16,8 +16,13 @@ use crate::glyphs::{brands, Icon, RECENT_BRANDS};
 /// OpenAI and Copilot have marks only the newest Nerd Fonts carry, so where no font on the machine
 /// has them they fall back to a mark every v3 font does.
 pub(crate) fn provider_icon(provider: &str) -> Icon {
+    provider_icon_with(provider, brands())
+}
+
+/// The mark for `provider` in a font known up front, which has the recent brands when `recent`.
+pub(crate) fn provider_icon_with(provider: &str, recent: bool) -> Icon {
     let icon = provider_brand(&provider.to_ascii_lowercase());
-    match brands() {
+    match recent {
         true => icon,
         false => older_font_mark(icon),
     }
@@ -26,8 +31,14 @@ pub(crate) fn provider_icon(provider: &str) -> Icon {
 /// The mark for the model `model`, an id like `claude-opus-5-5` or `openai/gpt-5`, as the dock
 /// draws it now. A recent brand falls back to the plain model mark where no font has it.
 pub(crate) fn model_icon(model: &str) -> Icon {
+    model_icon_with(model, brands())
+}
+
+/// The mark for the model `model` in a font known up front, which has the recent brands when
+/// `recent`.
+pub(crate) fn model_icon_with(model: &str, recent: bool) -> Icon {
     let icon = model_brand(&model.to_ascii_lowercase());
-    match brands() || !RECENT_BRANDS.contains(&icon) {
+    match recent || !RECENT_BRANDS.contains(&icon) {
         true => icon,
         false => Icon::Model,
     }

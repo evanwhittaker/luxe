@@ -8,7 +8,7 @@ const names = (commands) => commands.map((command) => command.name);
 
 // The break this catches: the picker missing at the bare slash, which is where you'd browse
 test("a bare slash offers every command", () => {
-  assert.deepEqual(names(matchCommands("/")), ["compact", "cost", "dock", "mode", "model", "thinking"]);
+  assert.deepEqual(names(matchCommands("/")), ["compact", "cost", "diff", "dock", "github", "mode", "model", "thinking"]);
 });
 
 // The break this catches: names matched anywhere but their start, or with case counted
@@ -65,6 +65,28 @@ test("dock takes the TUI's verbs, and anything else goes to the agent", () => {
   assert.equal(commandAction("/dock is in the way", "build"), null);
 });
 
+// The break this catches: `/github` or `/diff` sent to the agent, where the TUI opens its view
+test("github and diff alone open their views", () => {
+  assert.deepEqual(commandAction("/github", "build"), { view: "github" });
+  assert.deepEqual(commandAction("/diff", "build"), { view: "review" });
+  assert.equal(commandAction("/github is down", "build"), null);
+});
+
+// The break this catches: `/diff pr` reviewing the working tree, or a number lost from a link
+test("diff pr reviews that pull request, by number or link", () => {
+  const review = (/** @type {number} */ number) => ({ view: "review", target: { kind: "pull_request", number } });
+  assert.deepEqual(commandAction("/diff pr 42", "build"), review(42));
+  assert.deepEqual(commandAction("/diff PR #7", "build"), review(7));
+  assert.deepEqual(commandAction("/diff pr https://github.com/acme/app/pull/9/files", "build"), review(9));
+});
+
+// The break this catches: a target the app can't load taken for the open review
+test("diff with a target the app doesn't offer is a message", () => {
+  assert.equal(commandAction("/diff turn", "build"), null);
+  assert.equal(commandAction("/diff pr", "build"), null);
+  assert.equal(commandAction("/diff pr 0", "build"), null);
+});
+
 /** Hooks that record what a command did. */
 function recorded() {
   /** @type {unknown[]} */
@@ -73,6 +95,7 @@ function recorded() {
     send: (/** @type {unknown} */ frame) => (did.push(frame), true),
     details: () => void did.push("details"),
     dock: (/** @type {string} */ verb) => void did.push(`dock ${verb}`),
+    view: (/** @type {string} */ name, /** @type {unknown} */ target) => void did.push({ view: name, target }),
   };
   return { did, hooks };
 }
@@ -84,8 +107,10 @@ test("each command goes where it's carried out", () => {
   assert.equal(runCommand({ details: true }, hooks), true);
   assert.equal(runCommand({ dock: "left" }, hooks), true);
   assert.equal(runCommand({ frame: { kind: "compact_now" } }, hooks), true);
+  assert.equal(runCommand({ view: "review", target: { kind: "pull_request", number: 3 } }, hooks), true);
   assert.equal(runCommand(null, hooks), null);
-  assert.deepEqual(did, ["details", "dock left", { kind: "compact_now" }]);
+  const target = { kind: "pull_request", number: 3 };
+  assert.deepEqual(did, ["details", "dock left", { kind: "compact_now" }, { view: "review", target }]);
 });
 
 // The break this catches: a frame that couldn't go out reported as sent, so the box clears and

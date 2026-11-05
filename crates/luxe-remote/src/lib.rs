@@ -32,8 +32,9 @@ mod tailnet;
 
 pub use devices::{Device, DeviceBook, PairingError, INVITATION_LIFETIME_SECS};
 pub use render::{
-    ContextUsage, FileMark, GithubMarks, MarkHue, Renderer, StatusFacts, StatusSegment, StatusTone,
-    TileColors, Voice,
+    ChromeMark, ContextUsage, FileMark, GithubMarks, MarkHue, PlanProgress, Renderer, StatusFacts,
+    StatusSegment, StatusSurface, StatusTone, TelemetryRow, TelemetryTone, TileColors, TurnTokens,
+    Voice,
 };
 pub use tailnet::{publish, published, this_machine, Published, Tailnet, TailnetError};
 

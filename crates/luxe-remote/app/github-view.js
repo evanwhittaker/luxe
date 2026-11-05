@@ -1,28 +1,138 @@
 // @ts-check
-// The GitHub tab: `/github`'s sections as badges, the shown one's rows as the TUI draws them, and
-// a tapped row open in the peek, its header over an Overview and a Conversation. The host draws
-// every row, check and card; the app only says which, and owns the taps.
+// The GitHub view, as the TUI's `/github`: a frame titled with the repository, the section tabs
+// across the top, the shown tab's search and rows on the left and the open row's detail on the
+// right, its header over an Overview and a Conversation. On a screen too narrow for both, the
+// detail takes the list's place until it's put back. The host draws every tab, row, check and
+// card; the app only says which, and owns the taps and keys.
 
-import { useEffect } from "preact/hooks";
-import { githubMention, rowSubject, shownSection } from "./github.js";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { githubMention, itemSubject, placeOf, reviewable, rowSubject, shownSection, steppedItem, steppedSection, tabsOf } from "./github.js";
 import { useRendered } from "./render.js";
 import { html, landedIn } from "./html.js";
 import { useEscape } from "./dock.js";
-import { Icon } from "./icons.js";
+import { ChromeMark } from "./marks.js";
+import { CursorPiece, ViewFrame, useSplit, useViewKeys } from "./views.js";
 
-/** @import { PanelHooks } from "./panel.js" */
 /** @import { OpenItem, Reading, Subject } from "./github.js" */
+/** @import { Hint } from "./views.js" */
+/**
+ * @typedef {{ github: ReturnType<typeof import("./github.js").createGithub>, send: (frame: import("./connection.js").Frame) => boolean,
+ *   mention: (words: string) => void, review: (subject: Subject) => void, close: () => void }} GithubHooks
+ */
 
-/** @param {{ hooks: PanelHooks }} props */
-export function GithubTab({ hooks }) {
+/** @param {{ hooks: GithubHooks }} props */
+export function GithubView({ hooks }) {
   const { github, send } = hooks;
+  const split = useSplit();
   useEffect(() => void github.list(send), []);
   const listing = github.listing.value;
+  const shown = listing.sections.length ? shownSection(listing.sections, github.section.value) : null;
+  useFirstRow(hooks, shown, split);
+  const item = github.open.value;
+  const reading = Boolean(item) && !split;
+  const hints = githubHints(hooks, shown, item, reading);
+  useEscape(reading ? github.close : hooks.close);
+  useViewKeys(hints, cursorKeys(hooks, shown));
+  const title = listing.repository ? `GitHub · ${listing.repository}` : "GitHub";
+  return html`<${ViewFrame} name="github" label="GitHub" title=${title} hints=${hints} place=${placeOf(shown, item?.subject ?? null)}>
+    ${shown ? html`<${Tabs} sections=${listing.sections} shown=${shown.name} pick=${(/** @type {string} */ name) => pickSection(hooks, name, split)} />` : null}
+    <${Panes} hooks=${hooks} shown=${shown} item=${item} reading=${reading} />
+  </${ViewFrame}>`;
+}
+
+/** The list and the detail, side by side or, on a phone, the detail in the list's place. @param {{ hooks: GithubHooks, shown: any, item: OpenItem | null, reading: boolean }} props */
+function Panes({ hooks, shown, item, reading }) {
+  return html`<div class=${reading ? "gh-split reading" : "gh-split"}>
+    <div class="gh-list-pane"><${ListBody} hooks=${hooks} shown=${shown} /></div>
+    <div class="gh-detail-pane gh-view" onClick=${(/** @type {MouseEvent} */ event) => tapDetail(event, hooks)}>
+      ${item ? html`<${Detail} item=${item} hooks=${hooks} />` : html`<p class="diff-note">Nothing open</p>`}</div>
+  </div>`;
+}
+
+/**
+ * On a split screen the first row opens as a list arrives or a tab changes, as the TUI's cursor
+ * starts on it with the detail beside; a row opened from elsewhere (a linked pull request) stays.
+ * @param {GithubHooks} hooks @param {any} shown @param {boolean} split
+ */
+function useFirstRow({ github, send }, shown, split) {
+  const at = github.listing.value.at;
+  useEffect(() => {
+    if (!split || !shown?.items?.length) return;
+    const open = github.open.value?.subject;
+    if (open && shown.items.some((/** @type {any} */ item) => item.url === open.url)) return;
+    github.read(itemSubject(shown.items[0], github.listing.value.repository), send);
+  }, [shown?.name, at, split]);
+}
+
+/** Shows section `name`; on a phone the open row goes with the tab it was on. @param {GithubHooks} hooks @param {string} name @param {boolean} split */
+function pickSection({ github }, name, split) {
+  github.pick(name);
+  if (!split) github.close();
+}
+
+/**
+ * The hint line, as the TUI's: what the open row can do, the way back to the list on a phone,
+ * and close. @param {GithubHooks} hooks @param {any} shown @param {OpenItem | null} item @param {boolean} reading
+ * @returns {Hint[]}
+ */
+function githubHints(hooks, shown, item, reading) {
+  const { github } = hooks;
+  const here = github.listing.value.repository;
+  /** @type {Hint[]} */
+  const hints = reading ? [{ key: "←", word: "list", run: github.close }] : [];
+  if (item && reviewable(item.subject)) hints.push({ key: "enter", word: "review", run: () => hooks.review(item.subject), tone: "accent" });
+  if (item) hints.push({ key: "c", word: "mention", run: () => hooks.mention(githubMention(item.subject, here)) },
+    { key: "o", word: "open", run: () => void open(item.subject.url, "_blank", "noopener") });
+  if (shown && !reading) hints.push({ key: "tab", word: "section", run: () => github.pick(steppedSection(github.listing.value.sections, shown.name, 1).name) });
+  hints.push({ key: "esc", word: "close", run: hooks.close });
+  return hints;
+}
+
+/** The keys no hint shows: the arrows (and j and k) step the cursor, shift+tab the tab back. @param {GithubHooks} hooks @param {any} shown */
+function cursorKeys({ github, send }, shown) {
+  const here = github.listing.value.repository;
+  const step = (/** @type {number} */ by) => () => {
+    const next = steppedItem(shown, github.open.value?.subject ?? null, by);
+    if (next) github.read(itemSubject(next, here), send);
+  };
+  const back = () => shown && github.pick(steppedSection(github.listing.value.sections, shown.name, -1).name);
+  return { "↓": step(1), j: step(1), "↑": step(-1), k: step(-1), "shift+tab": back };
+}
+
+/**
+ * The tabs, drawn by the host with the TUI's mark for each search; plain words until it answers.
+ * @param {{ sections: any[], shown: string, pick: (name: string) => void }} props
+ */
+function Tabs({ sections, shown, pick }) {
+  const rendered = useRendered({ kind: "github_tabs", tabs: tabsOf(sections), shown }, false);
+  const ref = useShownTab(rendered, shown);
+  /** @param {MouseEvent} event */
+  const tap = (event) => {
+    const tab = /** @type {HTMLElement | null} */ (landedIn(event, "button.gh-tab"));
+    if (tab?.dataset.section) pick(tab.dataset.section);
+  };
+  if (rendered) return html`<div ref=${ref} class="gh-tab-line" onClick=${tap} dangerouslySetInnerHTML=${{ __html: rendered }}></div>`;
+  return html`<div ref=${ref} class="gh-tab-line" onClick=${tap}><nav class="gh-tabs" aria-label="GitHub sections">
+    ${sections.map(({ name }) => html`<button type="button" key=${name} class="gh-tab" data-section=${name} aria-pressed=${name === shown}>${name}</button>`)}
+  </nav></div>`;
+}
+
+/** Keeps the shown tab in sight on a tab line too narrow for them all. @param {string | null | undefined} rendered @param {string} shown */
+function useShownTab(rendered, shown) {
+  const ref = useRef(/** @type {HTMLDivElement | null} */ (null));
+  useLayoutEffect(() => {
+    ref.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [rendered, shown]);
+  return ref;
+}
+
+/** @param {{ hooks: GithubHooks, shown: any }} props */
+function ListBody({ hooks, shown }) {
+  const { github, send } = hooks;
+  const listing = github.listing.value;
   if (listing.state === "lost" && !listing.sections.length) return html`<${Lost} retry=${() => github.list(send)} />`;
-  if (!listing.sections.length) return html`<p class="diff-note">${listing.state === "listed" ? "No sections" : "Loading…"}</p>`;
-  const shown = shownSection(listing.sections, github.section.value);
-  return html`<${Sections} sections=${listing.sections} shown=${shown.name} pick=${github.pick} />
-    <${List} hooks=${hooks} section=${shown} />`;
+  if (!shown) return html`<p class="diff-note">${listing.state === "listed" ? "No sections" : "Loading…"}</p>`;
+  return html`<${List} hooks=${hooks} section=${shown} />`;
 }
 
 /** @param {{ retry: () => void }} props */
@@ -30,58 +140,21 @@ function Lost({ retry }) {
   return html`<p class="diff-note">Connection lost. <button type="button" class="retry" onClick=${retry}>Try again</button></p>`;
 }
 
-/**
- * The section tabs on one line, as `/github` draws them: the open one a slab, the rest quiet
- * words, each with how many it holds, scrolling sideways when they don't fit.
- * @param {{ sections: any[], shown: string, pick: (name: string) => void }} props
- */
-function Sections({ sections, shown, pick }) {
-  return html`<nav class="tabs gh-sections" aria-label="GitHub sections">
-    ${sections.map(({ name, items, total }) => html`<button type="button" key=${name} class="tab" aria-pressed=${name === shown}
-      onClick=${() => pick(name)}><span class=${name === shown ? "badge picked" : "gh-tab"}>${name} ${total ?? items.length}</span></button>`)}
-  </nav>`;
-}
-
-/** @param {{ hooks: PanelHooks, section: any }} props */
+/** The shown tab's search and rows, the open row on the cursor's slab. @param {{ hooks: GithubHooks, section: any }} props */
 function List({ hooks, section }) {
   const { repository, at } = hooks.github.listing.value;
   const rendered = useRendered({ kind: "github_list", repository, section, now: at }, false);
-  return html`<div class="gh-view" onClick=${(/** @type {MouseEvent} */ event) => tapGithubRow(event, hooks)}
-    dangerouslySetInnerHTML=${{ __html: rendered ?? "" }}></div>`;
+  return html`<${CursorPiece} markup=${rendered ?? ""} attribute="data-url" current=${hooks.github.open.value?.subject.url ?? null}
+    className="gh-view" onClick=${(/** @type {MouseEvent} */ event) => tapGithubRow(event, hooks)} />`;
 }
 
-/** A tap on a row opens it in the peek, in place of any open file. @param {MouseEvent} event @param {PanelHooks} hooks */
-export function tapGithubRow(event, { github, files, review, send }) {
+/** A tap on a row opens it beside the list, or in its place on a phone. @param {MouseEvent} event @param {GithubHooks} hooks */
+export function tapGithubRow(event, { github, send }) {
   const row = landedIn(event, "button.gh-row");
-  if (!row) return;
-  files.close();
-  review.close();
-  github.read(rowSubject(row, github.listing.value.repository), send);
+  if (row) github.read(rowSubject(row, github.listing.value.repository), send);
 }
 
-/**
- * The open item, in the pane a file opens in. Escape closes it before the panel.
- * @param {{ hooks: PanelHooks, wide: boolean }} props
- */
-export function GithubPeek({ hooks, wide }) {
-  const { github } = hooks;
-  const item = github.open.value;
-  useEscape(item ? github.close : null);
-  if (!item) return null;
-  const here = github.listing.value.repository;
-  const name = `${item.subject.repository ?? ""}#${item.subject.number}`;
-  return html`<div class="sheet peek" role="dialog" aria-modal=${!wide} aria-label=${name}>
-    <header class="bar">
-      <span class="title">${name}</span>
-      <a class="mention" href=${item.subject.url} target="_blank" rel="noopener noreferrer">GitHub</a>
-      <button type="button" class="mention" onClick=${() => hooks.mention(githubMention(item.subject, here))}>Mention</button>
-      <button type="button" class="close" aria-label="Close" onClick=${github.close}><${Icon} name="close" /></button>
-    </header>
-    <div class="sheet-body gh-view" onClick=${(/** @type {MouseEvent} */ event) => tapDetail(event, hooks)}><${Detail} item=${item} hooks=${hooks} /></div>
-  </div>`;
-}
-
-/** @param {{ item: OpenItem, hooks: PanelHooks }} props */
+/** @param {{ item: OpenItem, hooks: GithubHooks }} props */
 function Detail({ item, hooks }) {
   const retry = () => hooks.github.read(item.subject, hooks.send);
   const { overview } = item;
@@ -107,15 +180,15 @@ function Waiting({ reading, retry, what }) {
 }
 
 /**
- * The detail's tabs, on the TUI's tab line, Conversation counting what's been said.
+ * The detail's tabs, each behind the TUI's mark, Conversation counting what's been said.
  * @param {{ tab: import("./github.js").DetailTab, show: (tab: import("./github.js").DetailTab) => void, said: number }} props
  */
 function DetailTabs({ tab, show, said }) {
   /** @type {[import("./github.js").DetailTab, string][]} */
   const tabs = [["overview", "Overview"], ["conversation", said ? `Conversation ${said}` : "Conversation"]];
-  return html`<nav class="tabs gh-sections" role="tablist" aria-label="Views">
-    ${tabs.map(([id, title]) => html`<button type="button" role="tab" key=${id} class="tab" aria-selected=${id === tab}
-      onClick=${() => show(id)}><span class=${id === tab ? "badge picked" : "gh-tab"}>${title}</span></button>`)}
+  return html`<nav class="gh-tabs gh-detail-tabs" role="tablist" aria-label="Views">
+    ${tabs.map(([id, title]) => html`<button type="button" role="tab" key=${id} class="gh-tab" aria-selected=${id === tab}
+      aria-pressed=${id === tab} onClick=${() => show(id)}><${ChromeMark} mark=${id} className="gh-tab-mark" /><span class="gh-tab-name">${title}</span></button>`)}
   </nav>`;
 }
 
@@ -127,12 +200,12 @@ function Piece({ piece }) {
 
 /**
  * Taps inside the detail: "open #N" opens that pull request, "more lines in Conversation" shows
- * it, and "Show all" unfolds a long comment. @param {MouseEvent} event @param {PanelHooks} hooks
+ * it, and "Show all" unfolds a long comment. @param {MouseEvent} event @param {GithubHooks} hooks
  */
 export function tapDetail(event, { github, send }) {
   const item = github.open.value;
-  const open = landedIn(event, "button.gh-open");
-  if (item && open) return github.read(linkedSubject(item.subject, Number(open.dataset.number), github.listing.value.repository), send);
+  const linked = landedIn(event, "button.gh-open");
+  if (item && linked) return github.read(linkedSubject(item.subject, Number(linked.dataset.number), github.listing.value.repository), send);
   if (landedIn(event, "button.gh-more")) return github.show("conversation");
   landedIn(event, "button.gh-unfold")?.closest(".gh-card")?.classList.remove("folded");
 }
