@@ -1,6 +1,6 @@
-/* The sidebar (panel.js): its jumps, under its bar on a phone, kept at the top as it scrolls; then
-   its parts, each project view under a heading that folds it. Files is the TUI's dock tree, a
-   finger tall a row, and a file's lines are drawn as a diff's are */
+/* The sidebar (panel.js): under its bar on a phone, its parts, each project view under a heading
+   that folds it. Files is the TUI's dock tree, a finger tall a row, and a file's lines are drawn
+   as a diff's are */
 
 .panel-button {
   display: grid;
@@ -17,32 +17,6 @@
 /* everything in the sidebar starts at the dock's indent */
 .panel .bar {
   padding-inline: 1.5ch;
-}
-
-.panel-top {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--luxe-background, #12100e);
-  border-bottom: 1px solid var(--luxe-border-muted, #2e2b27);
-}
-
-.panel-top .bar {
-  position: static;
-  border-bottom: none;
-}
-
-/* a finger tall, and plain words, so the four fit one row on the narrowest iPhone at any size */
-.jumps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 2.5ch;
-  padding: 0 1.5ch;
-}
-
-.jumps button {
-  min-height: var(--tap);
-  color: var(--luxe-accent, #ddc084);
 }
 
 /* the heading is the fold's button, the word beside it saying what a tap does */
@@ -62,6 +36,28 @@
 .part-fold {
   font-weight: normal;
   color: var(--luxe-muted, #97938c);
+}
+
+/* Each project view scrolls in a box of its own, as the TUI's dock gives each section a budget:
+   the tree half the screen, GitHub and Review two fifths, so the parts under a deep tree stay in
+   reach and the sidebar scrolls as a whole only when every part is open and full */
+.part-body {
+  --budget: 40dvh;
+  max-height: var(--budget);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.part[data-part="files"] .part-body {
+  --budget: 50dvh;
+}
+
+/* GitHub's tabs stay put over the list they switch */
+.part-body .tabs {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--luxe-background, #12100e);
 }
 
 /* the project's folder rides the heading's line, so the bar stays one row; plain text, glyph and

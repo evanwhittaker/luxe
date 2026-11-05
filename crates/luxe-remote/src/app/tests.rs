@@ -155,3 +155,37 @@ fn the_page_is_named_for_its_computer() {
     assert!(named_page(&page, Some("a\"b")).contains(r#"content="a&quot;b""#));
     assert_eq!(named_page(&page, None), page);
 }
+
+/// Derives one color, as the TUI's renderer derives many.
+struct Deriving;
+
+impl crate::Renderer for Deriving {
+    fn markdown(&self, text: &str, _voice: crate::Voice) -> String {
+        text.to_owned()
+    }
+    fn tool_glyph(&self, _tool: &str) -> String {
+        String::new()
+    }
+    fn status(&self, _facts: &crate::StatusFacts) -> Vec<crate::StatusSegment> {
+        Vec::new()
+    }
+    fn theme_properties(&self, _theme: &HashMap<String, ColorValue>) -> String {
+        "  --luxe-mode-plan: #d2a5cd;\n".to_owned()
+    }
+}
+
+/// The break this catches: the derived colors left off the stylesheet, so the app's mode and
+/// slabs fall back to guesses; or put ahead of the theme's own tokens, so a theme naming
+/// `modePlan` itself would override what the TUI draws.
+#[test]
+fn the_stylesheet_carries_the_derived_colors_after_the_themes_own() {
+    let theme = HashMap::from([("modePlan".to_owned(), ColorValue::Rgb(1, 2, 3))]);
+    let css = themed_css(&theme, &Deriving);
+    let own = css.find("--luxe-mode-plan: #010203;").expect("the theme's own token");
+    let derived = css.find("--luxe-mode-plan: #d2a5cd;").expect("the derived color");
+    assert!(own < derived, "{css}");
+    assert_eq!(
+        themed_css(&theme, &crate::render::PlainText),
+        luxe_core::theme::css::stylesheet(&theme)
+    );
+}

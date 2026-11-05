@@ -1,5 +1,5 @@
-/* The dock's plan at the sidebar's top, and the diff sheet, colored as the TUI's dock colors
-   them. Where the sidebar sits is peek.css's */
+/* The dock's plan at the sidebar's top, its model and session at the foot, and the diff sheet,
+   colored as the TUI's dock colors them. Where the sidebar sits is peek.css's */
 
 .dock-toggle {
   display: grid;
@@ -22,9 +22,9 @@
   transform: scaleX(-1);
 }
 
-/* at the sidebar's indent */
+/* at the sidebar's indent, a line from the next heading as the folding parts are */
 .dock-part {
-  padding: 0 1.5ch 1lh;
+  padding: 0 1.5ch;
 }
 
 .dock-section p,
@@ -60,6 +60,34 @@
 .todo {
   padding-left: 2ch;
   text-indent: -2ch;
+}
+
+/* The rail's grid: a muted label column wide enough for its longest word, then the value, which
+   wraps under itself rather than being cut */
+.telemetry {
+  display: grid;
+  grid-template-columns: 10ch 1fr;
+  margin: 0;
+}
+
+.tm-row {
+  display: contents;
+}
+
+.telemetry dt {
+  color: var(--luxe-muted, #97938c);
+}
+
+.telemetry dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* the TUI's two cells, the mark and a space, so a wide mark can't crowd the value */
+.tm-glyph {
+  display: inline-block;
+  width: 2ch;
 }
 
 .todo-completed { color: var(--luxe-success, #81caa0); }

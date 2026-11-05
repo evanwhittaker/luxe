@@ -176,16 +176,17 @@ impl Renderer for Loud {
     }
 
     fn status(&self, _facts: &StatusFacts) -> Vec<StatusSegment> {
-        let segment = |kind, glyph: Option<&str>, tone| StatusSegment {
+        let segment = |kind, glyph: Option<&str>, tone, surface| StatusSegment {
             kind,
             glyph: glyph.map(str::to_string),
             label: "<9%>".into(),
             tone,
+            surface,
         };
         vec![
-            segment("context", Some("&"), StatusTone::Error),
-            segment("cost", None, StatusTone::Plain),
-            segment("model", None, StatusTone::Warning),
+            segment("context", Some("&"), StatusTone::Error, StatusSurface::Bare),
+            segment("cost", None, StatusTone::Plain, StatusSurface::Recessed),
+            segment("model", None, StatusTone::Warning, StatusSurface::Hero),
         ]
     }
 
@@ -211,8 +212,43 @@ fn a_mode_wears_its_own_mark() {
     assert_eq!(render(&PlainText, &mode("build")), "build");
 }
 
+/// A renderer whose chrome marks say which mark was asked for, in angle brackets.
+struct Marks;
+
+impl Renderer for Marks {
+    fn markdown(&self, text: &str, _voice: Voice) -> String {
+        escape(text)
+    }
+    fn tool_glyph(&self, _tool: &str) -> String {
+        String::new()
+    }
+    fn status(&self, _facts: &StatusFacts) -> Vec<StatusSegment> {
+        Vec::new()
+    }
+    fn chrome_mark(&self, mark: ChromeMark) -> String {
+        format!("<{mark:?}>")
+    }
+}
+
+/// The break this catches: the app's name for a button's, tab's or title's mark not parsing, the
+/// marks crossed, or the mark written unescaped.
+#[test]
+fn a_chrome_mark_is_the_renderers_escaped() {
+    let mark = |name: &str| {
+        let piece: Piece =
+            serde_json::from_value(serde_json::json!({"kind": "chrome_mark", "mark": name}))
+                .expect("a chrome mark piece as the app sends it");
+        render(&Marks, &piece)
+    };
+    let names = ["model", "thinking", "github", "review", "overview", "conversation"];
+    let marks: Vec<String> = names.iter().map(|name| mark(name)).collect();
+    let expected = ["Model", "Thinking", "Github", "Review", "Overview", "Conversation"];
+    assert_eq!(marks, expected.map(|name| format!("&lt;{name}&gt;")));
+}
+
 /// The break this catches: a status segment's words or mark written into the page unescaped, a
-/// tone lost so a full window reads as a roomy one, or the app's facts not parsing as sent.
+/// tone lost so a full window reads as a roomy one, or the app's facts (the turn's tokens and the
+/// cells it has among them) not parsing as sent.
 #[test]
 fn a_status_renders_each_segment_escaped_with_its_tone() {
     let piece: Piece = serde_json::from_value(serde_json::json!({
@@ -220,15 +256,56 @@ fn a_status_renders_each_segment_escaped_with_its_tone() {
         "model": {"provider": "anthropic", "model": "claude-x"},
         "thinking": "high",
         "context": {"used_tokens": 1, "context_window": 2},
+        "turn": {"prompt": 3, "completion": 4, "cache_read": 5},
+        "cells": 80,
     }))
     .expect("a status piece as the app sends it");
     assert_eq!(
         render(&Loud, &piece),
-        "<span class=\"seg seg-context tone-error\">\
+        "<span class=\"cluster right\"><span class=\"seg seg-context tone-error\">\
          <span class=\"seg-glyph\" aria-hidden=\"true\">&amp;</span> &lt;9%&gt;</span>\
-         <span class=\"seg seg-cost\">&lt;9%&gt;</span>\
-         <span class=\"seg seg-model tone-warning\">&lt;9%&gt;</span>"
+         <span class=\"band\"><span class=\"fade to-recessed\"></span>\
+         <span class=\"seg seg-cost slab slab-recessed\">&lt;9%&gt;</span>\
+         <span class=\"ramp from-recessed to-hero\"></span>\
+         <span class=\"seg seg-model tone-warning slab slab-hero\">&lt;9%&gt;</span></span></span>"
     );
+}
+
+/// A `workspace_updated` frame's pull request, as core pins it.
+const FOUND_PULL_REQUEST: &str = r#"{"kind":"found","number":138,"title":"Groundwork","url":"https://github.com/acme/app/pull/138","state":"open","draft":false,"review_decision":"changes_requested","checks":{"passed":4,"failed":1,"pending":0,"skipped":0},"unresolved_threads":2,"head_oid":"3992868"}"#;
+
+/// The break this catches: the left side's facts not parsing as the app sends them (the pull
+/// request as a `workspace_updated` frame carries it, the plan trimmed to its counts and the
+/// subject in hand), so the line's left side never shows.
+#[test]
+fn the_left_sides_facts_parse_as_the_app_sends_them() {
+    let pull_request: serde_json::Value =
+        serde_json::from_str(FOUND_PULL_REQUEST).expect("the snapshot's pull request");
+    let facts: StatusFacts = serde_json::from_value(serde_json::json!({
+        "pull_request": pull_request,
+        "todos": {"completed": 3, "total": 8, "current": "Fix the parser"},
+        "changed_files": 5,
+    }))
+    .expect("the left side's facts");
+    let Some(PullRequestPresence::Found(pr)) = facts.pull_request else {
+        panic!("the pull request parsed as found: {:?}", facts.pull_request);
+    };
+    assert_eq!(pr.number, 138);
+    let todos = facts.todos.expect("the plan's progress");
+    assert_eq!(
+        (todos.completed, todos.total, todos.current.as_deref()),
+        (3, 8, Some("Fix the parser"))
+    );
+    assert_eq!(facts.changed_files, Some(5));
+}
+
+/// The break this catches: the app's cell count ignored, so a phone's line wraps instead of
+/// dropping the trivia the way the bar does.
+#[test]
+fn a_status_fits_the_cells_the_app_has() {
+    let piece: Piece = serde_json::from_value(serde_json::json!({"kind": "status", "cells": 12}))
+        .expect("a status piece with only its cells");
+    assert!(!render(&Loud, &piece).contains("seg-context"));
 }
 
 /// The break this catches: the plain renderer, which a bridge has before the TUI's, showing no

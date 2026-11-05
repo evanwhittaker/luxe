@@ -181,6 +181,7 @@ fn section() -> crate::github::ListedSection {
         error: None,
         total: None,
         next: None,
+        query: Some("is:open is:pr author:@me repo:{repo}".into()),
     }
 }
 

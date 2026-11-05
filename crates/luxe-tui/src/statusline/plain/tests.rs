@@ -23,7 +23,7 @@ fn spent(cost_usd: f64) -> SessionUsage {
 }
 
 /// The break this catches: the phone's wording or order drifting from the bar's, which says
-/// `4.8%/200k`, the plan's share, `high` and the model, in that order.
+/// `4.8%/200k`, the plan's share, the turn's tokens, `high` and the model, in that order.
 #[test]
 fn every_fact_reads_as_the_bar_words_it() {
     let (model, plan, session) = (parse(MODEL), parse(PLAN), parse(SESSION));
@@ -33,15 +33,54 @@ fn every_fact_reads_as_the_bar_words_it() {
         context: Some((9613, 200_000)),
         plan: Some(&plan),
         session: Some(&session),
+        turn: Some(TurnTokens { prompt: 12_400, completion: 980, cache_read: 9_100 }),
+        // the left side's, which the right leaves to `left_segments`
+        pull_request: None,
+        todos: Some(TodoProgress { completed: 1, total: 2, current: None }),
+        changed_files: 3,
     };
+    let reuse = Mark::CacheReuse.at(GlyphTier::Nerd);
     let expected = [
-        (Kind::Context, "4.8%/200k"),
-        (Kind::Cost, "22% monthly"),
-        (Kind::Thinking, "high"),
-        (Kind::Model, "Claude Haiku 4.5 (latest)"),
+        (Kind::Context, "4.8%/200k".to_string()),
+        (Kind::Cost, "22% monthly".into()),
+        (Kind::Tokens, format!("↑12k ↓980 {reuse}9.1k")),
+        (Kind::Thinking, "high".into()),
+        (Kind::Model, "Claude Haiku 4.5 (latest)".into()),
     ];
-    let expected: Vec<_> = expected.into_iter().map(|(kind, label)| (kind, label.into())).collect();
     assert_eq!(words(&facts), expected);
+}
+
+/// The break this catches: the phone cutting its slabs from a different assignment than the bar's,
+/// so the model stops being the lit anchor or the context reading gets a fill that argues with its
+/// color.
+#[test]
+fn each_fact_sits_on_the_bars_surface() {
+    let model: ModelRef = parse(MODEL);
+    let facts = Facts {
+        model: Some(&model),
+        thinking: Some(ThinkingLevel::High),
+        context: Some((10, 100)),
+        session: Some(&spent(0.44)),
+        turn: Some(TurnTokens { prompt: 1, ..TurnTokens::default() }),
+        ..Facts::default()
+    };
+    let surfaces: Vec<_> = segments(&facts).into_iter().map(|s| (s.kind, s.surface)).collect();
+    let expected = [
+        (Kind::Context, Surface::Bare),
+        (Kind::Cost, Surface::Recessed),
+        (Kind::Tokens, Surface::Recessed),
+        (Kind::Thinking, Surface::Raised),
+        (Kind::Model, Surface::Hero),
+    ];
+    assert_eq!(surfaces, expected);
+}
+
+/// The break this catches: a turn that hasn't used anything yet shown as `↑0 ↓0`, which the bar
+/// leaves out until there's something to count.
+#[test]
+fn an_idle_turn_shows_no_tokens() {
+    let facts = Facts { turn: Some(TurnTokens::default()), ..Facts::default() };
+    assert!(segments(&facts).iter().all(|segment| segment.kind != Kind::Tokens));
 }
 
 /// The break this catches: the phone coloring a window at a different mark than the bar's ramp.

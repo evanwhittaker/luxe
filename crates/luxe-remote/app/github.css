@@ -1,35 +1,7 @@
-/* The GitHub tab and its peek, as /github draws them: rows on two lines, the second quiet; a
-   detail of facts beside their marks in a label column; and the conversation as cards washed in
-   their tone, the hue mixed 9% into the canvas as the TUI tints a card */
-
-/* The sections are the picker's tab line: one row, the open tab a slab on the selection surface
-   in the accent, the rest muted words padded to the same footprint */
-.gh-sections {
-  flex-wrap: nowrap;
-  gap: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.gh-sections::-webkit-scrollbar {
-  display: none;
-}
-
-.gh-sections .tab {
-  flex: none;
-  white-space: pre;
-}
-
-.badge.picked {
-  --slab: var(--luxe-selected-bg, #2c2925);
-  color: var(--luxe-accent, #ddc084);
-  text-transform: none;
-}
-
-.gh-tab {
-  padding: 0 2ch;
-  color: var(--luxe-muted, #97938c);
-}
+/* The GitHub view's rows and detail, as /github draws them: rows on two lines, the second quiet;
+   a detail of facts beside their marks in a label column; and the conversation as cards washed in
+   their tone, the hue mixed 9% into the canvas as the TUI tints a card. The frame, tabs and panes
+   are views.css's */
 
 .gh-view {
   padding: 0 1.5ch 1lh;
@@ -127,10 +99,6 @@
 
 .gh-label-chip {
   background: var(--luxe-user-msg-bg, #201e1a);
-}
-
-.gh-view .gh-sections {
-  padding-inline: 0;
 }
 
 .gh-section {

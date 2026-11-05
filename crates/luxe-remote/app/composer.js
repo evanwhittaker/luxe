@@ -4,28 +4,37 @@
 // What's steered waits in the tray over the box until it lands; Stop or withdraw brings it back.
 //
 // Return is a new line, since a phone's keyboard has no other way to make one; Command- or
-// Control-Return sends from a hardware keyboard. The line beside the buttons says what sending
-// does while a turn runs, since the buttons are icons. A message that's one of the slash commands
-// the phone can carry out does that instead of going to the agent.
+// Control-Return sends from a hardware keyboard. While a turn runs the box's placeholder and the
+// Send button's label say sending steers it. A message that's one of the slash commands the phone
+// can carry out does that instead of going to the agent.
 //
 // One panel, as the TUI's composer is one box: the box takes the whole width, with the buttons
 // along its foot, since a narrow phone (or a closed iPhone Duo beside its side bar) has no room
-// for both in a row. The mode switch is one of those buttons, by the photo, under a faint rule.
+// for both in a row. Over the panel, as over the TUI's, sits the row with the mode and the turn's
+// activity bar; the panel's border and buttons wear the mode's color, as the TUI's box does.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { ActivityRow } from "./activity.js";
 import { withMention } from "./files.js";
 import { fieldOf, html } from "./html.js";
 import { Icon } from "./icons.js";
 import { messageFrame } from "./pending.js";
 import { forTheWire, usePhotos } from "./photos.js";
 import { Picker } from "./picker.js";
-import { ModeButton } from "./status.js";
+import { QuickPicks } from "./quick-pick.js";
 import { SteeringTray, restoredDraft } from "./tray.js";
 
 /** @import { Frame } from "./connection.js" */
+/** @import { Listing } from "./models.js" */
 /** @import { Steer } from "./pending.js" */
 /** @import { Draft, Listings } from "./picker.js" */
 /** @typedef {ReturnType<typeof usePhotos>} Photos */
+/**
+ * What the session reports that the composer shows: the mode (empty until the host says it), when
+ * the running turn started, the facts the quick picks mark, and the models they offer.
+ * @typedef {{ mode: string, started: number, facts: Record<string, any>, models: Listing,
+ *   askModels: () => void }} SessionFacts
+ */
 
 /** @type {Draft} */
 const EMPTY = { text: "", caret: 0 };
@@ -37,13 +46,12 @@ const MOST_ROWS = 8;
  * `run` carries out a slash command: null when the text isn't one, else whether it went out.
  * `mention` is what a mention from elsewhere (the sidebar) adds to the draft, added and
  * then `taken`.
- * `mode` is the session's, switched from the panel's foot; empty until the host says it.
- * @param {{ busy: boolean, live: boolean, steering: Steer[], listings: Listings, mode: string,
+ * @param {{ busy: boolean, live: boolean, steering: Steer[], listings: Listings, session: SessionFacts,
  *   send: (frame: Frame) => boolean, run: (text: string) => boolean | null,
  *   onSteered: (steer: Steer) => void, onDropped: () => void, mention: string | null,
  *   taken: () => void }} props
  */
-export function Composer({ busy, live, steering, listings, mode, send, run, onSteered, onDropped, mention, taken }) {
+export function Composer({ busy, live, steering, listings, session, send, run, onSteered, onDropped, mention, taken }) {
   const [draft, setDraft] = useState(EMPTY);
   useMentioned(mention, setDraft, taken);
   const photos = usePhotos();
@@ -51,13 +59,14 @@ export function Composer({ busy, live, steering, listings, mode, send, run, onSt
   const submit = useSubmit({ text: draft.text, photos, busy, send, run, onSent: clear, onSteered });
   const takeBack = useTakeBack({ steering, setDraft, photos, send, onDropped });
   const ready = live && (draft.text.trim() !== "" || photos.list.length > 0);
-  return html`<form class="composer" onSubmit=${submit}>
+  return html`<form class=${`composer mode-${session.mode || "build"}`} onSubmit=${submit}>
     <${Picker} draft=${draft} listings=${listings} send=${send} place=${setDraft} run=${(/** @type {string} */ text) => run(text) && clear()} />
     <${SteeringTray} held=${steering} withdraw=${() => takeBack({ kind: "withdraw_steering" })} />
+    <${ActivityRow} mode=${session.mode} busy=${busy} started=${session.started} send=${send} />
     <div class="composer-panel">
       <${PhotoStrip} photos=${photos} />
       <${MessageBox} draft=${draft} setDraft=${setDraft} busy=${busy} live=${live} submit=${submit} />
-      <${Tools} live=${live} busy=${busy} ready=${ready} photos=${photos} mode=${mode} send=${send}
+      <${Tools} live=${live} busy=${busy} ready=${ready} photos=${photos} session=${session} send=${send}
         stop=${() => takeBack({ kind: "cancel" })} />
     </div>
   </form>`;
@@ -81,16 +90,14 @@ function useTakeBack({ steering, setDraft, photos, send, onDropped }) {
 }
 
 /**
- * The panel's foot: a photo and the mode on the left, as the TUI leads the row over its composer
- * with the mode, then the steering line, then Stop and Send.
- * @param {{ live: boolean, busy: boolean, ready: boolean, photos: Photos, mode: string,
+ * The panel's foot: a photo, the model and the thinking level on the left, then Stop and Send.
+ * @param {{ live: boolean, busy: boolean, ready: boolean, photos: Photos, session: SessionFacts,
  *   send: (frame: Frame) => boolean, stop: () => void }} props
  */
-function Tools({ live, busy, ready, photos, mode, send, stop }) {
+function Tools({ live, busy, ready, photos, session, send, stop }) {
   return html`<div class="composer-tools">
     <${Attach} live=${live} onPick=${photos.add} />
-    ${mode ? html`<${ModeButton} mode=${mode} send=${send} />` : null}
-    ${busy ? html`<p class="steering">Send steers the turn</p>` : null}
+    <${QuickPicks} facts=${session.facts} listing=${session.models} ask=${session.askModels} live=${live} send=${send} />
     <${Actions} label=${busy ? "Steer" : "Send"} busy=${busy} ready=${ready} stop=${stop} />
   </div>`;
 }

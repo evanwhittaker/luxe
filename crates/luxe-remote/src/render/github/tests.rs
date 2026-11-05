@@ -4,6 +4,7 @@ use crate::render::{escape, Renderer, StatusFacts, StatusSegment, Voice};
 mod conversation;
 mod list;
 mod overview;
+mod tabs;
 
 /// The marks as words and ages in seconds, so a test reads which mark and which clock landed
 /// where. Bodies come back marked twice, `<md>R:…</md>`, to show they were made readable first.

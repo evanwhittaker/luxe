@@ -3,6 +3,7 @@
 
 import { signal } from "@preact/signals";
 import { useEffect, useMemo, useRef } from "preact/hooks";
+import { holdReadingPlace } from "./anchor.js";
 import { commandAction, runCommand } from "./commands.js";
 import { connect, statusWord } from "./connection.js";
 import { html } from "./html.js";
@@ -24,7 +25,9 @@ import { PromptCard } from "./prompt.js";
 import { folderName } from "./sessions.js";
 import { StatusLine, createStatus } from "./status.js";
 import { createTranscript } from "./transcript.js";
-import { createWorkspace, diffRequest } from "./workspace.js";
+import { OpenView, ViewButtons, openView } from "./session-views.js";
+import { createViews } from "./views.js";
+import { createWorkspace, diffRequest, leftFacts } from "./workspace.js";
 
 const PROTOCOL_VERSION = 2;
 
@@ -57,6 +60,7 @@ function Header({ view, sessionId }) {
   return html`<header class="bar">
     <a class="back" href="#/" aria-label="All sessions"><${Icon} name="back" /></a>
     <span class="title">${view.title.value ? html`<${ProjectName} project=${projectOf(view)} />` : sessionId.slice(0, 8)}</span>
+    <${ViewButtons} open=${(/** @type {import("./views.js").ViewName} */ name) => openView(viewHooks(view), name)} />
     ${wide ? html`<${DockToggle} shown=${dockVisible(dock.mode.value, wide)} toggle=${() => dock.apply("toggle")} />`
       : html`<${PanelButton} open=${() => view.panel.open()} />`}
     <${Connection} status=${view.status.value} />
@@ -71,6 +75,7 @@ function WorkspaceViews({ view }) {
     <${DiffSheet} open=${workspace.diff.value} close=${workspace.close} retry=${() => workspace.diff.value && open(workspace.diff.value.path)}
       ask=${(/** @type {string} */ words) => mentionIn(view, words)} />
     <${ProjectPanel} panel=${view.panel} hooks=${panelHooks(view)} />
+    <${OpenView} hooks=${viewHooks(view)} />
     ${view.detailsShown.value ? html`<${DetailsSheet} facts=${view.statusLine.facts.value} mode=${view.statusLine.mode.value}
       listing=${view.models.listing.value} send=${(/** @type {Frame} */ frame) => view.send(frame)} close=${() => (view.detailsShown.value = false)} />` : null}
   `;
@@ -93,7 +98,7 @@ function openDiff(view) {
  */
 function workDock(view, verb) {
   const onPhone = matchMedia(WIDE).matches ? null : phoneDock(verb, view.panel.shown.value);
-  if (onPhone === "open") return view.panel.open("plan");
+  if (onPhone === "open") return view.panel.open();
   if (onPhone === "close") return view.panel.close();
   theDock().apply(verb);
 }
@@ -104,31 +109,62 @@ function workDock(view, verb) {
  */
 function mentionIn(view, words) {
   view.mentioned.value = words;
+  clearSheets(view);
+  view.views.close();
+}
+
+/** Closes the sidebar sheet and any file or diff open over the page. @param {View} view */
+function clearSheets(view) {
   view.files.close();
-  view.github.close();
-  view.review.close();
   view.panel.close();
   view.workspace.close();
+}
+
+/** What the GitHub and Review views work the session with. @param {View} view @returns {import("./session-views.js").ViewHooks} */
+function viewHooks(view) {
+  const { views, github, review } = view;
+  const mention = (/** @type {string} */ words) => mentionIn(view, words);
+  return { views, github, review, send: (frame) => view.send(frame), mention, clear: () => clearSheets(view) };
 }
 
 /** What the sidebar works the session with. @param {View} view @returns {import("./panel.js").PanelHooks} */
 function panelHooks(view) {
   /** @param {string} words */
   const mention = (words) => mentionIn(view, words);
-  const { listings, files, github, review, workspace } = view;
+  const { listings, files, workspace } = view;
   const project = projectOf(view);
   const dock = {
     changes: workspace.changes.value, todos: workspace.todos.value,
     openDiff: openDiff(view), closeDiff: workspace.close, diffOpen: Boolean(workspace.diff.value),
   };
   const live = view.status.value === "live";
-  return { send: (frame) => view.send(frame), listings, files, github, review, mention, ...dock, project, live };
+  const telemetry = { facts: view.statusLine.facts.value, mode: view.statusLine.mode.value };
+  return { send: (frame) => view.send(frame), listings, files, mention, ...dock, project, live, ...telemetry };
 }
 
 /** The session's folder, its branch and whether the tree has changes. @param {View} view @returns {import("./panel.js").Project} */
 function projectOf(view) {
   const identity = view.workspace.project.value;
   return { name: view.title.value, branch: identity?.git_branch ?? null, dirty: Boolean(identity?.git_dirty) };
+}
+
+/** What the composer shows of the session. @param {View} view @returns {import("./composer.js").SessionFacts} */
+function composerFacts(view) {
+  const { statusLine, models } = view;
+  return {
+    mode: statusLine.mode.value,
+    started: statusLine.started.value,
+    facts: statusLine.facts.value,
+    models: models.listing.value,
+    askModels: () => models.ask(view.send),
+  };
+}
+
+/** The status line's facts: the session's, and the workspace's for its left side. @param {View} view */
+function statusFacts(view) {
+  const { todos, changes, pullRequest } = view.workspace;
+  const left = leftFacts({ todos: todos.value, changes: changes.value, pullRequest: pullRequest.value });
+  return { ...view.statusLine.facts.value, ...left };
 }
 
 /** Opens the status line's details, asking for the models afresh. @param {View} view */
@@ -149,9 +185,9 @@ function useLink(sessionId, view) {
   }, [sessionId]);
 }
 
-/** What the sidebar's project views keep: the files, GitHub and the review, each with its open pane. */
+/** What the sidebar's files and the full-screen views keep, and which view is open. */
 function panes() {
-  return { files: createFiles(), github: createGithub(), review: createReview() };
+  return { files: createFiles(), github: createGithub(), review: createReview(), views: createViews() };
 }
 
 function createView() {
@@ -179,17 +215,20 @@ function Footer({ view }) {
   const { pending } = view;
   /** @param {Frame} frame */
   const send = (frame) => view.send(frame);
-  const hooks = { send, details: () => openDetails(view), dock: (/** @type {string} */ verb) => workDock(view, verb) };
+  const hooks = {
+    send, details: () => openDetails(view), dock: (/** @type {string} */ verb) => workDock(view, verb),
+    view: (/** @type {import("./views.js").ViewName} */ name, /** @type {any} */ target) => openView(viewHooks(view), name, target),
+  };
   /** @param {string} text */
   const run = (text) => runCommand(commandAction(text, view.statusLine.mode.value), hooks);
   if (view.status.value === "ended" || view.status.value === "unpaired") return null;
   return html`<footer class="controls">
     <${PromptCard} prompts=${pending.prompts.value} send=${send} />
     <${Composer} busy=${view.transcript.busy.value} live=${view.status.value === "live"} steering=${pending.steering.value}
-      listings=${view.listings} mode=${view.statusLine.mode.value} send=${send} run=${run}
+      listings=${view.listings} session=${composerFacts(view)} send=${send} run=${run}
       onSteered=${pending.steered} onDropped=${pending.dropSteering}
       mention=${view.mentioned.value} taken=${() => (view.mentioned.value = null)} />
-    <${StatusLine} facts=${view.statusLine.facts.value} details=${() => openDetails(view)} />
+    <${StatusLine} facts=${statusFacts(view)} details=${() => openDetails(view)} />
   </footer>`;
 }
 
@@ -231,10 +270,16 @@ function Ending({ status, problem }) {
  * Follow new output while the reader is at the bottom; leave them be once they scroll up. Only
  * scrolling up lets go: items drawn late grow the page under a scroll to the bottom, which would
  * otherwise read as the reader having left it. `following` says which, for the transcript's window.
+ * Left, the place they're reading holds still as what's above it changes.
  * @param {{ current: HTMLElement | null }} ref @param {Signal<boolean>} following
  */
 function usePinnedScroll(ref, following) {
-  useEffect(() => (ref.current ? followGrowth(ref.current, following) : undefined), [following]);
+  useEffect(() => {
+    const main = ref.current;
+    if (!main) return;
+    const stops = [followGrowth(main, following), holdReadingPlace(main, following)];
+    return () => stops.forEach((stop) => stop());
+  }, [following]);
 }
 
 /**

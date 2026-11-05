@@ -61,4 +61,8 @@ pub struct ListedSection {
     /// The cursor the next page starts after, when the search has more than it brought
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next: Option<String>,
+    /// The search it ran, `{repo}` still in it, for a client that shows or edits it. Absent from a
+    /// frame sent before sections carried it
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub query: Option<String>,
 }

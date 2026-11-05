@@ -381,7 +381,8 @@ row, and picks nothing.
 | Open in your editor at the cursor, or an image in your image viewer | `o` |
 | See an image full size | `enter` |
 | An SVG's source, or its picture | `s` |
-| Back to the tree | `tab` or `h` |
+| Back to the tree | `h` or `←` |
+| On to the chat's composer | `tab` |
 | Drop the pick or leave visual mode, then back to the composer | `esc` |
 
 ## Mouse and clipboard

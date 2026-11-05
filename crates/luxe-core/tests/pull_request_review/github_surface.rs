@@ -11,7 +11,8 @@ use luxe_core::session::SessionStore;
 use crate::support::*;
 
 /// Each section's search runs with `{repo}` as the checkout's repository, and one GitHub refuses
-/// says why in its own place while the others list their rows.
+/// says why in its own place while the others list their rows. Each carries the search it ran,
+/// `{repo}` unread, which the remote app shows over the rows and picks the tab's mark from.
 #[tokio::test]
 async fn github_sections_are_searched_each_on_its_own() {
     let remote = Remote::new();
@@ -45,6 +46,8 @@ async fn github_sections_are_searched_each_on_its_own() {
     );
     assert_eq!((listed[0].total, listed[0].next.as_deref()), (Some(31), Some("1")));
     assert_eq!((listed[1].total, &listed[1].next), (None, &None), "a refusal has no count");
+    let queries: Vec<_> = listed.iter().map(|section| section.query.as_deref()).collect();
+    assert_eq!(queries, [Some("is:pr author:@me repo:{repo}"), Some("refused")]);
 }
 
 /// A search on its own answers under the id it was asked with, `{repo}` read as the checkout's,

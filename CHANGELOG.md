@@ -9,6 +9,49 @@ The version on `main` is always the next release. The first change to what ships
 `Cargo.toml`, `Cargo.lock`) after a release bumps it one step and opens its section here, and later
 changes add to that section until it ships; `scripts/version-check.py` holds them to it.
 
+## [0.1.10]
+
+### Added
+
+- The remote app's sidebar has the dock's Model and Session sections at its foot: the provider,
+  model, thinking level and mode, then the context window, tokens and cost.
+- The remote app has the interface's row over the message box: the mode, then while a turn runs
+  the activity bar and how long it's run. The box takes the mode's color, as the interface's does.
+- The remote app's message box has model and thinking buttons beside the paperclip, wearing the
+  status line's marks. A tap opens the choices over the box.
+- The remote app's status line has the bar's left side too: the branch's pull request on its slab,
+  the plan's progress and the change count. On a phone they go before the context and the model.
+- The remote app gives GitHub and Guided Review screens of their own, as the interface does,
+  opened by two header buttons, `/github` or `/diff`. GitHub is the `/github` panel: framed, its
+  tabs wearing their marks and counts, the search over the list, the open row's details beside it
+  and the hints along the foot. Review is the desk: the guide beside the open chapter, the chapter
+  you're on marked. On a phone each shows one side at a time. Review on a pull request in GitHub
+  opens its review, and `/diff pr 42` does too.
+- Each section of the `github_searched` event carries the search it ran, as `query`.
+
+### Changed
+
+- The remote app's sidebar drops its GitHub and Review sections, which have screens of their own
+  now. It's the dock again: Plan, Files, Model and Session.
+- The remote app's sidebar drops its row of links along the top, so its first heading sits on the
+  conversation bar's line, and its Plan shows only once the session has a plan, as the dock's does.
+- The remote app's status line is cut into the interface's slabs, in the theme's own colors: the
+  context bare, then the cost, the turn's tokens and the thinking level stepping up to the model,
+  lit against the edge. It fits the line's width, dropping facts in the bar's order, so a phone
+  keeps one row. The mode moves to the row over the box.
+- Each of the remote app's sidebar sections scrolls in a box of its own, so a long file tree doesn't
+  push Model and Session out of reach.
+- The remote app's scroll bars are thin and take the accent, as the interface's do.
+
+### Fixed
+
+- The remote app's conversation no longer jumps while you read back through it and the agent's
+  reply grows below, in Safari as in other browsers.
+- The remote app no longer says `steering` twice over a message waiting to steer a turn.
+- With the keyboard in the file showing, its footer says `tab chat` instead of `tab files`, since
+  `tab` goes on to the chat's composer from there. A click on the hint now does what the key does,
+  where before it went to the tree. `h` or `←` still goes back to the tree.
+
 ## [0.1.9]
 
 ### Added

@@ -271,7 +271,7 @@ fn a_click_on_a_file_in_the_tree_gives_the_pane_the_keyboard() {
     let action = left_click(&mut app, column_of(&row_text(&buffer, row, width), "file00.rs"), row);
     apply(&mut app, action);
     let content = buffer_to_string(&render_app(&mut app, &backend));
-    assert!(content.contains("tab files"), "the pane shows the keys it now has: {content}");
+    assert!(content.contains("tab chat"), "the pane shows the keys it now has: {content}");
     assert!(!app.files.focused, "and the tree let go of the keyboard");
     app.update(Msg::Key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE)));
     assert_eq!(app.editor.current_input(), "", "j moved the pane, not the draft");
@@ -305,6 +305,47 @@ fn the_focused_footer_keys_are_buttons_of_their_own() {
     apply(&mut app, action);
     let content = buffer_to_string(&render_app(&mut app, &backend));
     assert!(!content.contains("esc close"), "one click puts the preview away: {content}");
+}
+
+/// From the file showing, `tab` walks the keyboard on to the composer, and the footer's `tab` says
+/// so: the hint, the key and a click on the hint all land in the same place.
+///
+/// The break this catches: the footer naming the tree as `tab`'s next stop, or its button going to
+/// the tree, while the key itself goes to the composer.
+#[test]
+fn the_focused_footers_tab_names_where_tab_goes() {
+    let backend = test_backend(160, 40);
+    let (mut app, mut rx) = create_app_with_engine();
+    app.update(Msg::TerminalResized { width: 160, height: 40 });
+    app.workspace = Some(changed_workspace("footer-tab", 1));
+    open_file_view(&mut app, &mut rx, "README.md", "one\ntwo\n");
+    // a letter the preview and the tree would both take as a move, so only the composer types it
+    let typed = |app: &mut luxe_tui::app::App| {
+        app.update(Msg::Key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE)));
+        app.editor.current_input().to_string()
+    };
+
+    let (footer, text) = focused_footer(&mut app, &backend);
+    assert!(text.contains("tab chat"), "the hint names the chat: {text}");
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)));
+    assert_eq!(typed(&mut app), "j", "tab takes the keyboard to the composer");
+
+    focused_footer(&mut app, &backend);
+    let action = left_click(&mut app, column_of(&text, "tab chat"), footer);
+    apply(&mut app, action);
+    assert_eq!(typed(&mut app), "jj", "and so does a click on the hint");
+}
+
+/// Puts the keyboard in the preview and draws it: the footer's row and what it says.
+fn focused_footer(
+    app: &mut luxe_tui::app::App,
+    backend: &ratatui::backend::TestBackend,
+) -> (u16, String) {
+    app.update(Msg::FocusPeek);
+    let buffer = render_app(app, backend);
+    let (width, height) = (buffer.area.width, buffer.area.height);
+    let footer = row_containing(&buffer, "esc close", width, height);
+    (footer, row_text(&buffer, footer, width))
 }
 
 /// The peek's FILE / DIFF switch: both faces in capitals, both slabs, neither moving when the

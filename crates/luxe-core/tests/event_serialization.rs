@@ -285,6 +285,7 @@ fn the_frames_a_client_cannot_work_without_are_pinned() {
                     error: None,
                     total: None,
                     next: None,
+                    query: None,
                 }],
             },
             r#"{"kind":"github_listed","content":{"repository":"acme/app","sections":[{"name":"Mine","items":[{"pull_request":true,"number":164,"title":"Open a branch's review as a stack","url":"https://github.com/acme/app/pull/164","repository":"acme/app","author":"mara","draft":false,"updated_at":"2026-09-25T17:00:00Z","state":"open"}],"error":null}]}}"#,
@@ -310,9 +311,10 @@ fn the_frames_a_client_cannot_work_without_are_pinned() {
                     error: None,
                     total: Some(214),
                     next: Some("Y3Vyc29yOjMw".into()),
+                    query: Some("is:open is:pr sort:updated-desc repo:{repo}".into()),
                 },
             },
-            r#"{"kind":"github_searched","content":{"request":7,"repository":"acme/app","section":{"name":"Pull requests","items":[{"pull_request":true,"number":131,"title":"Retry a webhook once","url":"https://github.com/acme/app/pull/131","repository":"acme/app","author":"lena","draft":false,"updated_at":"2026-09-20T09:00:00Z","state":"merged"}],"error":null,"total":214,"next":"Y3Vyc29yOjMw"}}}"#,
+            r#"{"kind":"github_searched","content":{"request":7,"repository":"acme/app","section":{"name":"Pull requests","items":[{"pull_request":true,"number":131,"title":"Retry a webhook once","url":"https://github.com/acme/app/pull/131","repository":"acme/app","author":"lena","draft":false,"updated_at":"2026-09-20T09:00:00Z","state":"merged"}],"error":null,"total":214,"next":"Y3Vyc29yOjMw","query":"is:open is:pr sort:updated-desc repo:{repo}"}}}"#,
         ),
         (
             Event::GithubOverviewRead {

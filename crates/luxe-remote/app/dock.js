@@ -1,7 +1,8 @@
 // @ts-check
-// The dock's plan, as the host renders it, at the top of the sidebar (panel.js), which the header's
-// button and `/dock` show and hide (layout.js). A long plan scrolls in its own box. A changed file
-// is opened from the Files tree (files-view.js), and its diff shows in the sheet here.
+// The dock's sections the host draws whole in the sidebar (panel.js), which the header's button and
+// `/dock` show and hide (layout.js): the plan at the top, where a long one scrolls in its own box,
+// and MODEL and SESSION at the foot, as the TUI's rail has them. A changed file is opened from the
+// Files tree (files-view.js), and its diff shows in the sheet here.
 
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { html } from "./html.js";
@@ -12,23 +13,40 @@ import { planScroll } from "./workspace.js";
 import { useWide } from "./layout.js";
 
 /** @import { OpenDiff, Todos } from "./workspace.js" */
+/** @typedef {{ facts: Record<string, any>, mode: string }} Telemetry */
+
+/** The plan, left out until there is one, as the TUI's rail leaves it out. @param {{ hooks: { todos: Todos | null } }} props */
+export function PlanPart({ hooks: { todos } }) {
+  if (!todos?.total) return null;
+  return html`<section class="part" data-part="plan" aria-label="Plan"><div class="dock-part">
+    <${PlanSection} piece=${{ kind: "plan", todos }} />
+  </div></section>`;
+}
+
+/** The model, its thinking level and the mode. @param {{ hooks: Telemetry }} props */
+export function ModelPart({ hooks: { facts, mode } }) {
+  return html`<${HostPart} id="model" title="Model" piece=${{ kind: "model", ...facts, mode }} />`;
+}
+
+/** The window, the tokens and the cost, once a turn has measured any. @param {{ hooks: Telemetry }} props */
+export function SessionPart({ hooks: { facts } }) {
+  return html`<${HostPart} id="session" title="Session" piece=${{ kind: "session", ...facts }} />`;
+}
 
 /**
- * The plan as the sidebar's first part. With none yet it keeps the heading the host draws over
- * one, so each of the jumps lands on a heading.
- * @param {{ hooks: { todos: Todos | null } }} props
+ * A part the host draws whole, heading and all, left out while it draws nothing.
+ * @param {{ id: string, title: string, piece: import("./render.js").Piece }} props
  */
-export function PlanPart({ hooks: { todos } }) {
-  return html`<div class="dock-part">
-    ${todos?.total ? html`<${Section} piece=${{ kind: "plan", todos }} />` : html`<section class="dock-section">
-      <p class="dock-head"><span class="badge">PLAN</span></p>
-      <p class="dock-sub">No plan yet.</p>
-    </section>`}
-  </div>`;
+function HostPart({ id, title, piece }) {
+  const rendered = useRendered(piece, true);
+  if (!rendered) return null;
+  return html`<section class="part" data-part=${id} aria-label=${title}><div class="dock-part">
+    <section class="dock-section" dangerouslySetInnerHTML=${{ __html: rendered }}></section>
+  </div></section>`;
 }
 
 /** @param {{ piece: import("./render.js").Piece }} props */
-function Section({ piece }) {
+function PlanSection({ piece }) {
   const rendered = useRendered(piece, true);
   const section = useRef(/** @type {HTMLElement | null} */ (null));
   const handsOn = usePlanFollow(section, rendered);

@@ -98,6 +98,7 @@ async fn search(
             error: None,
             total: Some(page.total),
             next: page.next,
+            query: Some(section.query),
         },
         Err(error) => failed(section, sentence(&error)),
     }
@@ -110,5 +111,6 @@ fn failed(section: GithubSection, reason: String) -> ListedSection {
         error: Some(reason),
         total: None,
         next: None,
+        query: Some(section.query),
     }
 }

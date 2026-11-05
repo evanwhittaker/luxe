@@ -6,13 +6,15 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { SIDEBAR_PARTS, WIDE, createDock, dockAfter, dockVisible, phoneDock, startingMode } from "../app/layout.js";
 
-// The break this catches: the plan moved below the project's views, where a phone's one button no
-// longer opens on it; a part named other than the TUI's sections; or GitHub unfolded from the
-// start, so every iPad session's rail asks GitHub for its lists unasked
-test("the sidebar runs plan first, and only what's cheap to ask for starts unfolded", () => {
-  assert.deepEqual(SIDEBAR_PARTS.map(({ title }) => title), ["Plan", "Files", "GitHub", "Review"]);
-  assert.deepEqual(SIDEBAR_PARTS.map(({ id }) => id), ["plan", "files", "github", "review"]);
-  assert.deepEqual(SIDEBAR_PARTS.filter(({ unfolded }) => unfolded).map(({ id }) => id), ["plan", "files"]);
+// The break this catches: the parts out of the TUI dock's order (the plan first, the model and
+// session at the foot); GitHub or Review back in the rail, where they're squeezed, rather than
+// their own views; or a host-drawn section given a fold, which would hide it behind a heading of
+// its own over the host's
+test("the sidebar runs in the dock's order, without GitHub or Review", () => {
+  const ids = SIDEBAR_PARTS.map(({ id }) => id);
+  assert.deepEqual(ids, ["plan", "files", "model", "session"]);
+  assert.deepEqual(SIDEBAR_PARTS.filter(({ folds }) => !folds).map(({ id }) => id), ["plan", "model", "session"]);
+  assert.ok(SIDEBAR_PARTS.every(({ unfolded }) => unfolded));
 });
 
 // The break this catches: `/dock` on a phone doing nothing now the dock lives in the sheet, or a

@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyItem, applyListed, createGithub, githubMention, rowSubject, shownSection } from "../app/github.js";
+import { applyItem, applyListed, createGithub, githubMention, placeOf, reviewable, rowSubject, shownSection, steppedItem, steppedSection, tabsOf } from "../app/github.js";
 import { linkedSubject, tapDetail, tapGithubRow } from "../app/github-view.js";
 
 /** @import { OpenItem, GithubListing } from "../app/github.js" */
@@ -142,32 +142,24 @@ test("a mention says what it is and where", () => {
 /** An event that landed in `element` when asked for `selector`. @param {string} selector @param {any} element */
 const landing = (selector, element) => /** @type {any} */ ({ target: { closest: (/** @type {string} */ asked) => (asked === selector ? element : null) } });
 
-/** Hooks with a GitHub state, a file open, and what was sent. */
+/** Hooks with a GitHub state and what was sent. */
 function hooks() {
   const github = createGithub();
   github.listing.value = { state: "listed", repository: "o/r", sections: [], at: 1 };
-  let fileOpen = true;
   /** @type {any[]} */
   const sent = [];
-  const files = { close: () => (fileOpen = false) };
-  let chapterOpen = true;
-  const review = { close: () => (chapterOpen = false) };
   const send = (/** @type {any} */ frame) => sent.push(frame) > 0;
-  return { github, files, review, send, sent, fileOpen: () => fileOpen, chapterOpen: () => chapterOpen };
+  return { github, send, sent };
 }
 
-// The break this catches: a row tap that leaves the open file in the pane, opens nothing, or
-// reacts to a tap between rows
-test("tapping a row opens it in place of the file", () => {
+// The break this catches: a row tap that opens nothing, or reacts to a tap between rows
+test("tapping a row opens it", () => {
   const at = hooks();
   tapGithubRow(landing("button.gh-row", row("o/r")), /** @type {any} */ (at));
-  assert.equal(at.fileOpen(), false);
-  assert.equal(at.chapterOpen(), false, "one pane at a time");
   assert.equal(at.github.open.value?.subject.number, 211);
   const missed = hooks();
   tapGithubRow(landing("nothing", null), /** @type {any} */ (missed));
-  assert.equal(missed.fileOpen(), true);
-  assert.equal(missed.chapterOpen(), true);
+  assert.equal(missed.github.open.value, null);
   assert.equal(missed.sent.length, 0);
 });
 
@@ -192,4 +184,47 @@ test("a linked pull request's link names the checkout when it's there", () => {
   const subject = { number: 1, pull_request: false, repository: null, url: "" };
   assert.equal(linkedSubject(subject, 5, "o/r").url, "https://github.com/o/r/pull/5");
   assert.equal(linkedSubject(subject, 5, "o/r").repository, null);
+});
+
+/** A section of three rows, `a` to `c`. */
+const SECTION = { name: "Mine", query: "is:pr author:@me", total: 9, items: ["a", "b", "c"].map((url) => ({ url })) };
+const at = (/** @type {string} */ url) => /** @type {any} */ ({ url });
+
+// The break this catches: the arrows running off the list's ends, skipping a row, or doing nothing
+// with no row open where the TUI's cursor starts on the first
+test("the arrows step the open row, held at the ends", () => {
+  assert.equal(steppedItem(SECTION, at("a"), 1)?.url, "b");
+  assert.equal(steppedItem(SECTION, at("c"), 1)?.url, "c");
+  assert.equal(steppedItem(SECTION, at("a"), -1)?.url, "a");
+  assert.equal(steppedItem(SECTION, null, 1)?.url, "a");
+  assert.equal(steppedItem({ items: [] }, null, 1), null);
+});
+
+// The break this catches: tab stopping at the last section where the TUI's goes round
+test("tab steps the sections round the ends", () => {
+  const sections = [{ name: "x" }, { name: "y" }];
+  assert.equal(steppedSection(sections, "y", 1).name, "x");
+  assert.equal(steppedSection(sections, "x", -1).name, "y");
+});
+
+// The break this catches: a tab counting the rows fetched rather than what the search matches, or
+// its search lost, which picks its mark
+test("a tab carries its search and the search's count", () => {
+  assert.deepEqual(tabsOf([SECTION]), [{ name: "Mine", query: "is:pr author:@me", count: 9 }]);
+  assert.deepEqual(tabsOf([{ name: "Old", items: [{}] }]), [{ name: "Old", query: null, count: 1 }]);
+});
+
+// The break this catches: the hint line's place off by one, or shown for a row not in the tab
+test("the place counts from one, and is empty off the list", () => {
+  assert.equal(placeOf(SECTION, at("b")), "2/3");
+  assert.equal(placeOf(SECTION, at("z")), "");
+});
+
+// The break this catches: Review offered on an issue, or on another repository's pull request,
+// which the checkout can't diff
+test("only the checkout's own pull requests can be reviewed", () => {
+  const pull = { number: 1, pull_request: true, repository: null, url: "" };
+  assert.equal(reviewable(pull), true);
+  assert.equal(reviewable({ ...pull, pull_request: false }), false);
+  assert.equal(reviewable({ ...pull, repository: "x/y" }), false);
 });

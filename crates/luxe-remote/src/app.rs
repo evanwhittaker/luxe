@@ -149,9 +149,12 @@ pub(crate) async fn service_worker(request: HeaderMap) -> Response {
     file(Path("worker/service-worker.js".into()), request).await
 }
 
-/// `/theme.css`: the active theme's colors, read on each load so the phone follows a new theme.
-pub(crate) async fn theme() -> Response {
-    let css = tokio::task::spawn_blocking(active_theme_css).await.unwrap_or_else(|error| {
+/// `/theme.css`: the active theme's colors, and what the renderer derives from them, read on each
+/// load so the phone follows a new theme.
+pub(crate) async fn theme(State(bridged): State<Arc<Bridged>>) -> Response {
+    let renderer = bridged.renderer.clone();
+    let css = tokio::task::spawn_blocking(move || active_theme_css(&*renderer)).await;
+    let css = css.unwrap_or_else(|error| {
         tracing::warn!(%error, "could not read the theme");
         String::new()
     });
@@ -160,8 +163,19 @@ pub(crate) async fn theme() -> Response {
     response
 }
 
-fn active_theme_css() -> String {
-    luxe_core::theme::css::stylesheet(&active_theme())
+fn active_theme_css(renderer: &dyn crate::Renderer) -> String {
+    themed_css(&active_theme(), renderer)
+}
+
+/// The theme's own tokens, then the colors `renderer` derives from them in a rule of their own,
+/// which wins where a theme names a derived color itself, as the TUI's derivation does.
+fn themed_css(theme: &HashMap<String, ColorValue>, renderer: &dyn crate::Renderer) -> String {
+    let derived = renderer.theme_properties(theme);
+    let own = luxe_core::theme::css::stylesheet(theme);
+    match derived.is_empty() {
+        true => own,
+        false => format!("{own}:root {{\n{derived}}}\n"),
+    }
 }
 
 /// The theme the terminal would be drawn in from your own config: a project's can't reach here.
