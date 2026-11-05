@@ -108,7 +108,12 @@ test("only the transcript scrolls, and it follows new output", async () => {
     foot: document.querySelector(".controls")?.getBoundingClientRect().bottom ?? Infinity,
     screen: innerHeight,
   }));
-  await filler.evaluate((tall) => tall?.remove());
+  // the scroll the removal clamps lands a frame later; let it, or WebKit delivers it after the next
+  // test's filler is in and the app reads a jump up from the end as the reader leaving it
+  await filler.evaluate((tall) => {
+    tall?.remove();
+    return new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+  });
   assert.ok(page_.height <= page_.screen, `the page is one screen: ${JSON.stringify(page_)}`);
   assert.ok(page_.foot <= page_.screen, `the composer is the screen's foot: ${JSON.stringify(page_)}`);
 });
