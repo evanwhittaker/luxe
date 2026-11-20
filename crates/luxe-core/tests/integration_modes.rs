@@ -214,6 +214,7 @@ async fn spawn(setup: Setup) -> Harness {
         cache_warming: luxe_core::cache_warming::CacheWarming::Off,
         review_insight_provider: None,
         github: None,
+        outline: None,
         permissions_file: None,
         max_tool_iterations: Some(10),
         startup_notices: Vec::new(),

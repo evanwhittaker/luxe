@@ -428,6 +428,6 @@ fn guided_review_wide_fixture_renders_chapter_context_beside_the_diff() {
     app.update(Msg::GuidedReviewHunkNext);
     app.update(Msg::GuidedReviewHunkNext);
     let walked_content = buffer_to_string(&render_app(&mut app, &backend));
-    assert!(walked_content.contains("reviewed"), "the chapter is marked: {walked_content}");
+    assert!(walked_content.contains("viewed"), "the chapter is marked: {walked_content}");
     assert!(!walked_content.contains("Chapters 1/1"), "and not counted twice: {walked_content}");
 }

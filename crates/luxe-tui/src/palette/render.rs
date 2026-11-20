@@ -52,34 +52,6 @@ fn list_rows(
     }
 }
 
-/// The search field and its rule, with the cursor at the end of the query.
-fn render_search(
-    frame: &mut ratatui::Frame,
-    area: ratatui::layout::Rect,
-    state: &PaletteState,
-    theme: &crate::theme::styles::ThemeStyles,
-) {
-    use ratatui::{
-        style::Modifier,
-        text::{Line, Span},
-        widgets::{Block, Borders, Paragraph},
-    };
-    use unicode_width::UnicodeWidthStr;
-
-    let search = Paragraph::new(Line::from(vec![
-        Span::styled(" Search: ", theme.accent.add_modifier(Modifier::BOLD)),
-        Span::styled(state.query.clone(), theme.text),
-    ]))
-    .block(Block::default().borders(Borders::BOTTOM).border_style(theme.border_muted));
-    frame.render_widget(search, area);
-    let cursor_x = area
-        .x
-        .saturating_add(9)
-        .saturating_add(UnicodeWidthStr::width(state.query.as_str()) as u16)
-        .min(area.right().saturating_sub(1));
-    frame.set_cursor_position((cursor_x, area.y));
-}
-
 /// Renders the searchable command palette as a centered modal.
 pub fn render_palette(
     frame: &mut ratatui::Frame,
@@ -126,7 +98,7 @@ pub fn render_palette(
         ])
         .split(inner);
 
-    render_search(frame, chunks[0], state, theme);
+    crate::picker::render_search(frame, chunks[0], &state.query, theme);
 
     let body = chunks[1];
     let list_area = Rect { width: layout.split.map_or(body.width, |split| split.list), ..body };

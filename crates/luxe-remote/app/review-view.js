@@ -2,7 +2,7 @@
 // The Review view, as the TUI's Guided Review desk: no frame, the guide pane headed by the REVIEW
 // slab and the chapter's place, the open chapter beside it with its notes, diffs and comments. On
 // a screen too narrow for both, a tapped chapter takes the guide's place until it's put back, as
-// the TUI's narrow desk shows the diff alone. Next opens the chapter after, reviewed marks it
+// the TUI's narrow desk shows the diff alone. Next opens the chapter after, viewed marks it
 // walked as reading to its end does in the TUI, and comment writes on the picked lines or the
 // chapter.
 
@@ -59,7 +59,7 @@ function placeOf(review, id) {
 }
 
 /**
- * The hint line, as the desk's: the way back to the guide on a phone, next, reviewed, comment,
+ * The hint line, as the desk's: the way back to the guide on a phone, next, viewed, comment,
  * and close. @param {ReviewHooks} hooks @param {string | null} id @param {boolean} reading @param {Compose} compose
  * @returns {Hint[]}
  */
@@ -71,7 +71,7 @@ function reviewHints({ review, send, close }, id, reading, compose) {
   if (next) hints.push({ key: "space", word: "next", run: () => review.pick(next), tone: "accent" });
   if (id) {
     const walked = shown.walked.includes(id);
-    hints.push({ key: "r", word: walked ? "reviewed" : "mark reviewed", run: () => review.walk(id, send), tone: walked ? "accent" : undefined },
+    hints.push({ key: "r", word: walked ? "viewed" : "mark viewed", run: () => review.walk(id, send), tone: walked ? "accent" : undefined },
       { key: "c", word: "comment", run: () => compose(composeAt(shown.review, id, null)) });
   }
   hints.push({ key: "esc", word: "close", run: close });

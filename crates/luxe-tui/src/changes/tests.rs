@@ -96,6 +96,52 @@ fn scrolling_clamps_to_what_the_last_frame_could_show() {
     assert_eq!(view.scroll, 0, "never above the top");
 }
 
+/// The break this catches: a Find hit opening the file at its top, or with the hit on the first
+/// row and nothing that leads up to it in sight.
+#[test]
+fn landing_on_a_line_puts_the_cursor_there_with_context_above() {
+    let mut view = view();
+    view.selection = Some((1, 2));
+    view.land_on(40);
+    assert_eq!(view.cursor, Some(40));
+    assert_eq!(view.scroll, 39 - cursor::LANDING_LEAD, "a few lines lead up to the hit");
+    assert_eq!(view.selection, None, "an old pick isn't the line asked for");
+    view.land_on(2);
+    assert_eq!(view.scroll, 0, "a line near the top can't lead with lines it hasn't got");
+}
+
+/// The break this catches: a Find query staying lit on the next file the pane shows, where it
+/// was never asked for.
+#[test]
+fn showing_another_file_drops_the_found_query() {
+    let mut view = view();
+    view.found = FoundQuery::new("total", Default::default());
+    assert!(view.found.is_some());
+    view.show("src/c.rs".into());
+    assert_eq!(view.found, None);
+}
+
+/// The break this catches: an empty query or a broken regex kept as something to light, which
+/// lights nothing or every position.
+#[test]
+fn only_a_query_that_can_match_is_kept() {
+    let regex = luxe_core::project_search::SearchOptions { regex: true, ..Default::default() };
+    assert_eq!(FoundQuery::new("", Default::default()), None);
+    assert_eq!(FoundQuery::new("(", regex), None);
+    assert!(FoundQuery::new("(", Default::default()).is_some(), "a literal ( is fine");
+}
+
+/// The break this catches: an offset past the end, as landing near a file's last line leaves
+/// before a frame has measured it, eating presses of scroll-up that move nothing on screen.
+#[test]
+fn scrolling_up_starts_from_where_the_frame_drew() {
+    let mut view = view();
+    view.scroll = 90;
+    view.scroll_max.set(60);
+    view.scroll_by(true, 3);
+    assert_eq!(view.scroll, 57);
+}
+
 /// Wrap is on to begin with, because the pane cannot scroll sideways — clipping here would put
 /// content out of reach rather than one keystroke away.
 #[test]

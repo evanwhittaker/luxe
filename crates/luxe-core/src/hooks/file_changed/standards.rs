@@ -40,6 +40,18 @@ pub struct Scope {
     pub end_line: usize,
 }
 
+/// The scopes around 0-based line `line`, outermost first, as `QuerySet › delete`.
+///
+/// A scope whose declaration starts on the line is left out: the line itself names it, so
+/// `def delete(self):` is labeled `QuerySet`, not `QuerySet › delete`.
+pub fn scope_label(scopes: &[Scope], line: usize) -> Option<String> {
+    let mut around: Vec<&Scope> =
+        scopes.iter().filter(|scope| scope.start_line < line && line <= scope.end_line).collect();
+    around.sort_by_key(|scope| (scope.start_line, std::cmp::Reverse(scope.end_line)));
+    let names: Vec<&str> = around.iter().map(|scope| scope.name.as_str()).collect();
+    (!names.is_empty()).then(|| names.join(" › "))
+}
+
 /// One function's name, qualified by its container where it has one, and its length.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionSize {

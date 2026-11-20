@@ -43,6 +43,7 @@ words of it you have typed, like `pr` in `/diff pr 142`. A command that stays pl
 | `/context` | What fills the context window, largest first |
 | `/compact` | Summarize the conversation now. Add what to keep: `/compact the API decisions`. |
 | `/cost` | What this session has cost, by model and kind of token |
+| `/find` | [Find](interface.md#find) text in the project's files, a file by name, or text in the conversation |
 | `/search` | Find text in the conversation |
 | `/diff` | Open a [Guided Review](guided-review.md): `/diff`, `/diff turn`, `/diff base main`, `/diff commit <sha>`, `/diff pr 142` |
 | `/preview` | [Preview](interface.md#preview) a file, whole or as its diff: `/preview`, `/preview src/app.rs` |
@@ -106,12 +107,15 @@ The name in the last column is what `keybindings.json` uses.
 | --- | --- | --- |
 | `ctrl+↑`, `ctrl+↓` | Scroll | `tui.convo.scroll_up`, `tui.convo.scroll_down` |
 | `pageup`, `pagedown` | Scroll a page | `tui.convo.page_up`, `tui.convo.page_down` |
-| `ctrl+f` | Search the conversation | `tui.convo.search` |
+| `ctrl+f` | [Find](interface.md#find) in the project or the conversation | `tui.app.find` |
 | `alt+k`, `alt+j` | Select the previous or next message | `tui.convo.select_block_up`, `tui.convo.select_block_down` |
 | `ctrl+o` | Full tool output | `tui.convo.toggle_tool_output` |
 | `alt+i` | View image | `tui.convo.open_image` |
 | `alt+y` | Copy message | `tui.convo.copy_message` |
-| `ctrl+insert`, `ctrl+shift+c`, `super+c` | Copy selection | `tui.convo.copy_selection` |
+| `ctrl+shift+c`, `ctrl+insert`, `super+c` | Copy selection | `tui.convo.copy_selection` |
+
+Searching the conversation alone has no key of its own: Find's **Conversation** tab and `/search`
+both open it, and `tui.convo.search` [binds one](#rebind-keys).
 
 **Conversation**
 

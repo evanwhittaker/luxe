@@ -350,6 +350,16 @@ fn seeded_overlays() -> Vec<Pin> {
             pins.push(pin(format!("mention-{tab}@{}x{}", size.0, size.1), &mut app, size));
         }
     }
+    // Beside the list, under it, and left out for the rows to carry the line
+    for size in [(140, 40), (80, 36), (64, 20)] {
+        let mut app = seeded(FixtureScenario::ChatIdle, size);
+        crate::fixture::seed_find(&mut app);
+        pins.push(pin(format!("find-results@{}x{}", size.0, size.1), &mut app, size));
+    }
+    // Over a review, which draws it over its own screen
+    let mut app = seeded(FixtureScenario::GuidedReviewReady, (140, 40));
+    crate::fixture::seed_find(&mut app);
+    pins.push(pin("review-find@140x40".into(), &mut app, (140, 40)));
     pins
 }
 

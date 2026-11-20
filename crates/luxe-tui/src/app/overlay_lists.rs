@@ -39,6 +39,9 @@ impl App {
                 .mention
                 .as_ref()
                 .map(|mention| (mention.cursor(), mention.filtered_items().len())),
+            OverlayList::Find => {
+                overlays.find.as_ref().map(|find| (find.selected(), find.row_count()))
+            }
             OverlayList::Configuration => {
                 overlays.configuration.as_ref().map(|it| it.list_cursor())
             }
@@ -63,6 +66,7 @@ impl App {
             }
             OverlayList::Slash => overlays.slash_flyout.as_mut().map(|flyout| flyout.select(row)),
             OverlayList::Mention => overlays.mention.as_mut().map(|mention| mention.select(row)),
+            OverlayList::Find => overlays.find.as_mut().map(|find| find.select(row)),
             OverlayList::Configuration => {
                 let moved = overlays.configuration.as_mut().map(|surface| surface.select(row));
                 // Repaints in the setup theme under the cursor, as a key onto it does

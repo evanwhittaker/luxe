@@ -39,20 +39,7 @@ pub fn render_mention_flyout(
         (MentionTab::GitHub, Some(_)) => "No matching pull requests or issues",
         (MentionTab::Source(_), Some(_)) => "Nothing matches",
     };
-    let tabs: Vec<String> = state
-        .tabs
-        .iter()
-        .map(|tab| match tab {
-            MentionTab::Files => crate::glyphs::icon_label(Icon::FileMenu.glyph(), "Files"),
-            MentionTab::Skills => crate::glyphs::icon_label(Icon::Skill.glyph(), "Skills"),
-            MentionTab::GitHub => crate::glyphs::icon_label(Icon::GitHub.glyph(), "GitHub"),
-            MentionTab::Mcp => crate::glyphs::icon_label(Icon::Mcp.glyph(), "MCP"),
-            MentionTab::Source(source) => crate::glyphs::icon_label(
-                crate::glyphs::configured_glyph(source.icon(), Icon::MentionSource),
-                &source.name,
-            ),
-        })
-        .collect();
+    let tabs = tab_labels(state);
     let tabs: Vec<&str> = tabs.iter().map(String::as_str).collect();
     render_picker(
         f,
@@ -79,6 +66,7 @@ pub fn render_mention_flyout(
                     detail_matched: candidate.detail_matched.clone(),
                     path: candidate.path,
                     detail_style: status.map(|(_, style)| style),
+                    detail_right: false,
                 }
             },
             hit_target: crate::mouse::MouseTarget::MentionRow,
@@ -90,12 +78,31 @@ pub fn render_mention_flyout(
                 (false, MentionTab::Files) => " tab switch · enter insert · ctrl+r refresh ",
                 (false, _) => " tab switch · enter insert ",
             }),
+            query: None,
+            count: None,
             tabs: Some((&tabs, state.open)),
             divider: None,
             detail: None,
             // The same height on every tab, so switching tabs never moves the frame
             rows: Some(crate::picker::TABBED_ROWS),
             list: crate::mouse::OverlayList::Mention,
+            preview: None,
         },
     );
+}
+
+/// Each tab's name, beside its mark.
+fn tab_labels(state: &MentionFlyoutState) -> Vec<String> {
+    let label = |icon: Icon, name: &str| crate::glyphs::icon_label(icon.glyph(), name);
+    let tab_label = |tab: &MentionTab| match tab {
+        MentionTab::Files => label(Icon::FileMenu, "Files"),
+        MentionTab::Skills => label(Icon::Skill, "Skills"),
+        MentionTab::GitHub => label(Icon::GitHub, "GitHub"),
+        MentionTab::Mcp => label(Icon::Mcp, "MCP"),
+        MentionTab::Source(source) => crate::glyphs::icon_label(
+            crate::glyphs::configured_glyph(source.icon(), Icon::MentionSource),
+            &source.name,
+        ),
+    };
+    state.tabs.iter().map(tab_label).collect()
 }

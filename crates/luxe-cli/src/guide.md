@@ -583,6 +583,7 @@ words of it you have typed, like `pr` in `/diff pr 142`. A command that stays pl
 | `/context` | What fills the context window, largest first |
 | `/compact` | Summarize the conversation now. Add what to keep: `/compact the API decisions`. |
 | `/cost` | What this session has cost, by model and kind of token |
+| `/find` | [Find](interface.md#find) text in the project's files, a file by name, or text in the conversation |
 | `/search` | Find text in the conversation |
 | `/diff` | Open a [Guided Review](guided-review.md): `/diff`, `/diff turn`, `/diff base main`, `/diff commit <sha>`, `/diff pr 142` |
 | `/preview` | [Preview](interface.md#preview) a file, whole or as its diff: `/preview`, `/preview src/app.rs` |
@@ -646,12 +647,15 @@ The name in the last column is what `keybindings.json` uses.
 | --- | --- | --- |
 | `ctrl+↑`, `ctrl+↓` | Scroll | `tui.convo.scroll_up`, `tui.convo.scroll_down` |
 | `pageup`, `pagedown` | Scroll a page | `tui.convo.page_up`, `tui.convo.page_down` |
-| `ctrl+f` | Search the conversation | `tui.convo.search` |
+| `ctrl+f` | [Find](interface.md#find) in the project or the conversation | `tui.app.find` |
 | `alt+k`, `alt+j` | Select the previous or next message | `tui.convo.select_block_up`, `tui.convo.select_block_down` |
 | `ctrl+o` | Full tool output | `tui.convo.toggle_tool_output` |
 | `alt+i` | View image | `tui.convo.open_image` |
 | `alt+y` | Copy message | `tui.convo.copy_message` |
-| `ctrl+insert`, `ctrl+shift+c`, `super+c` | Copy selection | `tui.convo.copy_selection` |
+| `ctrl+shift+c`, `ctrl+insert`, `super+c` | Copy selection | `tui.convo.copy_selection` |
+
+Searching the conversation alone has no key of its own: Find's **Conversation** tab and `/search`
+both open it, and `tui.convo.search` [binds one](#rebind-keys).
 
 **Conversation**
 
@@ -2256,7 +2260,7 @@ to check. Since Homebrew 6, a tap has to be trusted before its code runs. The fu
 trusts luxe's formula for you, but Homebrew can still stop on *another* tap you already have. If it
 names one, trust it with `brew trust <user>/<repository>`, or remove it with `brew untap`.
 
-With Cargo, which builds it, so you need Rust 1.89 or newer ([rustup](https://rustup.rs) installs
+With Cargo, which builds it, so you need Rust 1.90 or newer ([rustup](https://rustup.rs) installs
 one):
 
 ```bash
@@ -2503,7 +2507,7 @@ Code blocks in a reply are highlighted for their language. Click the rule above 
 | --- | --- |
 | Scroll | wheel, `ctrl+↑` / `ctrl+↓`, `pageup` / `pagedown` |
 | Jump to the newest output | `ctrl+end` |
-| Search the conversation | `ctrl+f` |
+| [Find](#find) in the project or the conversation | `ctrl+f` |
 | Select the previous or next message | `alt+k` / `alt+j` |
 | Copy the selected message | `alt+y` |
 | Edit your last message and send it again | `alt+e` |
@@ -2515,6 +2519,10 @@ Code blocks in a reply are highlighted for their language. Click the rule above 
 
 `enter` sends. `shift+enter` adds a line. Type `/` for [commands](commands.md) and `@` to
 [mention](mentions.md) a file, skill, issue or other context.
+
+`↑` at the start of the prompt shows the messages you sent before, and `↓` walks back to what you
+were writing. Edit a recalled message and it's yours: the arrows stop swapping it out. `esc` clears
+the prompt, and `↑` brings the cleared text back.
 
 The composer's title names the session's mode, **build** or **plan**. `shift+tab` or a click on the
 title switches it; see [Plan, then build](agent.md#plan-then-build).
@@ -2799,6 +2807,47 @@ row, and picks nothing.
 | Back to the tree | `h` or `←` |
 | On to the chat's composer | `tab` |
 | Drop the pick or leave visual mode, then back to the composer | `esc` |
+
+## Find
+
+**Find** (`ctrl+f`, or `/find`) is one search field over three tabs. `tab` and `shift+tab` switch
+between them, and Find opens on the tab you used last.
+
+| Tab | Searches |
+| --- | --- |
+| **Text** | Every line of the project's files, skipping what `.gitignore` ignores |
+| **Files** | File names, ranked the way the `@` picker ranks them |
+| **Conversation** | What you and the agent said in this session |
+
+Beside the list, a preview shows the row under the cursor: the file around the matching line,
+highlighted and with each match lit, or the message drawn as the conversation draws it. A Text row
+names the function or type the line sits in, as `App › run`, where luxe can parse the file. On a
+narrow screen the preview goes under the list, and on a small one it's left out and each row
+carries its line instead.
+
+On **Text** and **Files**, `enter` opens the row in the [preview](#preview), with the cursor on
+the matching line and a Text match still lit there. `alt+m` mentions it in your draft instead:
+`@[file:src/app.rs:42]` sends the agent the path and the line. On **Conversation**, the list is the
+messages that say the query, newest first, and `enter` scrolls the conversation to the one you
+picked with its search open, where `enter`, `↑` and `↓` step through the matches. A click on a
+row opens it too.
+
+Find opens over a [Guided Review](guided-review.md) as well. There `enter` goes to the line in the
+review when one of its changes shows it. Any other hit opens in the File view, and the review keeps
+your place for when you come back.
+
+Conversation matches plain text in any case, as the conversation's own search does. Text matches as
+you typed it, and ignores case unless the query has a capital letter. The footer shows how each of
+these is set:
+
+| To | Key |
+| --- | --- |
+| Read the query as a regex | `alt+r` |
+| Match case smartly, exactly, or not at all | `alt+c` |
+| Search ignored files too | `alt+i` |
+
+The list holds the first 500 matching lines, and the footer counts them all. Binary files and files
+over 2 MB are skipped.
 
 ## Mouse and clipboard
 
@@ -4379,7 +4428,7 @@ In a session, the app can:
   writes off, so merging, replying and resolving stay in the interface.
 - Walk the open [Guided Review](guided-review.md) on the Review screen, by the header's Review
   button or `/diff`: the guide's summary and chapters, with the open chapter's notes and diffs
-  beside it, or in its place on a phone. **reviewed** marks a chapter read, the same progress the
+  beside it, or in its place on a phone. **viewed** marks a chapter read, the same progress the
   interface's desk keeps, and **next** opens the one after. The phone joins the review the
   interface has open rather than starting its own, since a session holds one; with none open,
   **Review changes** reviews the working changes, and `/diff pr 42` reviews that pull request.
@@ -4588,6 +4637,7 @@ To stop sessions being joined, set [`joinable`](configuration.md#joining-a-sessi
 | `load_file_diff` | `{"request_id": "…", "path": "src/main.rs"}` | One file's change, outside any review; answered by `file_diff_loaded` |
 | `list_directory` | `{"request_id": "…", "path": "src"}` | One project folder's entries, without what `.gitignore` ignores unless `"include_ignored": true`, which marks each such entry `"ignored": true`; answered by `directory_listed` |
 | `read_project_file` | `{"request_id": "…", "path": "src/main.rs"}` | One project file's text, up to 2 MB; answered by `project_file_read`. A PNG, JPEG, GIF or WebP up to 24 MB also carries `image`, with its `mime` and base64 `data`. An SVG carries its source as `text` and an `image` drawn as a PNG, with the `declared_size` the SVG gives as `[width, height]` |
+| `search_project` | `{"request_id": "…", "query": "todo"}` | The project's lines that match, as Find shows them. `options` is optional: `"regex": true` reads the query as a regex, `"case_sensitive"` sets case (without it, a capital letter in the query makes it exact), and `"include_ignored": true` searches what `.gitignore` ignores too. Each hit has its `path`, `line`, `text` and the byte ranges it `matches`, and a `scope` such as `"App › run"` where luxe parsed the file and the line sits in a function or type. At most 500 hits, with the full count in `total`. A new search stops the one before, which answers `superseded`. Answered by `project_searched` |
 | `introduce` | `{"name": "iPhone"}` | A joined client's name, which the interface uses when it says who joined or answered. Add `"watch_only": true` as your first line to read without being announced; luxe then drops everything else you send. `"yours": true` says the person at the terminal paired it, so it's listed without a line in the conversation. Refused from the client that started the session. |
 | `close` | | Shut down, stopping a turn in flight the way `cancel` does. The stream ends after it. |
 
@@ -4749,6 +4799,7 @@ Guided Review, as the interface sees it:
 | `directory_listed`, `directory_list_failed` | One folder's entries, for `list_directory` |
 | `models_listed` | The models for `list_models`: each has `provider` and `model` for `select_model`, a `name` to show, and its `thinking_levels` |
 | `project_file_read`, `project_file_read_failed` | One file's text, for `read_project_file` |
+| `project_searched`, `project_search_failed` | The lines that match, for `search_project` |
 
 GitHub:
 
@@ -5182,9 +5233,12 @@ nothing.
 ![Sessions…, with the selected session's conversation previewed](images/sessions-picker.svg)
 
 **Sessions…** searches session titles and what was said in them, with a preview of the one under
-the cursor. `/sessions` opens it from the start screen or from inside a session. However you resume a
-session, it runs in its own worktree when it has one, and keeps what you had typed and the mode,
-model and thinking level you chose. `/new` keeps the session you leave, so you can come back to it.
+the cursor drawn as its conversation was. With a search, the preview goes to the first place the
+session says it and lights it there. `/sessions` opens it from the start screen or from inside a
+session.
+However you resume a session, it runs in its own worktree when it has one, and keeps what you had
+typed and the mode, model and thinking level you chose. `/new` keeps the session you leave, so you
+can come back to it.
 
 ## Cost
 

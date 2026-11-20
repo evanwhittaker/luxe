@@ -3,6 +3,7 @@
 //! The display buffer stays small while tracked paste parts retain the exact text or image
 //! attachment submitted to the engine. Cursor movement treats those parts as atomic tokens.
 
+mod history;
 mod layout;
 mod motion;
 mod parts;
@@ -39,6 +40,8 @@ pub struct Editor {
     history: Vec<String>,
     /// How many steps back into `history` the draft is showing; `None` is the reader's own draft
     history_index: Option<usize>,
+    /// The reader's own draft while `history_index` shows an older prompt
+    set_aside: Option<history::SetAside>,
     parts: Vec<PromptPart>,
     viewport_width: u16,
     preferred_column: Option<usize>,
@@ -53,6 +56,7 @@ impl Default for Editor {
             cursor: 0,
             history: Vec::new(),
             history_index: None,
+            set_aside: None,
             parts: Vec::new(),
             viewport_width: DEFAULT_VIEWPORT_WIDTH,
             preferred_column: None,
@@ -102,10 +106,7 @@ impl Editor {
             return None;
         }
 
-        self.history.push(text.clone());
-        if self.history.len() > HISTORY_LIMIT {
-            self.history.remove(0);
-        }
+        self.remember(text.clone());
         self.clear_draft();
         Some((text, images))
     }
@@ -113,7 +114,6 @@ impl Editor {
     /// Clears the current draft and attachments.
     pub fn cancel(&mut self) {
         self.clear_draft();
-        self.history_index = None;
     }
 
     /// Handles editing, cursor movement, and history navigation for one key event.
@@ -152,7 +152,7 @@ impl Editor {
         }
         match key.code {
             KeyCode::Enter if key.modifiers.contains(KeyModifiers::SHIFT) => self.insert_newline(),
-            KeyCode::Esc => self.cancel(),
+            KeyCode::Esc => self.discard_draft(),
             KeyCode::Backspace => self.backspace(),
             KeyCode::Delete => self.delete(),
             KeyCode::Left => self.move_left(),
@@ -269,6 +269,7 @@ impl Editor {
         self.cursor = 0;
         self.parts.clear();
         self.preferred_column = None;
+        self.end_browse();
     }
 
     fn clamp_cursor(&mut self) {
@@ -300,37 +301,6 @@ impl Editor {
         if let Some(character) = self.buffer[self.cursor..].chars().next() {
             self.replace_range(self.cursor..self.cursor + character.len_utf8(), "");
         }
-    }
-
-    fn history_previous(&mut self) {
-        let back = self.history_index.map_or(0, |back| back + 1);
-        if back >= self.history.len() {
-            return;
-        }
-        self.history_index = Some(back);
-        self.buffer.clone_from(&self.history[self.history.len() - 1 - back]);
-        self.parts.clear();
-        self.cursor = 0;
-        self.preferred_column = None;
-    }
-
-    fn history_next(&mut self) {
-        match self.history_index {
-            Some(back) if back > 0 => {
-                self.history_index = Some(back - 1);
-                self.buffer.clone_from(&self.history[self.history.len() - back]);
-                self.parts.clear();
-                self.cursor = self.buffer.len();
-            }
-            Some(_) => {
-                self.history_index = None;
-                self.buffer.clear();
-                self.parts.clear();
-                self.cursor = 0;
-            }
-            None => {}
-        }
-        self.preferred_column = None;
     }
 }
 

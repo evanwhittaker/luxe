@@ -140,6 +140,7 @@ To stop sessions being joined, set [`joinable`](configuration.md#joining-a-sessi
 | `load_file_diff` | `{"request_id": "…", "path": "src/main.rs"}` | One file's change, outside any review; answered by `file_diff_loaded` |
 | `list_directory` | `{"request_id": "…", "path": "src"}` | One project folder's entries, without what `.gitignore` ignores unless `"include_ignored": true`, which marks each such entry `"ignored": true`; answered by `directory_listed` |
 | `read_project_file` | `{"request_id": "…", "path": "src/main.rs"}` | One project file's text, up to 2 MB; answered by `project_file_read`. A PNG, JPEG, GIF or WebP up to 24 MB also carries `image`, with its `mime` and base64 `data`. An SVG carries its source as `text` and an `image` drawn as a PNG, with the `declared_size` the SVG gives as `[width, height]` |
+| `search_project` | `{"request_id": "…", "query": "todo"}` | The project's lines that match, as Find shows them. `options` is optional: `"regex": true` reads the query as a regex, `"case_sensitive"` sets case (without it, a capital letter in the query makes it exact), and `"include_ignored": true` searches what `.gitignore` ignores too. Each hit has its `path`, `line`, `text` and the byte ranges it `matches`, and a `scope` such as `"App › run"` where luxe parsed the file and the line sits in a function or type. At most 500 hits, with the full count in `total`. A new search stops the one before, which answers `superseded`. Answered by `project_searched` |
 | `introduce` | `{"name": "iPhone"}` | A joined client's name, which the interface uses when it says who joined or answered. Add `"watch_only": true` as your first line to read without being announced; luxe then drops everything else you send. `"yours": true` says the person at the terminal paired it, so it's listed without a line in the conversation. Refused from the client that started the session. |
 | `close` | | Shut down, stopping a turn in flight the way `cancel` does. The stream ends after it. |
 
@@ -301,6 +302,7 @@ Guided Review, as the interface sees it:
 | `directory_listed`, `directory_list_failed` | One folder's entries, for `list_directory` |
 | `models_listed` | The models for `list_models`: each has `provider` and `model` for `select_model`, a `name` to show, and its `thinking_levels` |
 | `project_file_read`, `project_file_read_failed` | One file's text, for `read_project_file` |
+| `project_searched`, `project_search_failed` | The lines that match, for `search_project` |
 
 GitHub:
 

@@ -28,6 +28,7 @@ pub(crate) mod custom_dock;
 mod engine_send;
 mod environment;
 mod events;
+pub(crate) mod find;
 mod images;
 /// Key and mouse routing into [`Msg`].
 ///

@@ -13,8 +13,9 @@ use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 
-pub(crate) const OVERLAYS: [&str; 18] = [
+pub(crate) const OVERLAYS: [&str; 19] = [
     "palette",
+    "find",
     "slash",
     "mention",
     "model",
@@ -41,6 +42,7 @@ pub(crate) fn open(app: &mut App, overlay: &str) {
     };
     match overlay {
         "palette" => app.overlays.palette = Some(crate::palette::PaletteState::open(menu())),
+        "find" => crate::app::find::open(app),
         "slash" => {
             app.overlays.slash_flyout = Some(crate::slash_flyout::SlashFlyoutState::new(menu()));
         }
@@ -145,6 +147,7 @@ fn snapshot(app: &App) -> Vec<String> {
     let debug = |value: &dyn std::fmt::Debug| format!("{value:?}");
     vec![
         debug(&app.overlays.palette),
+        debug(&app.overlays.find),
         debug(&app.overlays.slash_flyout),
         debug(&app.overlays.mention),
         debug(&app.overlays.model_picker),

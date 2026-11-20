@@ -63,14 +63,14 @@ fn chapters_are_numbered_and_labeled_in_order() {
 
 /// A walked chapter says so; the others don't.
 ///
-/// The break this catches: every chapter or none reading as reviewed, so the list can't say where
+/// The break this catches: every chapter or none reading as viewed, so the list can't say where
 /// the reader got to.
 #[test]
-fn only_walked_chapters_say_reviewed() {
+fn only_walked_chapters_say_viewed() {
     let (review, reading) = captured();
     let html = guide(&Marked, &review, &reading, &[review.chapters[1].id.clone()]);
-    assert!(!section(&html, &review, 0).contains("reviewed"));
-    assert!(section(&html, &review, 1).contains("<span class=\"rv-walked\">reviewed</span>"));
+    assert!(!section(&html, &review, 0).contains("rv-walked"));
+    assert!(section(&html, &review, 1).contains("<span class=\"rv-walked\">viewed</span>"));
 }
 
 /// A chapter to read shows its rationale through the markdown hook and its files, each once, in

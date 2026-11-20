@@ -580,6 +580,24 @@ fn the_cursor_band_and_the_pick_band_are_told_apart() {
     }
 }
 
+/// The break this catches: a found match drawn in a band the line it sits on already wears (the
+/// cursor's, a pick's, a hovered row's) or in the canvas itself, so on that line it vanishes.
+#[test]
+fn a_match_band_stands_apart_from_every_line_band() {
+    for (name, styles) in sample_styles() {
+        let found = styles.match_bg().bg;
+        assert!(found.is_some(), "{name}: a band, so a tinted row keeps it");
+        for (band, other) in [
+            ("cursor", styles.cursor_line_bg().bg),
+            ("pick", styles.pick_bg().bg),
+            ("selected", styles.selected_bg.bg),
+            ("canvas", styles.background.bg),
+        ] {
+            assert_ne!(found, other, "{name}: the match band matches the {band} band");
+        }
+    }
+}
+
 #[test]
 fn color_value_ansi_named() {
     let ansi = ColorValue::Ansi(0);

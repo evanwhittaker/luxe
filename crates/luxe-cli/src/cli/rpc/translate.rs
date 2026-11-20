@@ -274,13 +274,10 @@ pub(crate) fn to_engine_action(
         }
         WireAction::PlanRestack { request_id } => Action::PlanRestack { request_id },
         WireAction::CheckWorktreeRemoval => Action::CheckWorktreeRemoval,
-        WireAction::LoadFileDiff { request_id, path } => Action::LoadFileDiff { request_id, path },
-        WireAction::ListDirectory { request_id, path, include_ignored } => {
-            Action::ListDirectory { request_id, path, include_ignored }
-        }
-        WireAction::ReadProjectFile { request_id, path } => {
-            Action::ReadProjectFile { request_id, path }
-        }
+        read @ (WireAction::LoadFileDiff { .. }
+        | WireAction::ListDirectory { .. }
+        | WireAction::ReadProjectFile { .. }
+        | WireAction::SearchProject { .. }) => project_read(read)?,
         WireAction::SetFocus { focused } => Action::FocusChanged { focused },
         WireAction::SetRowWidths(widths) => Action::CustomRowWidths(widths),
         WireAction::LinkPullRequest { number, url } => Action::LinkPullRequest { number, url },
@@ -297,6 +294,24 @@ pub(crate) fn to_engine_action(
         // `the_translator_covers_the_whole_published_vocabulary` is what stops it shipping that
         // way in the first place.
         future => return Err(Rejected::unknown(future.kind())),
+    })
+}
+
+/// A project read, which carries over field for field.
+fn project_read(wire: WireAction) -> Result<Action, Rejected> {
+    Ok(match wire {
+        WireAction::LoadFileDiff { request_id, path } => Action::LoadFileDiff { request_id, path },
+        WireAction::ListDirectory { request_id, path, include_ignored } => {
+            Action::ListDirectory { request_id, path, include_ignored }
+        }
+        WireAction::ReadProjectFile { request_id, path } => {
+            Action::ReadProjectFile { request_id, path }
+        }
+        WireAction::SearchProject { request_id, query, options } => {
+            Action::SearchProject { request_id, query, options }
+        }
+        // only project reads are routed here, so this is a refusal that can't happen
+        other => return Err(Rejected::unknown(other.kind())),
     })
 }
 

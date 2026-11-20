@@ -17,6 +17,7 @@ pub(crate) mod cost_report;
 pub mod dashboard;
 pub mod editor;
 pub mod files;
+pub(crate) mod find;
 #[cfg(any(test, feature = "fixture"))]
 pub mod fixture;
 mod frame_profile;
@@ -34,6 +35,7 @@ pub mod launcher;
 pub mod main_loop;
 pub mod markdown;
 pub mod marks;
+pub(crate) mod match_light;
 pub mod mention_flyout;
 pub mod mentions;
 pub mod model_picker;

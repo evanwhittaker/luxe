@@ -333,6 +333,8 @@ pub(super) enum KnownEvent {
         path: String,
         error: crate::project_files::ProjectFileFailure,
     },
+    ProjectSearched(Box<crate::project_search::SearchAnswer>),
+    ProjectSearchFailed(crate::project_search::SearchFailed),
     ReviewSessionRestored {
         session: Box<ReviewSession>,
     },

@@ -62,6 +62,21 @@ pub(super) fn dispatch(app: &mut App, command: crate::commands::Command) {
     }
 }
 
+/// Opens the command palette, which always spends the key.
+fn open_palette(app: &mut App) -> bool {
+    app.overlays.palette = Some(crate::palette::PaletteState::open(command_menu(app)));
+    true
+}
+
+/// Opens Find where it's drawn, over the conversation or a review; elsewhere it'd take keys unseen.
+fn open_find(app: &mut App) -> bool {
+    let drawn = matches!(app.current_view, super::ViewMode::Chat | super::ViewMode::GuidedReview);
+    if drawn {
+        super::find::open(app);
+    }
+    drawn
+}
+
 /// Opens the key card for what is on screen: the review's in a review, the chat's otherwise.
 fn toggle_keys(app: &mut App) {
     if app.current_view == super::ViewMode::GuidedReview {
@@ -110,10 +125,8 @@ pub(super) fn dispatch_action(app: &mut App, action: UiAction) -> bool {
             reload_config(app, &repo_root);
             true
         }
-        UiAction::OpenPalette => {
-            app.overlays.palette = Some(crate::palette::PaletteState::open(command_menu(app)));
-            true
-        }
+        UiAction::OpenPalette => open_palette(app),
+        UiAction::OpenFind => open_find(app),
         UiAction::ToggleHelp => {
             toggle_keys(app);
             true

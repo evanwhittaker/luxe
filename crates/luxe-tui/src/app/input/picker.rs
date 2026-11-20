@@ -13,6 +13,10 @@ pub(super) fn picker_took(app: &mut App, key: KeyEvent) -> bool {
         palette_key(app, key);
         return true;
     }
+    if app.overlays.find.is_some() {
+        crate::app::find::take_key(app, &key);
+        return true;
+    }
     if app.overlays.context_files.is_some() {
         context_files_key(app, key);
         return true;

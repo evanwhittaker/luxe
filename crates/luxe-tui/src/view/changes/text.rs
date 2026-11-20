@@ -176,6 +176,7 @@ fn text_rows(
         language: view.path.rsplit_once('.').map(|(_, ext)| ext.to_ascii_lowercase()),
         added: added_lines(view),
         picked,
+        found: view.found.as_ref().map(crate::changes::FoundQuery::matcher),
     };
     let mut frame = TextFrame::default();
     for (index, line) in lines.iter().enumerate().skip(offset) {
@@ -205,10 +206,12 @@ fn text_rows(
 }
 
 /// What every numbered line is drawn against.
-struct LineContext {
+struct LineContext<'a> {
     language: Option<String>,
     added: HashSet<u32>,
     picked: Option<(u32, u32)>,
+    /// The Find query that opened the file, whose matches are lit
+    found: Option<&'a luxe_core::project_search::QueryMatcher>,
 }
 
 /// One numbered line as the rows it wraps to, each with its gutter, its tint and its code.
@@ -217,7 +220,7 @@ fn push_line_rows(
     app: &App,
     view: &ChangesView,
     (index, line): (usize, &str),
-    context: &LineContext,
+    context: &LineContext<'_>,
     columns: &TextColumns,
 ) {
     let styles = &app.theme_styles;
@@ -226,13 +229,7 @@ fn push_line_rows(
     // The keyboard's line, while the keyboard is here: its number lit and a mark beside it
     let standing = view.focused && view.cursor == Some(number);
     let lead = line_lead(app, (index, number), standing, in_pick, context, columns.numbers);
-    let segments = source_row_segments(
-        line,
-        context.language.as_deref(),
-        columns.code,
-        view.word_wrap,
-        styles,
-    );
+    let segments = source_row_segments(line, context, columns.code, view.word_wrap, styles);
     let pieces = code_pieces(
         line,
         index,
@@ -268,7 +265,7 @@ fn line_lead(
     (index, number): (usize, u32),
     standing: bool,
     in_pick: bool,
-    context: &LineContext,
+    context: &LineContext<'_>,
     numbers: usize,
 ) -> Vec<Span<'static>> {
     let styles = &app.theme_styles;
@@ -286,17 +283,23 @@ fn line_lead(
     ]
 }
 
-/// One source line highlighted and either wrapped to the code column or clipped to it, marked
-/// where it runs past the edge.
+/// One source line highlighted, its Find matches lit, and either wrapped to the code column or
+/// clipped to it, marked where it runs past the edge.
+///
+/// Matches are found in the line as drawn, tabs expanded, so their ranges fall on the spans.
 fn source_row_segments(
     line: &str,
-    language: Option<&str>,
+    context: &LineContext<'_>,
     code: usize,
     word_wrap: bool,
     styles: &crate::theme::styles::ThemeStyles,
 ) -> Vec<Vec<Span<'static>>> {
     let source = crate::tabstop::display_text(line);
-    let spans = highlighted_source_spans(&source, language, styles);
+    let mut spans = highlighted_source_spans(&source, context.language.as_deref(), styles);
+    if let Some(matcher) = context.found {
+        spans =
+            crate::match_light::light_ranges(spans, &matcher.find_in(&source), styles.match_bg());
+    }
     match word_wrap {
         true => crate::widgets::wrap_cells(spans, code),
         false => {
@@ -447,3 +450,6 @@ fn human_bytes(bytes: u64) -> String {
         bytes => format!("{bytes} bytes"),
     }
 }
+
+#[cfg(test)]
+mod tests;

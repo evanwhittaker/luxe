@@ -88,7 +88,7 @@ Code blocks in a reply are highlighted for their language. Click the rule above 
 | --- | --- |
 | Scroll | wheel, `ctrl+↑` / `ctrl+↓`, `pageup` / `pagedown` |
 | Jump to the newest output | `ctrl+end` |
-| Search the conversation | `ctrl+f` |
+| [Find](#find) in the project or the conversation | `ctrl+f` |
 | Select the previous or next message | `alt+k` / `alt+j` |
 | Copy the selected message | `alt+y` |
 | Edit your last message and send it again | `alt+e` |
@@ -100,6 +100,10 @@ Code blocks in a reply are highlighted for their language. Click the rule above 
 
 `enter` sends. `shift+enter` adds a line. Type `/` for [commands](commands.md) and `@` to
 [mention](mentions.md) a file, skill, issue or other context.
+
+`↑` at the start of the prompt shows the messages you sent before, and `↓` walks back to what you
+were writing. Edit a recalled message and it's yours: the arrows stop swapping it out. `esc` clears
+the prompt, and `↑` brings the cleared text back.
 
 The composer's title names the session's mode, **build** or **plan**. `shift+tab` or a click on the
 title switches it; see [Plan, then build](agent.md#plan-then-build).
@@ -384,6 +388,47 @@ row, and picks nothing.
 | Back to the tree | `h` or `←` |
 | On to the chat's composer | `tab` |
 | Drop the pick or leave visual mode, then back to the composer | `esc` |
+
+## Find
+
+**Find** (`ctrl+f`, or `/find`) is one search field over three tabs. `tab` and `shift+tab` switch
+between them, and Find opens on the tab you used last.
+
+| Tab | Searches |
+| --- | --- |
+| **Text** | Every line of the project's files, skipping what `.gitignore` ignores |
+| **Files** | File names, ranked the way the `@` picker ranks them |
+| **Conversation** | What you and the agent said in this session |
+
+Beside the list, a preview shows the row under the cursor: the file around the matching line,
+highlighted and with each match lit, or the message drawn as the conversation draws it. A Text row
+names the function or type the line sits in, as `App › run`, where luxe can parse the file. On a
+narrow screen the preview goes under the list, and on a small one it's left out and each row
+carries its line instead.
+
+On **Text** and **Files**, `enter` opens the row in the [preview](#preview), with the cursor on
+the matching line and a Text match still lit there. `alt+m` mentions it in your draft instead:
+`@[file:src/app.rs:42]` sends the agent the path and the line. On **Conversation**, the list is the
+messages that say the query, newest first, and `enter` scrolls the conversation to the one you
+picked with its search open, where `enter`, `↑` and `↓` step through the matches. A click on a
+row opens it too.
+
+Find opens over a [Guided Review](guided-review.md) as well. There `enter` goes to the line in the
+review when one of its changes shows it. Any other hit opens in the File view, and the review keeps
+your place for when you come back.
+
+Conversation matches plain text in any case, as the conversation's own search does. Text matches as
+you typed it, and ignores case unless the query has a capital letter. The footer shows how each of
+these is set:
+
+| To | Key |
+| --- | --- |
+| Read the query as a regex | `alt+r` |
+| Match case smartly, exactly, or not at all | `alt+c` |
+| Search ignored files too | `alt+i` |
+
+The list holds the first 500 matching lines, and the footer counts them all. Binary files and files
+over 2 MB are skipped.
 
 ## Mouse and clipboard
 

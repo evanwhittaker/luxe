@@ -23,21 +23,17 @@ pub enum Event {
     ThinkingDelta { block: usize, delta: String },
     /// The model has begun writing a tool call, well before it can be dispatched.
     ///
-    /// A `write`'s content *is* its argument, so the model spends far longer composing that call
-    /// than the tool spends running it. Without this the transcript has nothing to show for that
-    /// stretch, and the card lands at the same moment the work finishes — which reads as a tool
-    /// that never ran. [`Event::ToolStarted`] follows with the same `call_id` once it is
-    /// dispatched, and every call that composes also ends, so a front-end may open a row here and
-    /// settle it there.
+    /// A `write`'s content *is* its argument, so composing that call takes far longer than running
+    /// it; without this the card lands as the work finishes, reading as a tool that never ran.
+    /// [`Event::ToolStarted`] follows with the same `call_id` once dispatched, and every call that
+    /// composes also ends, so a front-end may open a row here and settle it there.
     ///
-    /// `subject` is best effort: absent on the first frame, then sent once more as soon as the
-    /// arguments that have landed name what the call is about (`describe_partial_call`). A call
-    /// whose bulky argument arrives first is never named and simply stays a spinner.
-    ///
-    /// `body` is the payload as far as it has been written, for the tools whose payload is the
-    /// point (`partial_card_body`), and is resent as it grows — rate-limited, not per fragment.
-    /// Its `total_lines` counts what has landed, so a card's `+N more lines` climbs while the file
-    /// is written. Every field is a snapshot rather than a delta, so a client may drop any frame.
+    /// `subject` is best effort: absent on the first frame, then sent once the arguments that have
+    /// landed name what the call is about (`describe_partial_call`); a call whose bulky argument
+    /// arrives first stays a spinner. `body` is the payload so far, for tools whose payload is the
+    /// point (`partial_card_body`), resent as it grows, rate-limited rather than per fragment. Its
+    /// `total_lines` counts what has landed, so a card's `+N more lines` climbs while the file is
+    /// written. Every field is a snapshot, not a delta, so a client may drop any frame.
     ToolCallComposing {
         call_id: String,
         name: String,
@@ -508,6 +504,10 @@ pub enum Event {
         /// Why not.
         error: crate::project_files::ProjectFileFailure,
     },
+    /// A project search found what it found.
+    ProjectSearched(Box<crate::project_search::SearchAnswer>),
+    /// A project search has no answer.
+    ProjectSearchFailed(crate::project_search::SearchFailed),
     /// The session bound to the review just loaded, always after [`Event::GuidedReviewLoaded`]:
     /// carried over a refresh onto its new source, restored after a restart, or new. Also sent when
     /// another writer's copy replaced this one.

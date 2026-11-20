@@ -51,6 +51,7 @@ impl Engine {
             current_mode: tokio::sync::Mutex::new(default_mode.clone()),
             announced_mode: tokio::sync::Mutex::new(default_mode),
             review_running: std::sync::atomic::AtomicBool::new(false),
+            project_search: crate::project_search::SearchSlot::default(),
             active_model_info: tokio::sync::Mutex::new(None),
             active_thinking: tokio::sync::Mutex::new(initial_thinking),
             chosen_thinking: tokio::sync::Mutex::new(HashMap::new()),

@@ -9,6 +9,46 @@ The version on `main` is always the next release. The first change to what ships
 `Cargo.toml`, `Cargo.lock`) after a release bumps it one step and opens its section here, and later
 changes add to that section until it ships; `scripts/version-check.py` holds them to it.
 
+## [0.1.11]
+
+### Added
+
+- **Find** (`ctrl+f`, or `/find`) searches the project's text, its file names, or the
+  conversation from one field, with a preview of the row under the cursor beside the list: the
+  file around the match, highlighted and lit, or the message as the conversation draws it. `enter`
+  opens a hit in the preview on its line with the match still lit, or scrolls the conversation to
+  a message, and `alt+m` mentions a file in the draft. `alt+r`, `alt+c` and `alt+i` set regex,
+  case matching and ignored files. A text hit names the function or type it sits in. Find opens
+  over a Guided Review too, where `enter` goes to a line the review shows.
+- `luxe --rpc` clients can search the project's files with `search_project`: literal or regex,
+  smart case, `.gitignore` honored, each hit with its line, the ranges that matched and the scope
+  it sits in.
+
+### Changed
+
+- Copy names `ctrl+shift+c` in menus and the keys card, the chord most people know.
+  `ctrl+insert` and `super+c` still copy.
+- Guided Review marks a chapter you've read `viewed`, GitHub's word, where it said `reviewed`. The
+  remote app's button is **viewed** too.
+- `esc` still clears the prompt, but `↑` brings the cleared text back.
+- `ctrl+f` opens Find, which searches the conversation from its **Conversation** tab. `/search`
+  still goes straight to the conversation, and `tui.convo.search` can take a key of its own.
+- **Sessions…** draws its preview as the conversation was drawn, markdown and all, and with a
+  search goes to the first place the session says it, lit, as far into the session as the search
+  reads. The list keeps each session's age in view, cutting a long title instead.
+- Building luxe with Cargo needs Rust 1.90 or newer, for `tree-sitter` 0.27.
+- The model list luxe knows offline is current again: 324 providers and 10,035 models.
+
+### Fixed
+
+- `↓` at the end of the prompt no longer wipes it. Walking history with `↑` sets your draft
+  aside and `↓` brings it back, and a recalled message you've edited stays put.
+
+### Security
+
+- `rustix` 1.1.6, for RUSTSEC-2026-0486: its extended-attribute reads could mark memory as written
+  when it wasn't. Neither luxe nor anything it uses calls those functions.
+
 ## [0.1.10]
 
 ### Added

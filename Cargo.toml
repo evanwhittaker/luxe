@@ -6,15 +6,17 @@ members = ["crates/*"]
 # Every crate here releases together from one workspace, so the versions move in lockstep and each
 # crate inherits this one. The internal `path` dependencies carry the same number explicitly — cargo
 # uses the path locally and the version on crates.io, and refuses to publish a path dep without one.
-version = "0.1.10"
+version = "0.1.11"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/evanwhittaker/luxe"
 homepage = "https://luxe.dev"
-# Bound by the dependencies: uuid needs 1.89, and ratatui, image and darling 1.88. luxe's own floor
-# is lower (`user_dirs` relies on `std::env::home_dir`, which returned `$HOME` on Windows before
-# 1.85). The `msrv` CI job builds the workspace on exactly this version, so the number cannot drift.
-rust-version = "1.89"
+# Bound by the dependencies: tree-sitter needs 1.90, uuid 1.89, and ratatui, image and darling 1.88.
+# It rises only when a dependency needs it, since a higher floor locks out older toolchains for
+# nothing. luxe's own floor is lower (`user_dirs` relies on `std::env::home_dir`, which returned
+# `$HOME` on Windows before 1.85). The `msrv` CI job builds the workspace on exactly this version,
+# so the number cannot drift.
+rust-version = "1.90"
 
 [workspace.dependencies]
 # Runtime
@@ -80,7 +82,7 @@ pulldown-cmark = { version = "0.13", default-features = false }
 unicode-width = "0.2"
 
 # Syntax (tree-sitter offline outlines)
-tree-sitter = "0.26"
+tree-sitter = "0.27"
 tree-sitter-rust = "0.24"
 tree-sitter-python = "0.23"
 tree-sitter-typescript = "0.23"

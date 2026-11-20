@@ -183,6 +183,7 @@ mod tests {
             cache_warming: luxe_core::cache_warming::CacheWarming::Off,
             review_insight_provider: None,
             github: None,
+            outline: None,
         };
 
         let (action_tx, event_rx) = Engine::spawn(engine_config);

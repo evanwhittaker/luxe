@@ -145,9 +145,9 @@ fn guide_chapter(
     )
 }
 
-/// `01 / 05   CORE   reviewed`, then the title, which opens the chapter.
+/// `01 / 05   CORE   viewed`, then the title, which opens the chapter.
 fn heading(chapter: &ReviewChapter, place: &Place, reading: Option<&ChapterReading>) -> String {
-    let walked = if place.walked { "<span class=\"rv-walked\">reviewed</span>" } else { "" };
+    let walked = if place.walked { "<span class=\"rv-walked\">viewed</span>" } else { "" };
     let quiet = if needs_nothing(reading) { " quiet" } else { "" };
     format!(
         "<p class=\"rv-meta\"><span>{:02} / {:02}</span><span>{}</span>{walked}</p>\

@@ -275,8 +275,8 @@ test("the review view reviews the changes and keeps a chapter marked", async () 
   // split, the first chapter opens beside the guide, its title on the cursor's slab
   await page.locator(".rv-chapter-pane .rv-chapter-view .rv-file", { hasText: WRITTEN.path }).waitFor();
   await page.locator(".rv-guide-pane .rv-chapter[aria-current]").waitFor();
-  await page.locator(".view-review .hint", { hasText: "mark reviewed" }).click();
-  await page.locator(".view-review .hint.hint-accent", { hasText: "reviewed" }).waitFor();
+  await page.locator(".view-review .hint", { hasText: "mark viewed" }).click();
+  await page.locator(".view-review .hint.hint-accent", { hasText: "viewed" }).waitFor();
   await closeView();
   await runCommand("/diff");
   await page.locator(".view-review .rv-chapter .rv-walked").first().waitFor();

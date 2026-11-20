@@ -124,6 +124,8 @@ pub enum OverlayList {
     Slash,
     /// The `@` flyout's open tab
     Mention,
+    /// Find's open tab
+    Find,
     /// Whichever list the configuration surface is showing: settings, or a setup step
     Configuration,
 }
@@ -156,6 +158,8 @@ pub enum MouseTarget {
     QuestionRow(usize),
     /// A mention (`@`) flyout row, by its index into the filtered list.
     MentionRow(usize),
+    /// A Find row, by its index among the open tab's rows.
+    FindRow(usize),
     /// A model-picker row, by its index into the filtered list.
     ModelRow(usize),
     /// A login-wizard provider row, by its index into the filtered list.

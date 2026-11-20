@@ -99,6 +99,8 @@ published! {
     DirectoryListFailed => "directory_list_failed",
     ProjectFileRead => "project_file_read",
     ProjectFileReadFailed => "project_file_read_failed",
+    ProjectSearched => "project_searched",
+    ProjectSearchFailed => "project_search_failed",
     ReviewSessionRestored => "review_session_restored",
     OpenReviewShown => "open_review_shown",
     ReviewSessionSaved => "review_session_saved",
@@ -442,6 +444,15 @@ pub(super) fn every_event() -> Vec<Event> {
             path: s("a"),
             error: crate::project_files::ProjectFileFailure::NotFound,
         },
+        Event::ProjectSearched(Box::new(crate::project_search::SearchAnswer {
+            request_id: crate::project_search::SearchRequestId::new(),
+            results: crate::project_search::SearchResults::default(),
+        })),
+        Event::ProjectSearchFailed(crate::project_search::SearchFailed {
+            request_id: crate::project_search::SearchRequestId::new(),
+            query: s("("),
+            error: crate::project_search::SearchFailure::Superseded,
+        }),
         Event::ReviewSessionRestored { session: session() },
         Event::OpenReviewShown(Box::new(crate::event::OpenReview {
             request_id: ReviewLoadRequestId::new(),

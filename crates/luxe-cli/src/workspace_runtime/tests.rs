@@ -123,6 +123,7 @@ async fn bridge_tracks_real_engine_startup_and_new_sessions() {
         cache_warming: luxe_core::cache_warming::CacheWarming::Off,
         review_insight_provider: None,
         github: None,
+        outline: None,
     };
     let (actions, engine_events) = Engine::spawn(config);
     let mut events =

@@ -13,6 +13,9 @@ mod context_report;
 mod diff_lines;
 mod divider;
 mod dock;
+pub(crate) use diff_lines::{clip_styled_spans, highlighted_source_spans};
+pub(crate) use excerpt::excerpt_lines;
+mod excerpt;
 pub(crate) use dock::{external_place_folded, status_mark};
 mod emphasis;
 mod frame_layout;
@@ -104,8 +107,11 @@ fn render_surface(f: &mut Frame, app: &mut App) {
 
     if app.current_view == ViewMode::GuidedReview {
         guided_review::render(f, size, app);
-        // The palette is the one overlay a review draws over itself: it is reachable from anywhere,
-        // and it lists only what a review can run
+        // The palette and Find are the overlays a review draws over itself: both are reachable
+        // from anywhere, and the palette lists only what a review can run
+        if let Some(ref find) = app.overlays.find {
+            crate::find::render_find(f, size, find, &app.theme_styles, &app.hit);
+        }
         if let Some(ref palette) = app.overlays.palette {
             crate::palette::render_palette(f, size, palette, &app.theme_styles, &app.hit);
         }
@@ -260,12 +266,25 @@ fn render_composer_surfaces(
 /// Draws what opens over the chat: the context menu, the full-window viewers and panels, the
 /// pickers, the login wizard, and whichever panel grows up from the composer.
 fn render_chat_overlays(f: &mut Frame, app: &mut App, regions: &ChatRegions, composer_area: Rect) {
-    render_covering_overlays(f, app);
+    render_covering_overlays(f, app, above_composer(f.area(), composer_area));
     render_composer_panel(f, app, regions, composer_area);
 }
 
+/// The screen above the composer, for an overlay that fills the room it's given without covering
+/// the prompt; the whole screen when that leaves too little to be worth it.
+fn above_composer(size: Rect, composer_area: Rect) -> Rect {
+    let height = composer_area.y.saturating_sub(size.y);
+    match height >= MIN_ABOVE_COMPOSER {
+        true => Rect { height, ..size },
+        false => size,
+    }
+}
+
+/// Fewest rows above the composer that [`above_composer`] gives an overlay instead of the screen.
+const MIN_ABOVE_COMPOSER: u16 = 16;
+
 /// The overlays that sit over the conversation rather than growing out of the composer.
-fn render_covering_overlays(f: &mut Frame, app: &mut App) {
+fn render_covering_overlays(f: &mut Frame, app: &mut App, above_composer: Rect) {
     let size = f.area();
     // Over everything it was opened on, and under nothing: it is answering the click that opened it
     if let Some(menu) = app.overlays.context_menu.as_ref() {
@@ -302,6 +321,9 @@ fn render_covering_overlays(f: &mut Frame, app: &mut App) {
     if let Some(ref card) = app.overlays.pull_request_card {
         let frame = app.status.spinner_frame;
         crate::github_detail::render_card(f, size, card, frame, &app.theme_styles, &app.hit);
+    }
+    if let Some(ref find) = app.overlays.find {
+        crate::find::render_find(f, above_composer, find, &app.theme_styles, &app.hit);
     }
     if let Some(ref palette) = app.overlays.palette {
         crate::palette::render_palette(f, size, palette, &app.theme_styles, &app.hit);

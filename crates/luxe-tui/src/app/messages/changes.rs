@@ -105,6 +105,33 @@ pub(super) fn open_project_file(app: &mut App, path: String) {
     super::files::sync(app);
 }
 
+/// Shows a project file's text with the cursor on `line`, and gives the pane the keyboard.
+///
+/// Always the File view, even for a changed file, because `line` numbers the file as it is now
+/// and the diff numbers rows of its own.
+pub(crate) fn open_at_line(app: &mut App, path: String, line: u32) {
+    open_project_file(app, path);
+    let Some(view) = app.changes.as_mut() else { return };
+    let wants_text = view.text == crate::changes::TextLoad::Idle;
+    view.view = crate::changes::PeekView::File;
+    view.land_on(line);
+    if wants_text {
+        request_text(app);
+    }
+    app.update(Msg::FocusPeek);
+}
+
+/// Puts `mention` in the draft where the caret is, set off by spaces, ready for the question
+/// about it to be typed after.
+pub(crate) fn mention_in_draft(app: &mut App, mention: &str) {
+    let draft = app.editor.current_input();
+    if !draft.is_empty() && !draft.ends_with(' ') {
+        app.editor.insert_text(" ");
+    }
+    app.editor.insert_reference(mention);
+    app.editor.insert_text(" ");
+}
+
 /// Switches a changed file between its diff and its text, asking for whichever is not here yet.
 pub(super) fn toggle_view(app: &mut App) {
     let Some(view) = app.changes.as_mut() else {
@@ -139,13 +166,7 @@ pub(crate) fn selection_action(app: &mut App, action: crate::mouse::PeekSelectio
     match action {
         A::Ask => {
             let Some(mention) = view.selection_mention() else { return };
-            // A pointer in the draft, where the question about it is about to be typed
-            if !app.editor.current_input().is_empty() && !app.editor.current_input().ends_with(' ')
-            {
-                app.editor.insert_text(" ");
-            }
-            app.editor.insert_reference(&mention);
-            app.editor.insert_text(" ");
+            mention_in_draft(app, &mention);
             if let Some(view) = app.changes.as_mut() {
                 view.selection = None;
                 view.visual = false;

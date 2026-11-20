@@ -159,7 +159,7 @@ pub(crate) fn outline_from_tree(lang: Lang, tree: &Tree, bytes: &[u8]) -> Vec<Fl
     while let Some(m) = matches.next() {
         let mut def = None;
         let mut name = None;
-        for capture in m.captures {
+        for capture in m.captures() {
             if capture.index == def_index {
                 def = Some(capture.node);
             } else if capture.index == name_index {

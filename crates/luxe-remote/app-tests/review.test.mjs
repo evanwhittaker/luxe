@@ -155,7 +155,7 @@ test("a chapter stays open only while the review has it", () => {
 
 // The break this catches: marking a chapter sending only that one (the session keeps the list it's
 // sent, so the others would be unwalked), or unmarking doing nothing
-test("marking a chapter reviewed sends every chapter walked, and unmarks", () => {
+test("marking a chapter viewed sends every chapter walked, and unmarks", () => {
   const { state, sent, send, last } = tab();
   state.ask(send);
   state.apply(answer(sent, { review: review(), session: { progress: { walked_chapter_ids: ["chapter:2"] } } }));

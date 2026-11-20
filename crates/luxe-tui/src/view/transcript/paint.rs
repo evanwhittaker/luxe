@@ -84,6 +84,7 @@ fn restore_viewport(
                 (restored as isize + scrolled_by).clamp(0, max_offset.max(0)) as usize;
         }
     }
+    super::jump::resolve_jump(app, rendered_lines);
 
     anchored_window(app, rendered_lines, inner)
 }

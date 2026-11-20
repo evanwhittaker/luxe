@@ -13,12 +13,21 @@ pub struct SearchState {
     pub matches: Vec<usize>,
     /// Index of the currently selected match in `matches`.
     pub current_match: Option<usize>,
+    /// The message the next frame scrolls to, making its first match the current one; the frame
+    /// resolves it because only the laid-out transcript knows which lines are the message's
+    pub jump_to: Option<crate::app::ConversationItemId>,
 }
 
 impl SearchState {
     /// Create a new empty search state.
     pub fn new() -> Self {
-        Self { searching: false, query: String::new(), matches: Vec::new(), current_match: None }
+        Self {
+            searching: false,
+            query: String::new(),
+            matches: Vec::new(),
+            current_match: None,
+            jump_to: None,
+        }
     }
 
     /// Whether the search UI is active (query bar visible, input routed here).
@@ -32,6 +41,14 @@ impl SearchState {
         self.query.clear();
         self.matches.clear();
         self.current_match = None;
+        self.jump_to = None;
+    }
+
+    /// Enters search mode on `query`, going to its first match in the message `item`.
+    pub(crate) fn enter_at(&mut self, query: String, item: crate::app::ConversationItemId) {
+        self.enter();
+        self.query = query;
+        self.jump_to = Some(item);
     }
 
     /// Search the given lines for the query. Returns the number of matches found.
@@ -99,6 +116,7 @@ impl SearchState {
         self.query.clear();
         self.matches.clear();
         self.current_match = None;
+        self.jump_to = None;
     }
 
     /// Type a character into the search query and re-search.

@@ -223,12 +223,12 @@ fn end_of_reading_marker(
         .iter()
         .position(|chapter| workspace.position.chapter_id.as_ref() == Some(&chapter.id))?;
     let reviewed = workspace.is_chapter_walked(&review.chapters[index].id);
-    let ending = if reviewed { "chapter reviewed" } else { "end of chapter" };
+    let ending = if reviewed { "chapter viewed" } else { "end of chapter" };
     // The end of the reading is where the reader asks what comes next
     let finish = super::chord(app, luxe_core::keymap::UiAction::ReviewFinish, "alt+enter");
     Some(match review.chapters.get(index + 1) {
         Some(next) => format!("— {ending} · ] {} —", next.title),
-        None if reviewed => format!("— last chapter reviewed · space or {finish} finishes —"),
+        None if reviewed => format!("— last chapter viewed · space or {finish} finishes —"),
         None => format!("— end of the last chapter · space or {finish} finishes —"),
     })
 }
@@ -254,7 +254,7 @@ pub(super) fn render_non_text_diff(
     };
     lines.push(Line::from(Span::styled(kind, app.theme_styles.warning)));
     lines.push(Line::from(Span::styled(&change.summary, app.theme_styles.text)));
-    lines.push(Line::from(Span::styled("space reviewed", app.theme_styles.muted)));
+    lines.push(Line::from(Span::styled("space marks viewed", app.theme_styles.muted)));
     frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), area);
 }
 

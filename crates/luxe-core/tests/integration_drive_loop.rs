@@ -93,6 +93,7 @@ async fn test_controller_stop_while_engine_running() {
         cache_warming: luxe_core::cache_warming::CacheWarming::Off,
         review_insight_provider: None,
         github: None,
+        outline: None,
         formatter_registry: None,
         spend_sink: None,
         permissions_file: None,

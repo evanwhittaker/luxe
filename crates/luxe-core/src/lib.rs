@@ -61,6 +61,7 @@ pub mod plan;
 pub mod program;
 pub mod project;
 pub mod project_files;
+pub mod project_search;
 pub mod provider;
 pub mod question;
 pub mod read_tracker;

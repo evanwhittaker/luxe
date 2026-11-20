@@ -362,11 +362,14 @@ pub fn render_slash_flyout(
                 true => "esc close",
                 false => "enter run · tab add arguments · ↑/↓ choose · esc close",
             }),
+            query: None,
+            count: None,
             tabs: None,
             divider: state.divider(),
             detail: Some(&detail),
             rows: None,
             list: crate::mouse::OverlayList::Slash,
+            preview: None,
         },
     );
 }
@@ -408,11 +411,14 @@ fn render_arguments(
             hit_target: crate::mouse::MouseTarget::SlashRow,
             // Tab fills a form in; Enter runs one that is whole, and fills one that is not
             hint: Some("enter run · tab fill in · ↑/↓ choose · esc close"),
+            query: None,
+            count: None,
             tabs: None,
             divider: None,
             detail: None,
             rows: None,
             list: crate::mouse::OverlayList::Slash,
+            preview: None,
         },
     );
 }

@@ -294,6 +294,15 @@ pub enum Action {
         /// Project-relative file.
         path: String,
     },
+    /// Searches the project's files for a line of text, for Find. Stops the search before it.
+    SearchProject {
+        /// Correlates this request with its result event.
+        request_id: crate::project_search::SearchRequestId,
+        /// What to look for.
+        query: String,
+        /// How to read `query`.
+        options: crate::project_search::SearchOptions,
+    },
     /// Refreshes the open review only if it is still at `expected_revision`, keeping its identity
     /// and its comments.
     RefreshGuidedReview {

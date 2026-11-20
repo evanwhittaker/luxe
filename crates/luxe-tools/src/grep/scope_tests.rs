@@ -1,5 +1,5 @@
 use super::*;
-use luxe_core::hooks::file_changed::FunctionSize;
+use luxe_core::hooks::file_changed::{FunctionSize, Scope};
 use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
 

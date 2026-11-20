@@ -88,6 +88,9 @@ pub(super) const CURSOR_LINE_WASH: f32 = 0.07;
 /// How far a pick's band leans from the canvas toward the accent.
 pub(super) const PICK_WASH: f32 = 0.24;
 
+/// How far a found match's band leans from the canvas toward the warning hue.
+pub(super) const MATCH_WASH: f32 = 0.34;
+
 /// The bands under rows a cursor or a pick marks.
 impl super::ThemeStyles {
     /// The faint band under the line a cursor stands on: there at a glance, quieter than a pick.
@@ -112,6 +115,14 @@ impl super::ThemeStyles {
     /// or as the plain highlight a hovered row wears.
     pub fn pick_bg(&self) -> Style {
         self.wash(self.accent, PICK_WASH, self.selected_bg)
+    }
+
+    /// The band under the text a search found, in the warning hue, as editors light search
+    /// matches. A band rather than ink, since syntax colors already spend the inks; bold, so it
+    /// still reads where a theme's colors can't be blended and the band falls back to reversed.
+    pub fn match_bg(&self) -> Style {
+        let fallback = Style::default().add_modifier(Modifier::REVERSED);
+        self.wash(self.warning, MATCH_WASH, fallback).add_modifier(Modifier::BOLD)
     }
 }
 
