@@ -19,13 +19,33 @@ pub(super) use transcript::flush_startup_notices;
 pub(super) use turn::INTERRUPT_CONFIRM;
 pub(super) use turn::{expire_unconfirmed_interrupt, has_unfinished_tools};
 
+/// Takes the answer to a read the interface asked for on its own, a folder's listing, a project
+/// search or a file Find previews, which the transcript never sees; false for any other event.
+fn took_read_answer(app: &mut App, event: &Event) -> bool {
+    match event {
+        // Find's own reads only; the preview pane's go on to it
+        Event::ProjectFileRead { .. } | Event::ProjectFileReadFailed { .. } => {
+            return super::find::take_file(app, event);
+        }
+        Event::DirectoryListed { .. } | Event::DirectoryListFailed { .. } => {
+            super::messages::files::apply(app, event);
+        }
+        Event::ProjectSearched(_) | Event::ProjectSearchFailed(_) => {
+            if !super::find::take_event(app, event) {
+                tracing::debug!("ignoring a superseded project search");
+            }
+        }
+        _ => return false,
+    }
+    true
+}
+
 pub(super) fn reduce(app: &mut App, event: Event) {
-    // The Changes pane correlates its own capture by request id, so it claims these before the
-    // main table sees them and a superseded answer never reaches the surface.
-    if matches!(event, Event::DirectoryListed { .. } | Event::DirectoryListFailed { .. }) {
-        super::messages::files::apply(app, &event);
+    if took_read_answer(app, &event) {
         return;
     }
+    // The Changes pane correlates its own capture by request id, so it claims these before the
+    // main table sees them and a superseded answer never reaches the surface.
     if matches!(
         event,
         Event::FileDiffLoaded { .. }

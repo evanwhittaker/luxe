@@ -214,6 +214,15 @@ fn each_github_action_arrives_as_the_engine_action_it_names() {
         translate(WireAction::ReadProjectFile { request_id: read.clone(), path: "a.rs".into() }),
         Ok(Action::ReadProjectFile { request_id, path }) if request_id == read && path == "a.rs"
     ));
+    let search = luxe_core::project_search::SearchRequestId::new();
+    let options = luxe_core::project_search::SearchOptions { regex: true, ..Default::default() };
+    let wire =
+        WireAction::SearchProject { request_id: search.clone(), query: "a+".into(), options };
+    assert!(matches!(
+        translate(wire),
+        Ok(Action::SearchProject { request_id, query, options: kept })
+            if request_id == search && query == "a+" && kept == options
+    ));
     assert!(matches!(
         translate(WireAction::SetFocus { focused: false }),
         Ok(Action::FocusChanged { focused: false })
@@ -587,7 +596,7 @@ fn the_real_resolver_answers_about_the_model_it_was_asked() {
 fn the_translator_covers_the_whole_published_vocabulary() {
     assert_eq!(
         WireAction::KINDS.len(),
-        55,
+        56,
         "a wire action was published without a translator arm: {:?}",
         WireAction::KINDS
     );

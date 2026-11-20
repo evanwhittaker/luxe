@@ -33,6 +33,15 @@ pub const MAX_FILE_BYTES: usize = 2 * 1024 * 1024;
 /// Bytes sniffed for a NUL to tell a binary file from text.
 const BINARY_SNIFF: usize = 8 * 1024;
 
+/// Whether `bytes`, a file's content or its start, look binary: a NUL in the first 8 KiB.
+///
+/// What every grep-alike checks, and right often enough. Every reader of project files that skips
+/// or blanks binaries (the preview, Find's search, the agent's `grep`) asks this one, so a file is
+/// text to all of them or to none.
+pub fn looks_binary(bytes: &[u8]) -> bool {
+    bytes.iter().take(BINARY_SNIFF).any(|byte| *byte == 0)
+}
+
 /// Identifies one listing request, so a superseded answer can be discarded.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -276,7 +285,7 @@ fn read_text(path: &Path, size: u64) -> Result<(String, bool, bool), ProjectFile
 
 /// The text in `content` and whether it is binary instead, in which case the text is empty.
 fn decode(content: Vec<u8>) -> (String, bool) {
-    let binary = content.iter().take(BINARY_SNIFF).any(|byte| *byte == 0)
+    let binary = looks_binary(&content)
         || std::str::from_utf8(&content).is_err_and(|error| error.error_len().is_some());
     if binary {
         return (String::new(), true);
@@ -352,6 +361,19 @@ mod tests {
 
     fn names(listing: &DirectoryListing) -> Vec<&str> {
         listing.entries.iter().map(|entry| entry.name.as_str()).collect()
+    }
+
+    /// The break this catches: the sniff reading the whole file, so a long log with a stray NUL
+    /// deep inside is skipped, or not reading as far as the NUL a binary has near its start.
+    #[test]
+    fn only_a_nul_near_the_start_makes_a_file_binary() {
+        let mut bytes = vec![b'a'; BINARY_SNIFF];
+        assert!(!looks_binary(&bytes));
+        assert!(!looks_binary(&[]));
+        bytes.push(0);
+        assert!(!looks_binary(&bytes), "past the sniff");
+        bytes[BINARY_SNIFF - 1] = 0;
+        assert!(looks_binary(&bytes), "the sniff's last byte");
     }
 
     #[test]

@@ -146,7 +146,7 @@ pub(crate) fn chat_groups(keymap: &KeyMap) -> Vec<HelpGroup> {
                 pair(UiAction::ScrollUp, UiAction::ScrollDown, "scroll"),
                 pair(UiAction::PageUp, UiAction::PageDown, "page"),
                 pair(UiAction::SelectBlockUp, UiAction::SelectBlockDown, "select a message"),
-                bound(UiAction::SearchConvo, "search the conversation"),
+                bound(UiAction::OpenFind, "find in the project or conversation"),
                 bound(UiAction::ToggleToolOutput, "full tool output"),
                 bound(UiAction::OpenImage, "view an image"),
             ],

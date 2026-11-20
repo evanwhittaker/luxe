@@ -198,6 +198,11 @@ fn sample_actions() -> Vec<Action> {
             include_ignored: false,
         },
         Action::ReadProjectFile { request_id: id("file-read:1"), path: "src/main.rs".into() },
+        Action::SearchProject {
+            request_id: id("search:1"),
+            query: "needle".into(),
+            options: crate::project_search::SearchOptions::default(),
+        },
         Action::SetFocus { focused: false },
         Action::SetRowWidths(crate::custom_dock::RowWidths {
             dock: 40,
@@ -330,6 +335,7 @@ fn the_wire_action_vocabulary_is_pinned() {
         r#"{"kind":"list_models","content":{"request_id":"models:1"}}"#,
         r#"{"kind":"list_directory","content":{"request_id":"listing:1","path":"src"}}"#,
         r#"{"kind":"read_project_file","content":{"request_id":"file-read:1","path":"src/main.rs"}}"#,
+        r#"{"kind":"search_project","content":{"request_id":"search:1","query":"needle","options":{}}}"#,
         r#"{"kind":"set_focus","content":{"focused":false}}"#,
         r#"{"kind":"set_row_widths","content":{"dock":40,"dock_label":15,"statusline":32}}"#,
         r#"{"kind":"link_pull_request","content":{"number":142,"url":"https://github.com/acme/app/pull/142"}}"#,

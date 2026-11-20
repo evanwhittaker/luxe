@@ -80,6 +80,28 @@ fn a_row_spends_exactly_its_room_and_never_lights_an_ellipsis() {
     assert_eq!(z.style, lit, "{fits:?}");
 }
 
+/// The break this catches: a short note kept at the right, like a session's age, cut before a
+/// long label is, or left wherever the label happens to end.
+#[test]
+fn a_detail_kept_right_is_whole_at_the_edge_and_the_label_gives_way() {
+    let resolved = luxe_core::theme::ThemeRegistry::new().resolve("nord").expect("nord");
+    let theme = ThemeStyles::from_resolved(&resolved, "nord");
+    let text =
+        |line: &Line| line.spans.iter().map(|span| span.content.as_ref()).collect::<String>();
+    let width = 30 + crate::widgets::SELECTION_FRAME + 2;
+    let row = |label: &str| PickerRow {
+        label: label.into(),
+        detail: Some("2h ago".into()),
+        detail_right: true,
+        ..Default::default()
+    };
+    let long = text(&picker_row(row(&"x".repeat(40)), false, width, &theme));
+    assert!(long.trim_end().ends_with("x\u{2026}  2h ago"), "{long:?}");
+    let short = text(&picker_row(row("ab"), false, width, &theme));
+    let cells = |row: &str| row.trim_end().chars().count();
+    assert_eq!(cells(&short), cells(&long), "both end at the edge: {short:?}");
+}
+
 /// What the query matched is lit in the accent and bold — on the selection surface when the
 /// row is chosen — a path's folder is quiet beside its filename, and a detail lights too.
 #[test]
@@ -269,11 +291,14 @@ fn render_picker_draws_title_rows_selection_and_hit_regions() {
                     },
                     hit_target: crate::mouse::MouseTarget::SlashRow,
                     hint: None,
+                    query: None,
+                    count: None,
                     tabs: None,
                     divider: None,
                     detail: None,
                     rows: None,
                     list: crate::mouse::OverlayList::Slash,
+                    preview: None,
                 },
             );
         })
@@ -340,11 +365,14 @@ fn a_row_too_long_for_the_flyout_clips_rather_than_losing_its_cap() {
                     },
                     hit_target: crate::mouse::MouseTarget::MentionRow,
                     hint: None,
+                    query: None,
+                    count: None,
                     tabs: None,
                     divider: None,
                     detail: None,
                     rows: None,
                     list: crate::mouse::OverlayList::Slash,
+                    preview: None,
                 },
             );
         })
@@ -398,11 +426,14 @@ fn tabs_sit_above_the_list_and_move_it_down() {
                     row: |pos| PickerRow { label: rows[pos].into(), ..Default::default() },
                     hit_target: MouseTarget::MentionRow,
                     hint: None,
+                    query: None,
+                    count: None,
                     tabs: Some((&["Files", "GitHub"], 0)),
                     divider: None,
                     detail: None,
                     rows: None,
                     list: crate::mouse::OverlayList::Slash,
+                    preview: None,
                 },
             )
         })
@@ -450,11 +481,14 @@ fn tabs_sit_above_the_list_and_move_it_down() {
                     row: |pos| PickerRow { label: many[pos].clone(), ..Default::default() },
                     hit_target: MouseTarget::MentionRow,
                     hint: None,
+                    query: None,
+                    count: None,
                     tabs: Some((&["Files", "GitHub"], 0)),
                     divider: None,
                     detail: None,
                     rows: None,
                     list: crate::mouse::OverlayList::Slash,
+                    preview: None,
                 },
             )
         })

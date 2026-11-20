@@ -154,7 +154,7 @@ In a session, the app can:
   writes off, so merging, replying and resolving stay in the interface.
 - Walk the open [Guided Review](guided-review.md) on the Review screen, by the header's Review
   button or `/diff`: the guide's summary and chapters, with the open chapter's notes and diffs
-  beside it, or in its place on a phone. **reviewed** marks a chapter read, the same progress the
+  beside it, or in its place on a phone. **viewed** marks a chapter read, the same progress the
   interface's desk keeps, and **next** opens the one after. The phone joins the review the
   interface has open rather than starting its own, since a session holds one; with none open,
   **Review changes** reviews the working changes, and `/diff pr 42` reviews that pull request.

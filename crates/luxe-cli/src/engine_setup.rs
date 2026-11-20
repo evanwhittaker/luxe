@@ -193,6 +193,7 @@ pub(crate) async fn build_engine(
         ))),
         // Pull-request reviews read through the user's own `gh`
         github: Some(Arc::new(luxe_core::github::GhCli::new())),
+        outline: Some(Arc::new(luxe_lsp::syntax::SyntaxOutline)),
         // "Remember this" approvals go to the *global* file — a project ruleset is tighten-only,
         // so an approval written there would be ignored.
         permissions_file: Some(global_permissions_path()),

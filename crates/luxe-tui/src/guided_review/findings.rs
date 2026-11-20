@@ -63,6 +63,27 @@ impl GuidedReviewWorkspace {
         true
     }
 
+    /// Selects new-side `line` of the file at `path`, when the review shows that line in one of
+    /// its hunks. False for a file the review doesn't cover or a line outside every hunk.
+    pub(crate) fn jump_to_line(
+        &mut self,
+        path: &std::path::Path,
+        line: u32,
+        review: &GuidedReview,
+    ) -> bool {
+        let Some(file) = review.files.iter().find(|file| file.new_path.as_deref() == Some(path))
+        else {
+            return false;
+        };
+        let found = file.hunks.iter().enumerate().find_map(|(index, hunk)| {
+            let at = hunk.lines.iter().position(|source| source.new_line == Some(line))?;
+            Some((index, at))
+        });
+        let Some((hunk_index, line_index)) = found else { return false };
+        self.select_finding_hunk(file, hunk_index, Some(line_index));
+        true
+    }
+
     /// Selects a persisted finding's immutable anchor when it remains in the pinned review.
     pub(crate) fn jump_to_finding(
         &mut self,

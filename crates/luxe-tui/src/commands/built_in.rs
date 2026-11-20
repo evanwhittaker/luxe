@@ -3,18 +3,9 @@
 use super::{id, Command, Need};
 use luxe_core::keymap::UiAction;
 
-/// Every command luxe ships, in no particular order: a menu sorts them.
-///
-/// Left out on purpose, because they are keys rather than commands and the key card lists them:
-/// moving around a review or a diff, block selection, scrolling, the editor's own mechanics
-/// (submit, newline, paste, select all), and anything that acts on "the selected" thing a palette
-/// opened from anywhere cannot point at.
-pub(super) fn built_in() -> Vec<Command> {
-    use Need::{
-        ChangesPane, Chat, Diff, Image, PullRequestReview, Repository, Review, Turn, Waiting,
-    };
+/// The commands that work on any screen.
+fn anywhere() -> Vec<Command> {
     vec![
-        // === Anywhere ===
         Command::action(UiAction::Quit)
             .with_slash("/quit")
             .summary("Leaves luxe; the session is saved as it goes, so nothing is lost.")
@@ -32,9 +23,26 @@ pub(super) fn built_in() -> Vec<Command> {
             .keywords(&["refresh", "settings", "keybindings"]),
         Command::slash(id::HELP, "Help", "/help")
             .keys(UiAction::ToggleHelp)
-            .summary("Every key for this screen, as your keymap binds them, and where the guide is.")
+            .summary(
+                "Every key for this screen, as your keymap binds them, and where the guide is.",
+            )
             .detail("Commands are in this list. In a review, the review's keys.")
             .keywords(&["help", "keys", "shortcuts", "keybindings"]),
+    ]
+}
+
+/// Every command luxe ships, in no particular order: a menu sorts them.
+///
+/// Left out on purpose, because they are keys rather than commands and the key card lists them:
+/// moving around a review or a diff, block selection, scrolling, the editor's own mechanics
+/// (submit, newline, paste, select all), and anything that acts on "the selected" thing a palette
+/// opened from anywhere cannot point at.
+pub(super) fn built_in() -> Vec<Command> {
+    use Need::{
+        ChangesPane, Chat, Diff, Image, PullRequestReview, Repository, Review, Turn, Waiting,
+    };
+    let mut commands = anywhere();
+    commands.extend([
         // === The conversation ===
         //
         // A review draws nothing over itself but the palette, so a command that opens a picker or
@@ -118,6 +126,11 @@ pub(super) fn built_in() -> Vec<Command> {
             .summary("What this session has cost, by model and by kind of token.")
             .detail("On a subscription it shows the allowance left rather than dollars.")
             .keywords(&["tokens", "price", "billing"]),
+        Command::action(UiAction::OpenFind)
+            .with_slash("/find")
+            .summary("Finds text in the project's files, a file by name, or text in the transcript.")
+            .detail("`enter` opens a hit at its line, in a review where it shows; `alt+m` mentions it.")
+            .keywords(&["search", "grep", "files"]),
         Command::action(UiAction::SearchConvo)
             .with_slash("/search")
             .needs(&[Chat])
@@ -373,7 +386,16 @@ pub(super) fn built_in() -> Vec<Command> {
             .needs(&[Review])
             .summary("Wraps long lines in the diff, or lets them run off the edge.")
             .keywords(&["wrap"]),
-        // === Status, setup and signing in ===
+    ]);
+    commands.extend(status_and_setup());
+    commands
+}
+
+/// The commands about luxe itself and the screens that show its state: language servers, tools,
+/// credentials and settings.
+fn status_and_setup() -> Vec<Command> {
+    use Need::Chat;
+    vec![
         Command::slash(id::LSP, "Language servers", "/lsp")
             .needs(&[Chat])
             .summary("Every configured language server, whether it started, and what it is doing.")

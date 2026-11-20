@@ -56,6 +56,7 @@ ui_actions! {
     // App
     Quit => ("tui.app.quit", "Quit"),
     OpenPalette => ("tui.app.open_palette", "Open command palette"),
+    OpenFind => ("tui.app.find", "Find"),
     OpenSlashMenu => ("tui.app.open_slash_menu", "Open slash menu"),
     OpenAtMenu => ("tui.app.open_at_menu", "Open @-mention picker"),
     ToggleHelp => ("tui.app.toggle_help", "Help"),

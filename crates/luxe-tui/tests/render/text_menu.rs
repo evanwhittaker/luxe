@@ -68,6 +68,20 @@ fn a_right_click_on_a_composer_selection_offers_copy_too() {
 }
 
 #[test]
+fn the_copy_item_names_the_portable_chord() {
+    let backend = test_backend(60, 12);
+    let mut app = create_app();
+    app.editor.insert_text("draft");
+    app.update(Msg::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT)));
+    render_app(&mut app, &backend);
+    let (column, row) = composer_cell(&app, 60, 12);
+
+    right_click(&mut app, column, row);
+    let drawn = buffer_to_string(&render_app(&mut app, &backend));
+    assert!(drawn.contains("ctrl+shift+c"), "not ctrl+insert, which few know: {drawn}");
+}
+
+#[test]
 fn a_right_click_on_a_transcript_selection_offers_copy() {
     let (width, height) = (60, 12);
     let backend = test_backend(width, height);

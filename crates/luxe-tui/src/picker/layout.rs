@@ -146,6 +146,26 @@ pub(crate) fn tab_line(tabs: &[&str], open: usize, theme: &ThemeStyles) -> Line<
     Line::from(spans)
 }
 
+/// A search field and its rule, with the cursor at the end of the query.
+pub(crate) fn render_search(
+    frame: &mut ratatui::Frame,
+    area: Rect,
+    query: &str,
+    theme: &ThemeStyles,
+) {
+    use ratatui::widgets::{Block, Borders, Paragraph};
+    let label = theme.accent.add_modifier(ratatui::style::Modifier::BOLD);
+    let line = Line::from(vec![
+        Span::styled(" Search: ", label),
+        Span::styled(query.to_owned(), theme.text),
+    ]);
+    let rule = Block::default().borders(Borders::BOTTOM).border_style(theme.border_muted);
+    frame.render_widget(Paragraph::new(line).block(rule), area);
+    let typed = unicode_width::UnicodeWidthStr::width(query) as u16;
+    let cursor_x = area.x.saturating_add(9).saturating_add(typed);
+    frame.set_cursor_position((cursor_x.min(area.right().saturating_sub(1)), area.y));
+}
+
 /// Publishes a click region for each tab of a [`tab_line`] drawn along `area`'s top row, cut off
 /// at its right edge, the way the line itself is.
 ///

@@ -15,7 +15,7 @@
 
 mod standards;
 
-pub use standards::{FunctionSize, OutlineSource, Scope};
+pub use standards::{scope_label, FunctionSize, OutlineSource, Scope};
 
 use crate::formatter::FormatterRegistry;
 use crate::hook::{Hook, HookCtx, HookEvent, HookOutcome, HookPoint};

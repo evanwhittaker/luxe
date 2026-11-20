@@ -157,7 +157,7 @@ fn banded_line(line: Line<'static>, width: u16, bg: Style, inset: u16) -> Line<'
 /// loses its shape, its inset, and every cue that says it is a card. Band-less prose takes the
 /// selection as its own line background, and gains no padding — the transcript must not shift as
 /// the selection moves through it.
-fn render_banded(
+pub(in crate::view) fn render_banded(
     content: Vec<Line<'static>>,
     background: Option<Style>,
     selected: bool,

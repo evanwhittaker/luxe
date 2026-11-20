@@ -14,6 +14,10 @@ pub struct Overlays {
     pub context_menu: Option<crate::context_menu::ContextMenu>,
     /// The command palette
     pub palette: Option<crate::palette::PaletteState>,
+    /// The Find overlay
+    pub(crate) find: Option<crate::find::FindState>,
+    /// The tab Find last showed, which it opens on next
+    pub(crate) find_tab: crate::find::FindTab,
     /// The `/` flyout
     pub slash_flyout: Option<crate::slash_flyout::SlashFlyoutState>,
     /// The `@` picker
@@ -54,6 +58,7 @@ impl Overlays {
         self.image_viewer.is_some()
             || self.keys_card
             || self.palette.is_some()
+            || self.find.is_some()
             || self.model_picker.is_some()
             || self.thinking_picker.is_some()
             || self.theme_picker.is_some()
@@ -90,6 +95,7 @@ impl Overlays {
     /// key later, from the app's own ladder, after the conversation has had first refusal.
     pub fn take_chat_keys(&self) -> bool {
         self.palette.is_some()
+            || self.find.is_some()
             || self.slash_flyout.is_some()
             || self.mention.is_some()
             || self.model_picker.is_some()

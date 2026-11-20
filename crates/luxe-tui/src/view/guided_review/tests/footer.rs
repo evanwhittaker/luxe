@@ -217,7 +217,7 @@ fn the_end_of_the_reading_names_the_finish_key() {
             break;
         }
     }
-    assert!(text.contains("— last chapter reviewed · space or alt+enter finishes —"), "{text}");
+    assert!(text.contains("— last chapter viewed · space or alt+enter finishes —"), "{text}");
 }
 
 #[test]

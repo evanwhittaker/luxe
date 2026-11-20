@@ -11,7 +11,7 @@
 //! outline can say, so where a match sits needs no read to find out.
 
 use async_trait::async_trait;
-use luxe_core::hooks::file_changed::{OutlineSource, Scope};
+use luxe_core::hooks::file_changed::{scope_label, OutlineSource};
 use luxe_core::{ContentBlock, Tool, ToolContext, ToolResultData, ToolSchema};
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -109,12 +109,6 @@ const GREP_MAX_LINES: usize = 200;
 /// measured — one reaching generated assets — came to 72 KB. So this leaves an ordinary search
 /// untouched and cuts the pathological one to a third.
 const GREP_MAX_CHARS: usize = 24_000;
-
-/// Bytes of a file read before deciding it is binary and skipping it.
-///
-/// A NUL in the first few kilobytes is what every grep-alike uses, and it is right often enough:
-/// the alternative is dumping a shared object's bytes into the context window.
-const BINARY_SNIFF_BYTES: usize = 8192;
 
 /// What a search answers with.
 ///
@@ -338,7 +332,8 @@ fn search_file(
     outline: Option<&dyn OutlineSource>,
 ) -> Vec<Hit> {
     let Ok(bytes) = std::fs::read(cwd.join(relative)) else { return Vec::new() };
-    if bytes.iter().take(BINARY_SNIFF_BYTES).any(|byte| *byte == 0) {
+    // a binary's bytes in the context window help nobody
+    if luxe_core::project_files::looks_binary(&bytes) {
         return Vec::new();
     }
     let Ok(text) = String::from_utf8(bytes) else { return Vec::new() };
@@ -397,18 +392,6 @@ fn line_hits<'a>(
     (0..lines.len())
         .filter(move |index| shown[*index])
         .map(move |index| (index, matched.binary_search(&index).is_ok()))
-}
-
-/// The scopes around 0-based line `line`, outermost first, as `QuerySet › delete`.
-///
-/// A scope whose declaration starts on the line is left out: the line itself names it, so
-/// `def delete(self):` is labeled `QuerySet`, not `QuerySet › delete`.
-fn scope_label(scopes: &[Scope], line: usize) -> Option<String> {
-    let mut around: Vec<&Scope> =
-        scopes.iter().filter(|scope| scope.start_line < line && line <= scope.end_line).collect();
-    around.sort_by_key(|scope| (scope.start_line, std::cmp::Reverse(scope.end_line)));
-    let names: Vec<&str> = around.iter().map(|scope| scope.name.as_str()).collect();
-    (!names.is_empty()).then(|| names.join(" › "))
 }
 
 /// The `grep` tool implementation.

@@ -51,6 +51,8 @@ pub struct Engine {
     announced_mode: tokio::sync::Mutex<String>,
     /// Whether a `/review` is running, so a second request waits for the first
     review_running: std::sync::atomic::AtomicBool,
+    /// The project search in flight, which the next one stops
+    project_search: crate::project_search::SearchSlot,
     /// The model this session is on, when it is not `config.model`.
     ///
     /// Set by `Action::SetModel` and by a mode's model. Always the *full* `ModelInfo`, so a

@@ -38,9 +38,13 @@ fn clicking_a_session_picker_row_selects_that_session() {
     let row = (0..height)
         .find(|&y| row_text(&buffer, y, width).contains("Second session"))
         .expect("the second session row renders");
+    let text = row_text(&buffer, row, width);
+    let byte = text.find("Second session").expect("on that row");
+    // on the name itself: the list shares the width with a preview of the session
+    let column = text[..byte].chars().count() as u16;
     let click = MouseEvent {
         kind: MouseEventKind::Down(MouseButton::Left),
-        column: width / 2,
+        column,
         row,
         modifiers: KeyModifiers::NONE,
     };

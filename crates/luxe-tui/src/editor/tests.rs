@@ -152,7 +152,81 @@ fn history_is_only_reached_from_prompt_boundaries() {
     editor.handle_key(key(KeyCode::Down));
     assert_eq!(editor.current_input(), "previous");
     editor.handle_key(key(KeyCode::Down));
+    assert_eq!(editor.current_input(), "draft", "the draft set aside comes back");
+}
+
+/// The break this catches: Down past the newest message cleared whatever was in the box, so a
+/// recalled prompt grown into a new one was gone with no way back.
+#[test]
+fn an_edited_recall_survives_down() {
+    let mut editor = Editor::new();
+    editor.insert_text("previous");
+    editor.submit();
+    editor.handle_key(key(KeyCode::Up));
+    editor.cursor = editor.buffer.len();
+    editor.insert_text(" and a long new thought");
+
+    editor.handle_key(key(KeyCode::Down));
+    assert_eq!(editor.current_input(), "previous and a long new thought");
+    editor.handle_key(key(KeyCode::Up));
+    editor.handle_key(key(KeyCode::Up));
+    assert_eq!(editor.current_input(), "previous and a long new thought", "nor does up swap it");
+}
+
+/// A draft set aside keeps its pastes, not just the placeholder text.
+#[test]
+fn a_draft_set_aside_keeps_its_pastes() {
+    let mut editor = Editor::new();
+    editor.insert_text("previous");
+    editor.submit();
+    editor.paste_text("one\ntwo\nthree");
+    editor.cursor = 0;
+
+    editor.handle_key(key(KeyCode::Up));
+    editor.handle_key(key(KeyCode::Down));
+    editor.handle_key(key(KeyCode::Down));
+    assert_eq!(editor.expanded_input(), "one\ntwo\nthree");
+}
+
+/// Esc clears the box, and Up brings the cleared text back.
+#[test]
+fn up_recovers_a_draft_esc_cleared() {
+    let mut editor = Editor::new();
+    editor.insert_text("sent");
+    editor.submit();
+    editor.insert_text("half a thought");
+
+    editor.handle_key(key(KeyCode::Esc));
     assert_eq!(editor.current_input(), "");
+    editor.handle_key(key(KeyCode::Up));
+    assert_eq!(editor.current_input(), "half a thought");
+}
+
+/// Esc on a recalled prompt left as it was adds no copy of it to history.
+#[test]
+fn esc_on_an_untouched_recall_adds_nothing() {
+    let mut editor = Editor::new();
+    editor.insert_text("sent");
+    editor.submit();
+    editor.handle_key(key(KeyCode::Up));
+    editor.handle_key(key(KeyCode::Esc));
+    assert_eq!(editor.history, ["sent"]);
+}
+
+/// A draft set aside and then abandoned for an edited recall is still one Up away.
+#[test]
+fn an_abandoned_draft_goes_to_history() {
+    let mut editor = Editor::new();
+    editor.insert_text("previous");
+    editor.submit();
+    editor.insert_text("my draft");
+    editor.cursor = 0;
+    editor.handle_key(key(KeyCode::Up));
+    editor.insert_text("edited ");
+
+    editor.submit();
+    editor.handle_key(key(KeyCode::Up));
+    assert_eq!(editor.current_input(), "my draft");
 }
 
 #[test]

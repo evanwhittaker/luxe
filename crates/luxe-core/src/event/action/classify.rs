@@ -58,6 +58,7 @@ impl Action {
             Self::ListModels { .. } => "list_models",
             Self::ListDirectory { .. } => "list_directory",
             Self::ReadProjectFile { .. } => "read_project_file",
+            Self::SearchProject { .. } => "search_project",
             Self::SetFocus { .. } => "set_focus",
             Self::SetRowWidths(_) => "set_row_widths",
             Self::LinkPullRequest { .. } => "link_pull_request",
@@ -125,6 +126,7 @@ impl Action {
         "list_models",
         "list_directory",
         "read_project_file",
+        "search_project",
         "set_focus",
         "set_row_widths",
         "link_pull_request",
@@ -202,6 +204,7 @@ impl Action {
             | Self::ListModels { .. }
             | Self::ListDirectory { .. }
             | Self::ReadProjectFile { .. }
+            | Self::SearchProject { .. }
             | Self::SetFocus { .. }
             | Self::SetRowWidths(_)
             | Self::LinkPullRequest { .. }

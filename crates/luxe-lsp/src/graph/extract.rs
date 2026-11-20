@@ -289,7 +289,7 @@ fn collect_matches(
     while let Some(m) = matches.next() {
         let mut fields = HashMap::new();
         for (name, index) in &indices {
-            if let Some(cap) = m.captures.iter().find(|c| c.index == *index) {
+            if let Some(cap) = m.captures().iter().find(|c| c.index == *index) {
                 if let Ok(text) = cap.node.utf8_text(bytes) {
                     fields.insert(
                         name.clone(),

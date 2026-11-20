@@ -1,4 +1,5 @@
-//! Project reads — one file's diff, one folder's listing and one file's text, each off the loop.
+//! Project reads — one file's diff, one folder's listing, one file's text and one search, each off
+//! the loop.
 
 use super::*;
 
@@ -15,6 +16,9 @@ impl Engine {
             }
             Action::ReadProjectFile { request_id, path } => {
                 self.handle_read_project_file(request_id, path, event_tx);
+            }
+            Action::SearchProject { request_id, query, options } => {
+                self.handle_search_project(request_id, query, options, event_tx);
             }
             other => debug!(?other, "not a project read"),
         }
@@ -127,6 +131,26 @@ impl Engine {
         });
     }
 
+    /// Searches the project for Find, off the loop, after stopping the search before it: a reader
+    /// typing asks once per keystroke, and only the newest answer is read.
+    pub(crate) fn handle_search_project(
+        &self,
+        request_id: crate::project_search::SearchRequestId,
+        query: String,
+        options: crate::project_search::SearchOptions,
+        event_tx: &mpsc::Sender<Event>,
+    ) {
+        let stop = self.project_search.start();
+        let root = self.config.guided_review_project_root.clone();
+        let outline = self.config.outline.clone();
+        let event_tx = event_tx.clone();
+        tokio::spawn(async move {
+            let asked = (query.clone(), options);
+            let searched = search_off_the_loop(root, asked, outline, stop).await;
+            let _ = event_tx.send(search_answer(request_id, query, searched)).await;
+        });
+    }
+
     /// What reading `path` for the preview takes. An absolute path is answered only by the
     /// external-work record, which reads nothing the session did not change.
     fn file_reader(
@@ -146,4 +170,41 @@ impl Engine {
             _ => Err(crate::project_files::ProjectFileFailure::OutsideProject),
         }
     }
+}
+
+/// The event that answers one search.
+fn search_answer(
+    request_id: crate::project_search::SearchRequestId,
+    query: String,
+    searched: Result<crate::project_search::SearchResults, crate::project_search::SearchFailure>,
+) -> Event {
+    use crate::project_search::{SearchAnswer, SearchFailed};
+    match searched {
+        Ok(results) => Event::ProjectSearched(Box::new(SearchAnswer { request_id, results })),
+        Err(error) => {
+            debug!(%query, %error, "a project search has no answer");
+            Event::ProjectSearchFailed(SearchFailed { request_id, query, error })
+        }
+    }
+}
+
+/// Runs one search on a blocking thread, since it reads the whole project, and names the scopes
+/// its hits sit in where `outline` parses their files.
+async fn search_off_the_loop(
+    root: Option<std::path::PathBuf>,
+    (query, options): (String, crate::project_search::SearchOptions),
+    outline: Option<Arc<dyn crate::hooks::file_changed::OutlineSource>>,
+    stop: Arc<AtomicBool>,
+) -> Result<crate::project_search::SearchResults, crate::project_search::SearchFailure> {
+    let Some(root) = root else { return Err(crate::project_search::SearchFailure::NoProject) };
+    let search = move || {
+        let mut results = crate::project_search::search(&root, &query, options, &stop)?;
+        if let Some(outline) = outline {
+            crate::project_search::label_scopes(&root, &mut results, outline.as_ref(), &stop);
+        }
+        Ok(results)
+    };
+    tokio::task::spawn_blocking(search).await.unwrap_or_else(|error| {
+        Err(crate::project_search::SearchFailure::Failed(error.to_string()))
+    })
 }

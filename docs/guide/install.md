@@ -29,7 +29,7 @@ to check. Since Homebrew 6, a tap has to be trusted before its code runs. The fu
 trusts luxe's formula for you, but Homebrew can still stop on *another* tap you already have. If it
 names one, trust it with `brew trust <user>/<repository>`, or remove it with `brew untap`.
 
-With Cargo, which builds it, so you need Rust 1.89 or newer ([rustup](https://rustup.rs) installs
+With Cargo, which builds it, so you need Rust 1.90 or newer ([rustup](https://rustup.rs) installs
 one):
 
 ```bash

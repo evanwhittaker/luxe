@@ -76,10 +76,7 @@ impl Engine {
                     self.load_requested_session(session_id, &event_tx).await
                 }
                 Action::RefreshSessions => self.refresh_sessions(&event_tx).await,
-                Action::RefreshWorkspace => {
-                    debug!("workspace refresh requested");
-                    let _ = event_tx.send(Event::WorkspaceRefreshRequested).await;
-                }
+                Action::RefreshWorkspace => request_workspace_refresh(&event_tx).await,
                 Action::LinkPullRequest { number, url } => {
                     self.link_pull_request(number, url).await
                 }
@@ -145,7 +142,8 @@ impl Engine {
                 }
                 Action::LoadFileDiff { .. }
                 | Action::ListDirectory { .. }
-                | Action::ReadProjectFile { .. } => self.handle_project_read(action, &event_tx),
+                | Action::ReadProjectFile { .. }
+                | Action::SearchProject { .. } => self.handle_project_read(action, &event_tx),
                 Action::RefreshGuidedReview { request_id, review_id, expected_revision } => {
                     self.handle_refresh_guided_review(
                         request_id,
@@ -345,6 +343,12 @@ async fn echo_front_end_report(report: Action, event_tx: &mpsc::Sender<Event>) {
         _ => return,
     };
     let _ = event_tx.send(event).await;
+}
+
+/// Asks the front-ends to look at the workspace again; the engine holds none of it.
+async fn request_workspace_refresh(event_tx: &mpsc::Sender<Event>) {
+    debug!("workspace refresh requested");
+    let _ = event_tx.send(Event::WorkspaceRefreshRequested).await;
 }
 
 /// Whether `action` changes what the next request will look like, so the cache being kept warm

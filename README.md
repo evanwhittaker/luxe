@@ -60,7 +60,7 @@ curl -fsSL https://luxe.dev/install.sh | sh
 # Homebrew
 brew install evanwhittaker/tap/luxe
 
-# Cargo (Rust 1.89 or newer)
+# Cargo (Rust 1.90 or newer)
 cargo install --locked luxe-cli
 
 # Windows (PowerShell)

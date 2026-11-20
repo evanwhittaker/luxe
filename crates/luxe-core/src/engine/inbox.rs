@@ -149,6 +149,10 @@ impl Engine {
                     Some(Action::ReadProjectFile { request_id, path }) => {
                         self.handle_read_project_file(request_id, path, event_tx);
                     }
+                    // Find too: a reader searching while the agent works is the common case
+                    Some(Action::SearchProject { request_id, query, options }) => {
+                        self.handle_search_project(request_id, query, options, event_tx);
+                    }
                     // A review edit clears the same bar: handing it to the desk is a send that
                     // never waits. Deferred, every comment written while the agent worked on the
                     // last batch sat behind the whole turn, and the review refused the next one.

@@ -94,6 +94,59 @@ fn session_preview_is_bounded_by_turn_count() {
     assert_eq!(session_preview(&entries).len(), PREVIEW_MAX_TURNS);
 }
 
+fn user(text: String) -> Entry {
+    entry(EntryKind::Message(Message::user(text)))
+}
+
+fn preview_says(entries: &[Entry], word: &str) -> bool {
+    session_preview(entries).iter().any(|turn| turn.text.contains(word))
+}
+
+/// The break this catches: a preview that stops short of the text the session search reads, so a
+/// session listed for a word can't show where it says it.
+#[test]
+fn the_preview_reaches_as_far_as_the_search() {
+    let mut entries: Vec<Entry> = (0..8).map(|_| user("filler ".repeat(250))).collect();
+    entries.push(user("the needle is here".into()));
+    assert!(searchable_text(&entries).contains("needle"), "the search reads it");
+    assert!(preview_says(&entries, "needle"), "and so does the preview");
+}
+
+/// The break this catches: a long message cut to a turn's own cap, losing its end.
+#[test]
+fn a_long_message_keeps_its_end() {
+    let entries = vec![user(format!("{} needle", "filler ".repeat(700)))];
+    assert!(preview_says(&entries, "needle"));
+}
+
+/// The break this catches: tool calls spending the text budget, or a turn cap a busy session
+/// reaches before its text does; both leave the preview short of what the search reads.
+#[test]
+fn tool_calls_do_not_shorten_the_preview() {
+    let call = |index: usize| ContentBlock::ToolCall {
+        id: format!("call-{index}"),
+        name: "read".into(),
+        arguments: serde_json::json!({ "path": "x".repeat(200) }),
+    };
+    let mut entries: Vec<Entry> = (0..200)
+        .map(|index| {
+            entry(EntryKind::Message(Message { role: Role::Assistant, content: vec![call(index)] }))
+        })
+        .collect();
+    entries.push(user("the needle is here".into()));
+    assert!(preview_says(&entries, "needle"));
+}
+
+/// The break this catches: a preview with no bound on its text, which every catalog row holds.
+#[test]
+fn the_preview_text_stays_within_the_search_budget() {
+    let entries: Vec<Entry> = (0..40).map(|_| user("filler ".repeat(300))).collect();
+    let preview = session_preview(&entries);
+    let text: usize = preview.iter().map(|turn| turn.text.chars().count()).sum();
+    assert!(text <= SESSION_SEARCH_TEXT_LIMIT, "{text} characters");
+    assert!(text >= SESSION_SEARCH_TEXT_LIMIT / 2, "but uses it: {text} characters");
+}
+
 #[test]
 fn clamp_chars_truncates_with_ellipsis() {
     assert_eq!(clamp_chars("hello", 10), "hello");

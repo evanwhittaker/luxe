@@ -67,9 +67,12 @@ pub fn claim(app: &mut App, key: &KeyEvent) -> Option<Msg> {
     if overlay == LocalOverlay::None && !failed && action.is_some_and(|action| action.is_review()) {
         return None;
     }
-    // The palette opens over anything, a review included; everything else unclaimed below is
-    // swallowed so it cannot reach the composer hidden behind the surface
-    if overlay == LocalOverlay::None && action == Some(luxe_core::keymap::UiAction::OpenPalette) {
+    // The palette and Find open over anything, a review included; everything else unclaimed below
+    // is swallowed so it cannot reach the composer hidden behind the surface
+    let over_anything =
+        [luxe_core::keymap::UiAction::OpenPalette, luxe_core::keymap::UiAction::OpenFind];
+    if overlay == LocalOverlay::None && action.is_some_and(|action| over_anything.contains(&action))
+    {
         return None;
     }
     if key.code == KeyCode::Esc {
@@ -173,7 +176,7 @@ fn surface_key(
         // vim's half-page moves; before these arms, so Ctrl+D is not taken for a bare `d`
         KeyCode::Char('d') if ctrl => Msg::GuidedReviewHalfPage(true),
         KeyCode::Char('u') if ctrl => Msg::GuidedReviewHalfPage(false),
-        KeyCode::Char('f') => Msg::GuidedReviewToggleNoise,
+        KeyCode::Char('f') if !ctrl => Msg::GuidedReviewToggleNoise,
         KeyCode::Char('z') => Msg::GuidedReviewToggleNarration,
         KeyCode::Char('d') => Msg::GuidedReviewToggleNoiseDetails,
         KeyCode::Char('s') => Msg::GuidedReviewToggleSourcePicker,

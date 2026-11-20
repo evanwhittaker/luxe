@@ -90,6 +90,9 @@ pub struct EngineConfig {
     /// Where pull requests are read from, for a review of one. `None` makes a pull-request review
     /// unavailable, which is right for embedders and tests that have no business on the network.
     pub github: Option<Arc<dyn crate::github::GitHub>>,
+    /// What names the scopes a Find hit sits in, injected by the front-end (the parser lives
+    /// outside `core`). `None` leaves hits unlabeled.
+    pub outline: Option<Arc<dyn crate::hooks::file_changed::OutlineSource>>,
     /// Where a "remember this" permission approval is written (the *global* permissions file).
     ///
     /// `None` keeps every approval session-scoped — the default for embedders and tests, which

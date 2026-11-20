@@ -138,10 +138,11 @@ struct WindowMatch {
 
 /// Slides `needle`'s lines over the file's, comparing under `relax`.
 ///
-/// Only for whole-line searches. A search that starts or ends mid-line is describing a fragment,
-/// and replacing the lines around it would rewrite code the caller never mentioned.
+/// Each of `needle`'s lines is compared with a whole line of the file, so a search that starts or
+/// ends mid-line matches only where that line holds nothing else, and never widens to rewrite code
+/// the caller didn't mention. A search without a trailing newline (most of them) still qualifies.
 fn line_window(content: &str, needle: &str, relax: Relax) -> Option<WindowMatch> {
-    if needle.is_empty() || needle.contains('\n') && !needle.ends_with('\n') && false {
+    if needle.is_empty() {
         return None;
     }
     let needle_lines: Vec<&str> = needle.trim_end_matches('\n').split('\n').collect();
@@ -258,7 +259,7 @@ fn nearest_region(content: &str, needle: &str) -> Option<Nearest> {
     let mut best: Option<(usize, usize)> = None;
     for (index, line) in content.lines().enumerate() {
         let score = similarity(line.trim(), anchor);
-        if score > 0 && best.is_none_or(|(previous, _)| score > previous) {
+        if best.is_none_or(|(previous, _)| score > previous) {
             best = Some((score, index));
         }
     }
@@ -277,92 +278,4 @@ fn similarity(left: &str, right: &str) -> usize {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const FILE: &str = "fn main() {\n    let x = 1;\n    println!(\"{x}\");\n}\n";
-
-    #[test]
-    fn an_exact_match_is_found_and_reported_as_exact() {
-        let found = locate(FILE, "    let x = 1;", "    let x = 2;", false).expect("found");
-        assert_eq!(found.kind, MatchKind::Exact);
-        assert_eq!(found.ranges.len(), 1);
-        assert_eq!(found.kind.note(), None, "an exact match needs no explanation");
-    }
-
-    /// The most common near-miss there is: whitespace the model could not see. It only bites on a
-    /// multi-line search, where the invisible characters sit *inside* the block being matched.
-    #[test]
-    fn trailing_whitespace_is_forgiven_and_said_out_loud() {
-        let file = "fn main() {\n    let x = 1;   \n    go();\n}\n";
-        let found = locate(file, "    let x = 1;\n    go();", "    let x = 2;\n    go();", false)
-            .expect("found");
-        assert_eq!(found.kind, MatchKind::TrailingWhitespace);
-        assert!(found.kind.note().expect("a note").contains("trailing whitespace"));
-        assert_eq!(found.ranges.len(), 1);
-    }
-
-    /// A uniformly re-indented block is the same block; the replacement moves with it.
-    #[test]
-    fn a_uniform_indentation_shift_is_forgiven_and_applied_to_the_replacement() {
-        let file = "impl T {\n        fn go(&self) {\n            work();\n        }\n}\n";
-        let found = locate(
-            file,
-            "fn go(&self) {\n    work();\n}",
-            "fn go(&self) {\n    work_twice();\n}",
-            false,
-        )
-        .expect("found");
-        assert_eq!(found.kind, MatchKind::Indentation { spaces: 8 });
-        assert_eq!(
-            found.replacement, "        fn go(&self) {\n            work_twice();\n        }",
-            "the replacement is re-indented to match the file, not the search text"
-        );
-    }
-
-    /// Lines that drifted *differently* are a different block, not a mis-indented one.
-    #[test]
-    fn a_non_uniform_shift_is_not_treated_as_indentation() {
-        let file = "impl T {\n    fn go(&self) {\n            work();\n    }\n}\n";
-        let error = locate(file, "fn go(&self) {\n    work();\n}", "x", false).expect_err("no");
-        assert!(matches!(error, LocateError::NotFound { .. }));
-    }
-
-    #[test]
-    fn several_matches_are_ambiguous_unless_replace_all_was_asked_for() {
-        let file = "a();\nb();\na();\n";
-        let error = locate(file, "a();", "c();", false).expect_err("ambiguous");
-        let LocateError::Ambiguous { lines } = error else { panic!("expected ambiguity") };
-        assert_eq!(lines, vec![1, 3], "and it says where, so the fix is to add context");
-
-        let found = locate(file, "a();", "c();", true).expect("replace_all takes them all");
-        assert_eq!(found.ranges.len(), 2);
-    }
-
-    /// "not found" alone cannot be acted on; the closest line can.
-    #[test]
-    fn a_near_miss_reports_the_closest_line() {
-        let error =
-            locate(FILE, "    let x = 11;", "y", false).expect_err("no exact or relaxed match");
-        let LocateError::NotFound { nearest } = error else { panic!("expected not-found") };
-        let nearest = nearest.expect("a near miss in the same file");
-        assert_eq!(nearest.line, 2);
-        assert!(nearest.text.contains("let x = 1;"));
-    }
-
-    #[test]
-    fn an_unrelated_search_reports_no_near_miss_rather_than_a_coincidence() {
-        let error = locate(FILE, "quantum_flux_capacitor()", "y", false).expect_err("no match");
-        assert_eq!(error, LocateError::NotFound { nearest: None });
-    }
-
-    #[test]
-    fn a_dedent_removes_only_whitespace() {
-        assert_eq!(
-            reindent("        deep();\n\n        more();", -4),
-            "    deep();\n\n    more();"
-        );
-        // Never eats real characters when the line is shallower than the shift asks for.
-        assert_eq!(reindent("  x();", -8), "x();");
-    }
-}
+mod tests;

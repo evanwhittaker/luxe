@@ -431,6 +431,9 @@ pub(super) fn select_overlay_row(app: &mut App, target: &MouseTarget) -> Option<
         MouseTarget::MentionRow(index) => {
             app.overlays.mention.as_mut().map(|mention| mention.select(index)).is_some()
         }
+        MouseTarget::FindRow(index) => {
+            app.overlays.find.as_mut().map(|find| find.select(index)).is_some()
+        }
         MouseTarget::ModelRow(index) => {
             app.overlays.model_picker.as_mut().map(|picker| picker.select(index)).is_some()
         }

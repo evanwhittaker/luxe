@@ -39,15 +39,15 @@ const DEFAULTS: &[(UiAction, &[&str])] = &[
     (UiAction::ScrollDown, &["ctrl+down"]),
     (UiAction::PageUp, &["pgup"]),
     (UiAction::PageDown, &["pgdn"]),
-    (UiAction::SearchConvo, &["ctrl+f"]),
+    (UiAction::OpenFind, &["ctrl+f"]),
     (UiAction::CopyMessage, &["alt+y"]),
-    // The chords terminals send for "copy": Ctrl+Insert is what a desktop copy shortcut
-    // usually lowers to (Hyprland/Omarchy's Super+C sends exactly this), and Ctrl+Shift+C is
-    // the X11/Linux convention. Both only reach us when the terminal doesn't consume them
-    // first — which it only does when *it* has a selection, so there's no conflict. Super+C
-    // (Cmd+C on a Mac) arrives as itself only from a terminal speaking the kitty keyboard
-    // protocol that hasn't bound it, so it comes last.
-    (UiAction::CopySelection, &["ctrl+insert", "ctrl+shift+c", "super+c"]),
+    // The chords terminals send for "copy". Ctrl+Shift+C is the terminal convention most people
+    // know, so it comes first and is the one menus and hints name. Ctrl+Insert is what some
+    // desktop copy shortcuts lower to (Hyprland/Omarchy's Super+C sends exactly this). Both only
+    // reach us when the terminal doesn't consume them first, which it only does when *it* has a
+    // selection, so there's no conflict. Super+C (Cmd+C on a Mac) arrives as itself only from a
+    // terminal speaking the kitty keyboard protocol that hasn't bound it, so it comes last.
+    (UiAction::CopySelection, &["ctrl+shift+c", "ctrl+insert", "super+c"]),
     (UiAction::SelectBlockUp, &["alt+k"]),
     (UiAction::SelectBlockDown, &["alt+j"]),
     // Ctrl+O for "open the output", the same chord pi uses. It is a transcript-wide flip rather

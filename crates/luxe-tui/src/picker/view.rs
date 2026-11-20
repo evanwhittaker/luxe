@@ -1,8 +1,11 @@
 //! Picker view — what a picker draws, flown out from the composer or centered over the screen.
 
-use super::layout::{publish_tabs, render_pane, tab_line, wrapped_rows, Slot, Split, Window};
+use super::layout::{
+    publish_tabs, render_pane, render_search, tab_line, wrapped_rows, Slot, Split, Window,
+};
+use super::preview::{place, render_preview, PanePlace, PreviewPane};
 use super::rows::picker_row;
-use super::{MAX_VISIBLE_ROWS, TAB_ROWS};
+use super::{MAX_VISIBLE_ROWS, SEARCH_ROWS, TAB_ROWS};
 use crate::mouse::{HitRegions, MouseTarget};
 use crate::theme::styles::ThemeStyles;
 use ratatui::{
@@ -28,6 +31,9 @@ pub struct PickerRow {
     pub path: bool,
     /// The detail's own style, for a detail whose color says something
     pub detail_style: Option<ratatui::style::Style>,
+    /// Whether the detail is kept whole at the row's right edge, the label cut for it: a short
+    /// note worth more than the label's tail, like a session's age
+    pub detail_right: bool,
 }
 
 /// Lines for the pane beside the list, for the row at a filtered position.
@@ -56,6 +62,10 @@ where
     pub hit_target: Hit,
     /// Keys along the bottom edge, when the picker has more than moving and choosing
     pub hint: Option<&'a str>,
+    /// A search field across the top, for a picker typed into rather than fed by the composer
+    pub query: Option<&'a str>,
+    /// Where the cursor is among the rows, or what the list is waiting on, at the footer's right
+    pub count: Option<&'a str>,
     /// Tabs along the top, and the one open, when the picker lists more than one source
     pub tabs: Option<(&'a [&'a str], usize)>,
     /// The filtered position a muted rule is drawn above, setting a lead apart from the rest
@@ -67,6 +77,9 @@ where
     pub rows: Option<usize>,
     /// Which list the wheel and the bar move
     pub list: crate::mouse::OverlayList,
+    /// The row under the cursor shown in its context, beside or under the list when there is room;
+    /// a picker with one fills the height it is given
+    pub preview: Option<PreviewPane<'a>>,
 }
 
 /// Rows a picker with tabs keeps. Odd, so an empty tab's message has a middle row to sit on; nine,
@@ -113,8 +126,7 @@ pub fn render_picker<Row, Hit>(
     if area.width == 0 || available_height == 0 {
         return;
     }
-    let FlyoutMeasure { split, pane_width, tab_rows, divider, footer_rows, desired_height } =
-        measure_flyout(area, &view);
+    let FlyoutMeasure { split, pane_width, divider, desired_height } = measure_flyout(area, &view);
     let flyout_height = desired_height.min(available_height);
     let top = match edge {
         Edge::Above(input_top) => input_top.saturating_sub(flyout_height),
@@ -123,41 +135,63 @@ pub fn render_picker<Row, Hit>(
     let flyout_area = Rect::new(area.x, top, area.width, flyout_height);
     f.render_widget(Clear, flyout_area);
 
-    let list_width = match split {
-        Some(split) => split.list,
-        None => flyout_area.width.saturating_sub(2),
-    };
-    let capacity = flyout_height.saturating_sub(2 + tab_rows + footer_rows) as usize;
+    let body = render_picker_header(f, flyout_area, &view, theme);
+    let (list_area, preview) = list_and_pane(body, &view, split);
+    let capacity = list_area.height as usize;
     let window = Window::new(view.item_count, divider, view.selected, capacity);
     let lines = Window::lines(view.item_count, divider);
-    let rows_width = crate::widgets::list_rows_width(list_width, lines, capacity as u16);
-    let items = build_picker_window(
-        &view,
-        &window,
-        hit,
-        (flyout_area, rows_width, pane_width, tab_rows),
-        theme,
-    );
-    let body = render_picker_header(f, flyout_area, &view, theme, hit);
-    let list_area = Rect { width: list_width.min(body.width), ..body };
+    let rows_width = crate::widgets::list_rows_width(list_area.width, lines, capacity as u16);
+    // The whole row clicks: up to the rule when a pane stands beside the list, else edge to edge
+    let beside = pane_width.is_some() || matches!(preview, Some(PanePlace::Beside { .. }));
+    let click = match beside {
+        true => Rect { x: flyout_area.x, width: rows_width.saturating_add(1), ..list_area },
+        false => Rect { x: flyout_area.x, width: flyout_area.width, ..list_area },
+    };
+    let items = build_picker_window(&view, &window, hit, (click, rows_width), theme);
+    if let Some((tabs, _)) = view.tabs {
+        let strip = crate::mouse::TabStrip::Picker(view.list);
+        let row = Rect { y: body.y.saturating_sub(TAB_ROWS), ..body };
+        publish_tabs(&mut hit.borrow_mut(), row, tabs, 0, strip);
+    }
     match (view.item_count, view.rows) {
         (0, Some(_)) => render_centered(f, list_area, view.empty_message, theme),
-        _ => f.render_widget(List::new(items), Rect { width: rows_width.min(body.width), ..body }),
+        _ => f.render_widget(
+            List::new(items),
+            Rect { width: rows_width.min(list_area.width), ..list_area },
+        ),
     }
     let shown = (window.top(), lines);
     crate::widgets::list_scrollbar(f, &mut hit.borrow_mut(), list_area, view.list, shown, theme);
     if let (Some(detail), Some(width)) = (view.detail, pane_width) {
-        render_pane(f, body, list_width, width, &detail(view.selected), theme);
+        render_pane(f, body, list_area.width, width, &detail(view.selected), theme);
     }
+    if let (Some(pane), Some(place)) = (&view.preview, preview) {
+        render_preview(f, place, pane.lines, theme);
+    }
+}
+
+/// The list's area in the picker's body, and where a preview pane goes when there is one.
+fn list_and_pane<Row, Hit>(
+    body: Rect,
+    view: &PickerView<'_, Row, Hit>,
+    split: Option<Split>,
+) -> (Rect, Option<PanePlace>)
+where
+    Row: Fn(usize) -> PickerRow,
+    Hit: Fn(usize) -> MouseTarget,
+{
+    if let Some(pane) = &view.preview {
+        return place(body, pane.list_width);
+    }
+    let width = split.map_or(body.width, |split| split.list.min(body.width));
+    (Rect { width, ..body }, None)
 }
 
 /// How tall a picker wants to be and how it divides its width, measured before anything draws.
 struct FlyoutMeasure {
     split: Option<Split>,
     pane_width: Option<u16>,
-    tab_rows: u16,
     divider: Option<usize>,
-    footer_rows: u16,
     desired_height: u16,
 }
 
@@ -184,27 +218,33 @@ where
             .min(MAX_DETAIL_ROWS),
         _ => 0,
     };
-    // The tabs take a header of their own above the list
+    // The search field and the tabs take a header of their own above the list
     let tab_rows = if view.tabs.is_some() { TAB_ROWS } else { 0 };
+    let header_rows = tab_rows + if view.query.is_some() { SEARCH_ROWS } else { 0 };
     let divider = view.divider.filter(|&at| at > 0 && at < view.item_count);
     let list_rows = match view.rows {
         Some(rows) => rows.max(1),
         None => view.item_count.clamp(1, MAX_VISIBLE_ROWS) + usize::from(divider.is_some()),
     };
     let footer_rows = if view.hint.is_some() { crate::widgets::FOOTER_ROWS } else { 0 };
-    let desired_height = list_rows.max(pane_rows) as u16 + 2 + tab_rows + footer_rows;
-    FlyoutMeasure { split, pane_width, tab_rows, divider, footer_rows, desired_height }
+    // A preview shows as much of its row's context as there is room for
+    let desired_height = match view.preview {
+        Some(_) => u16::MAX,
+        None => list_rows.max(pane_rows) as u16 + 2 + header_rows + footer_rows,
+    };
+    FlyoutMeasure { split, pane_width, divider, desired_height }
 }
 
 /// The rows the window shows, each publishing its click as it is built so the drawn row and its
 /// hit cannot drift; a picker with nothing to list says why instead.
 ///
-/// Args: `(view, window, hit, (flyout_area, list_width, pane_width, tab_rows), theme)`.
+/// Args: `(view, window, hit, (click, rows_width), theme)`, where `click` is the area a row's
+/// click covers, the list's rows from its top, and `rows_width` the width the rows draw in.
 fn build_picker_window<Row, Hit>(
     view: &PickerView<'_, Row, Hit>,
     window: &Window,
     hit: &RefCell<HitRegions>,
-    (flyout_area, list_width, pane_width, tab_rows): (Rect, u16, Option<u16>, u16),
+    (click, list_width): (Rect, u16),
     theme: &ThemeStyles,
 ) -> Vec<ListItem<'static>>
 where
@@ -231,14 +271,8 @@ where
                     theme.border_muted,
                 ))),
                 Slot::Row(pos) => {
-                    let row_y =
-                        flyout_area.y.saturating_add(1 + tab_rows).saturating_add(offset as u16);
-                    // The whole row clicks, up to the pane when there is one
-                    let width = match pane_width {
-                        Some(_) => list_width.saturating_add(1),
-                        None => flyout_area.width,
-                    };
-                    regions.push(Rect::new(flyout_area.x, row_y, width, 1), (view.hit_target)(pos));
+                    let row_y = click.y.saturating_add(offset as u16);
+                    regions.push(Rect { y: row_y, height: 1, ..click }, (view.hit_target)(pos));
                     ListItem::new(picker_row(
                         (view.row)(pos),
                         pos == view.selected,
@@ -251,31 +285,33 @@ where
     }
 }
 
-/// Draws the picker's frame, and its tab line when it has tabs, and returns the body under them.
+/// Draws the picker's frame, its search field and tab line when it has them, and returns the body
+/// under them. The tabs' clicks are published after the rows', by the caller.
 fn render_picker_header<Row, Hit>(
     f: &mut Frame,
     flyout_area: Rect,
     view: &PickerView<'_, Row, Hit>,
     theme: &ThemeStyles,
-    hit: &RefCell<HitRegions>,
 ) -> Rect
 where
     Row: Fn(usize) -> PickerRow,
     Hit: Fn(usize) -> MouseTarget,
 {
     let block = crate::widgets::titled_panel(view.glyph, view.title, theme);
-    let inner = match view.hint {
-        Some(hint) => crate::widgets::render_footed(f, block, flyout_area, hint, None, theme),
+    let mut inner = match view.hint {
+        Some(hint) => crate::widgets::render_footed(f, block, flyout_area, hint, view.count, theme),
         None => {
             let inner = block.inner(flyout_area);
             f.render_widget(block, flyout_area);
             inner
         }
     };
+    if let Some(query) = view.query {
+        render_search(f, Rect { height: inner.height.min(SEARCH_ROWS), ..inner }, query, theme);
+        inner = below(inner, SEARCH_ROWS);
+    }
     match view.tabs {
         Some((tabs, open)) => {
-            let strip = crate::mouse::TabStrip::Picker(view.list);
-            publish_tabs(&mut hit.borrow_mut(), inner, tabs, 0, strip);
             f.render_widget(
                 ratatui::widgets::Paragraph::new(tab_line(tabs, open, theme)).block(
                     ratatui::widgets::Block::default()
@@ -284,10 +320,16 @@ where
                 ),
                 Rect { height: inner.height.min(TAB_ROWS), ..inner },
             );
-            Rect { y: inner.y + TAB_ROWS, height: inner.height.saturating_sub(TAB_ROWS), ..inner }
+            below(inner, TAB_ROWS)
         }
         None => inner,
     }
+}
+
+/// What's left of `area` under its first `rows` rows.
+fn below(area: Rect, rows: u16) -> Rect {
+    let rows = rows.min(area.height);
+    Rect { y: area.y + rows, height: area.height - rows, ..area }
 }
 
 /// `message` in the middle of `area`, both ways, wrapping when it is wider than the area.

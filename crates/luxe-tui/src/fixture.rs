@@ -10,6 +10,7 @@ mod corpus;
 mod custom;
 mod demo;
 mod demo_spec;
+mod find;
 #[cfg(test)]
 mod flagged;
 mod github;
@@ -41,6 +42,7 @@ use crate::dashboard::{DashboardState, PickerKind, PreviewRole, PreviewTurn, Ses
 use crate::session_picker::{SessionEntry, SessionPickerState};
 pub use auth::{seed_login_wizard, FixtureAuth, LoginFixture, UnconfiguredAuth};
 pub use demo::fixture_demo_guided_review;
+pub use find::seed_find;
 pub use large::fixture_large_guided_review;
 use luxe_core::config::Config;
 use luxe_core::event::{Event, GuidedReviewFailure, GuidedReviewFailureKind};

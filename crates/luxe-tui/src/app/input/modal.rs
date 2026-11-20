@@ -389,6 +389,9 @@ pub(crate) fn modal_took_paste(app: &mut App, text: &str) -> bool {
         palette.paste(text);
         return true;
     }
+    if crate::app::find::take_paste(app, text) {
+        return true;
+    }
     if let Some(picker) = app.overlays.model_picker.as_mut() {
         picker.paste(text);
         return true;

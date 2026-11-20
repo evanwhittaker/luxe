@@ -20,9 +20,12 @@ nothing.
 ![Sessions…, with the selected session's conversation previewed](images/sessions-picker.svg)
 
 **Sessions…** searches session titles and what was said in them, with a preview of the one under
-the cursor. `/sessions` opens it from the start screen or from inside a session. However you resume a
-session, it runs in its own worktree when it has one, and keeps what you had typed and the mode,
-model and thinking level you chose. `/new` keeps the session you leave, so you can come back to it.
+the cursor drawn as its conversation was. With a search, the preview goes to the first place the
+session says it and lights it there. `/sessions` opens it from the start screen or from inside a
+session.
+However you resume a session, it runs in its own worktree when it has one, and keeps what you had
+typed and the mode, model and thinking level you chose. `/new` keeps the session you leave, so you
+can come back to it.
 
 ## Cost
 

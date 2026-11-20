@@ -334,6 +334,17 @@ pub enum Action {
         /// Project-relative file
         path: String,
     },
+    /// Search the project's files for a line of text, answered by `project_searched` or
+    /// `project_search_failed`. Stops the search before it, which answers as superseded.
+    SearchProject {
+        /// Correlates the answer
+        request_id: crate::project_search::SearchRequestId,
+        /// What to look for
+        query: String,
+        /// How to read `query`; literal, smart case and `.gitignore` honored when absent
+        #[serde(default)]
+        options: crate::project_search::SearchOptions,
+    },
     /// Whether the client's window has focus, which paces luxe's background GitHub refreshes.
     SetFocus {
         /// Whether it now has focus

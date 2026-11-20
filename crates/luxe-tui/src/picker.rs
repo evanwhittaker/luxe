@@ -13,13 +13,17 @@
 
 mod layout;
 mod nav;
+mod preview;
 mod rows;
 mod view;
 
 pub(crate) use layout::{
-    publish_tabs, render_pane, tab_line, wrapped_rows, Slot, Split, Window, PANE_GUTTER,
+    publish_tabs, render_pane, render_search, tab_line, wrapped_rows, Slot, Split, Window,
+    PANE_GUTTER,
 };
 pub use nav::PickerNav;
+pub use preview::PreviewPane;
+pub(crate) use preview::{fits as preview_fits, preview_list_width, preview_modal};
 pub use view::{render_picker, DetailFn, Edge, PickerRow, PickerView, TABBED_ROWS};
 
 /// Max rows shown before the list scrolls (keeps the flyout from swallowing the transcript).
@@ -31,6 +35,15 @@ const MAX_VISIBLE_ROWS: usize = 8;
 /// header reads as a header on every list surface rather than as a first row that happens to be
 /// in the accent.
 const TAB_ROWS: u16 = 2;
+
+/// Rows a picker with its own search field spends on it: the field, then its rule.
+const SEARCH_ROWS: u16 = 2;
+
+/// Rows a picker spends above its list, with a search field of its own and with tabs, so a
+/// picker can work out the body it will be given before it draws.
+pub(crate) fn header_rows(query: bool, tabs: bool) -> u16 {
+    u16::from(query) * SEARCH_ROWS + u16::from(tabs) * TAB_ROWS
+}
 
 #[cfg(test)]
 mod tests;

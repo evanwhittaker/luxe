@@ -248,7 +248,7 @@ fn the_end_of_a_chapter_says_whether_it_was_reviewed() {
         app.update(Msg::GuidedReviewHunkNext);
     }
     let stepped = buffer_to_string(&render_app(&mut app, &test_backend(width, height)));
-    assert!(stepped.contains("last chapter reviewed"), "stepping through it records it: {stepped}");
+    assert!(stepped.contains("last chapter viewed"), "stepping through it records it: {stepped}");
 }
 
 /// The fold controls describe churn. A review that has none is the common case for a

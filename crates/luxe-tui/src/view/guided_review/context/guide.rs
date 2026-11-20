@@ -270,7 +270,7 @@ fn chapter_document(
         Span::styled(chapter_kind_label(chapter.kind).to_uppercase(), styles.dim),
         Span::styled(
             if app.guided_review_workspace.is_chapter_walked(&chapter.id) {
-                "   reviewed"
+                "   viewed"
             } else {
                 ""
             },

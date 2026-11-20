@@ -16,11 +16,9 @@ use std::time::SystemTime;
 
 const SESSION_SCAN_LIMIT: usize = 40;
 const SESSION_SEARCH_TEXT_LIMIT: usize = 16 * 1024;
-/// Preview budget: enough role-tagged turns to fill a tall pane without loading a whole
-/// megabyte-scale transcript into memory for every catalog row.
-const PREVIEW_MAX_TURNS: usize = 40;
-const PREVIEW_MAX_CHARS: usize = 6_000;
-const PREVIEW_MAX_TURN_CHARS: usize = 1_600;
+/// The most turns a preview keeps. Its text shares the search's budget, so this bounds only a
+/// session of tool calls, whose one-line summaries spend none of it.
+const PREVIEW_MAX_TURNS: usize = 400;
 /// A single tool-call summary line stays short so it reads as a one-liner in the preview.
 const PREVIEW_TOOL_SUMMARY_CHARS: usize = 120;
 /// Rows the recent list shows, after duplicates are folded out.
@@ -188,51 +186,45 @@ pub(crate) fn first_user_text(entries: &[Entry]) -> Option<String> {
 
 /// Builds a bounded, role-tagged preview transcript for the session picker's preview pane.
 ///
-/// Walks messages in order, emitting a turn per contiguous text block (user/assistant) and per
-/// assistant tool call, preserving conversation order. System prompts and tool *results* are
-/// skipped — they add noise the loaded conversation also de-emphasizes. Bounded by turn count,
-/// total characters, and per-turn length so a giant transcript can't blow up the catalog.
+/// A turn per text block (user/assistant) and per tool call, in conversation order. System prompts
+/// and tool *results* are skipped, as noise the loaded conversation also plays down. Its text
+/// spends the same budget [`searchable_text`] reads, so a session listed for a word has the turn
+/// that says it; tool calls are one-line summaries and spend none of it.
 fn session_preview(entries: &[Entry]) -> Vec<PreviewTurn> {
     let mut turns: Vec<PreviewTurn> = Vec::new();
-    let mut total = 0usize;
-    for entry in entries {
-        let EntryKind::Message(message) = &entry.kind else { continue };
-        let text_role = match message.role {
-            Role::User => PreviewRole::User,
-            Role::Assistant => PreviewRole::Assistant,
-            // System prompt / tool-result messages are noise in a resume preview.
-            Role::System | Role::Tool => continue,
-        };
-        for block in &message.content {
-            if turns.len() >= PREVIEW_MAX_TURNS || total >= PREVIEW_MAX_CHARS {
-                return turns;
+    let mut text_left = SESSION_SEARCH_TEXT_LIMIT;
+    for (role, block) in conversation_blocks(entries) {
+        if turns.len() >= PREVIEW_MAX_TURNS || text_left == 0 {
+            break;
+        }
+        match block {
+            ContentBlock::Text(text) if !text.trim().is_empty() => {
+                let kept = clamp_chars(text.trim(), text_left);
+                text_left = text_left.saturating_sub(kept.chars().count());
+                turns.push(PreviewTurn { role, text: kept });
             }
-            match block {
-                ContentBlock::Text(text) if !text.trim().is_empty() => {
-                    push_preview_turn(&mut turns, &mut total, text_role, text);
-                }
-                ContentBlock::ToolCall { name, arguments, .. } => {
-                    let summary = tool_call_summary(name, arguments);
-                    push_preview_turn(&mut turns, &mut total, PreviewRole::Tool, &summary);
-                }
-                _ => {}
+            ContentBlock::ToolCall { name, arguments, .. } => {
+                let text = tool_call_summary(name, arguments);
+                turns.push(PreviewTurn { role: PreviewRole::Tool, text });
             }
+            _ => {}
         }
     }
     turns
 }
 
-/// Pushes one clamped turn, trimming surrounding whitespace and capping its length so a single
-/// long message can't dominate the preview. Advances the running character budget.
-fn push_preview_turn(
-    turns: &mut Vec<PreviewTurn>,
-    total: &mut usize,
-    role: PreviewRole,
-    text: &str,
-) {
-    let clamped = clamp_chars(text.trim(), PREVIEW_MAX_TURN_CHARS);
-    *total += clamped.chars().count();
-    turns.push(PreviewTurn { role, text: clamped });
+/// Every block of the user's and the assistant's messages, with its speaker.
+fn conversation_blocks(entries: &[Entry]) -> impl Iterator<Item = (PreviewRole, &ContentBlock)> {
+    let messages = entries.iter().filter_map(|entry| match &entry.kind {
+        EntryKind::Message(message) => Some(message),
+        _ => None,
+    });
+    let spoken = messages.filter_map(|message| match message.role {
+        Role::User => Some((PreviewRole::User, &message.content)),
+        Role::Assistant => Some((PreviewRole::Assistant, &message.content)),
+        Role::System | Role::Tool => None,
+    });
+    spoken.flat_map(|(role, content)| content.iter().map(move |block| (role, block)))
 }
 
 /// A compact `name(key: value, …)` one-liner for a tool call, capped in length. Object arguments

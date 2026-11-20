@@ -11,10 +11,10 @@
   "devDependencies": {
     "@preact/signals": "2.11.3",
     "@preact/signals-core": "1.14.4",
+    "@types/node": "^24.0.0",
     "htm": "3.1.1",
-    "playwright": "1.63.0",
+    "playwright": "1.65.1",
     "preact": "11.0.1",
-    "typescript": "5.9.3",
-    "@types/node": "^24.0.0"
+    "typescript": "7.0.2"
   }
 }

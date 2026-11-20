@@ -19,6 +19,7 @@
 //!   reveal is still typing out — those units are marked not reusable and rebuilt
 //!   every frame, because there is genuinely nothing to reuse.
 
+mod jump;
 pub(super) mod layout;
 mod paint;
 pub(super) mod reveal;
@@ -26,6 +27,7 @@ mod rows;
 pub(super) mod selection;
 
 pub(super) use paint::render_transcript;
+pub(super) use rows::render_banded;
 
 use crate::app::{BlockRevision, ConversationItemId};
 use ratatui::text::Line;

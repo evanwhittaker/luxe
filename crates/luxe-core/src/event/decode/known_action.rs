@@ -177,6 +177,12 @@ pub(super) enum KnownAction {
         request_id: crate::project_files::FileReadRequestId,
         path: String,
     },
+    SearchProject {
+        request_id: crate::project_search::SearchRequestId,
+        query: String,
+        #[serde(default)]
+        options: crate::project_search::SearchOptions,
+    },
     SetFocus {
         focused: bool,
     },

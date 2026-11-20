@@ -36,7 +36,8 @@ pub(super) fn picker_row(
     let mut spans =
         vec![Span::styled(crate::glyphs::Mark::Cursor.gutter(selected), theme.accent_on(selected))];
     let mut used = 0;
-    for (character, at) in fit_label(&row.label, room, row.path) {
+    let kept = kept_right(&row);
+    for (character, at) in fit_label(&row.label, room.saturating_sub(kept), row.path) {
         let style = match at {
             None => quiet,
             Some(at) if row.label_matched.contains(&at) => lit,
@@ -45,6 +46,11 @@ pub(super) fn picker_row(
         };
         used += UnicodeWidthStr::width(character.encode_utf8(&mut [0; 4]) as &str);
         push_styled(&mut spans, character, style);
+    }
+    if kept > 0 {
+        let gap = room.saturating_sub(used + kept);
+        spans.push(Span::styled(" ".repeat(gap), on(ratatui::style::Style::default())));
+        used += gap;
     }
     if let Some(detail) = row.detail {
         let detail_style = on(row.detail_style.unwrap_or(theme.muted));
@@ -63,6 +69,15 @@ pub(super) fn picker_row(
         }
     }
     crate::widgets::selection_row(spans, row_width, selected, theme)
+}
+
+/// The cells a detail kept at the right holds back from the label: its width and the two spaces
+/// before it; none for a detail that takes what the label leaves.
+fn kept_right(row: &PickerRow) -> usize {
+    match (&row.detail, row.detail_right) {
+        (Some(detail), true) => UnicodeWidthStr::width(detail.as_str()) + 2,
+        _ => 0,
+    }
 }
 
 /// Adds `character` to the last span when it has the same style, else starts a span.

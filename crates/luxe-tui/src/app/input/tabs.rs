@@ -20,6 +20,7 @@ pub(in crate::app) fn open_tab(app: &mut App, strip: TabStrip, index: usize) {
         }
         TabStrip::GithubDetail => open_detail_tab(app, index),
         TabStrip::Picker(OverlayList::Mention) => super::flyout::open_mention_tab(app, index),
+        TabStrip::Picker(OverlayList::Find) => crate::app::find::open_tab(app, index),
         TabStrip::Picker(_) => {}
     }
 }
